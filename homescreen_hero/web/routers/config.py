@@ -26,6 +26,8 @@ from homescreen_hero.core.config.schema import (
     TraktSource,
     LetterboxdSettings,
     LetterboxdSource,
+    MDBListSettings,
+    MDBListSource,
     CollectionGroupConfig,
 )
 from homescreen_hero.core.integrations.plex_client import get_plex_server
@@ -61,47 +63,65 @@ class GroupValidationResult(BaseModel):
     issues: List[str]
 
 
+# Incoming payload for Plex settings updates.
 class PlexConfigSaveRequest(PlexSettings):
-    """Incoming payload for Plex settings updates."""
+    pass
 
 
+# Incoming payload for Trakt settings updates.
 class TraktConfigSaveRequest(TraktSettings):
-    """Incoming payload for Trakt settings updates."""
+    pass
 
 
+# Incoming payload for Trakt source create/update operations.
 class TraktSourcePayload(TraktSource):
-    """Incoming payload for Trakt source create/update operations."""
+    pass
 
 
+# Incoming payload for Letterboxd settings updates.
 class LetterboxdConfigSaveRequest(LetterboxdSettings):
-    """Incoming payload for Letterboxd settings updates."""
+    pass
 
 
+# Incoming payload for Letterboxd source create/update operations.
 class LetterboxdSourcePayload(LetterboxdSource):
-    """Incoming payload for Letterboxd source create/update operations."""
+    pass
 
 
+# Incoming payload for MDBList settings updates.
+class MDBListConfigSaveRequest(MDBListSettings):
+    pass
+
+
+# Incoming payload for MDBList source create/update operations.
+class MDBListSourcePayload(MDBListSource):
+    pass
+
+
+# Group payload used for create/update operations.
 class CollectionGroupPayload(CollectionGroupConfig):
-    """Group payload used for create/update operations."""
+    pass
 
 
+# Incoming payload for rotation settings updates.
 class RotationConfigSaveRequest(RotationSettings):
-    """Incoming payload for rotation settings updates."""
+    pass
 
 
 class CollectionSourcesResponse(BaseModel):
     class CollectionSource(BaseModel):
         name: str
-        source: Literal["plex", "trakt", "letterboxd"]
+        source: Literal["plex", "trakt", "letterboxd", "mdblist"]
         detail: Optional[str] = None
 
     plex: List[CollectionSource]
     trakt: List[CollectionSource]
     letterboxd: List[CollectionSource]
+    mdblist: List[CollectionSource]
 
 
+# Status information for a Trakt source including sync history.
 class TraktSourceStatus(BaseModel):
-    """Status information for a Trakt source including sync history."""
     source_index: int
     name: str
     last_sync_time: Optional[datetime] = None
@@ -111,8 +131,8 @@ class TraktSourceStatus(BaseModel):
     items_total: int = 0
 
 
+# Response from manual Trakt sync operation.
 class TraktSyncResponse(BaseModel):
-    """Response from manual Trakt sync operation."""
     ok: bool
     message: str
     items_total: int
@@ -121,8 +141,8 @@ class TraktSyncResponse(BaseModel):
     sync_time: datetime
 
 
+# A Trakt item that wasn't found in Plex.
 class TraktMissingItemOut(BaseModel):
-    """A Trakt item that wasn't found in Plex."""
     title: str
     year: Optional[int]
     trakt_id: Optional[int]
@@ -134,8 +154,8 @@ class TraktMissingItemOut(BaseModel):
     times_seen: int
 
 
+# Status information for a Letterboxd source including sync history.
 class LetterboxdSourceStatus(BaseModel):
-    """Status information for a Letterboxd source including sync history."""
     source_index: int
     name: str
     last_sync_time: Optional[datetime] = None
@@ -145,8 +165,8 @@ class LetterboxdSourceStatus(BaseModel):
     items_total: int = 0
 
 
+# Response from manual Letterboxd sync operation.
 class LetterboxdSyncResponse(BaseModel):
-    """Response from manual Letterboxd sync operation."""
     ok: bool
     message: str
     items_total: int
@@ -155,8 +175,8 @@ class LetterboxdSyncResponse(BaseModel):
     sync_time: datetime
 
 
+# A Letterboxd item that wasn't found in Plex.
 class LetterboxdMissingItemOut(BaseModel):
-    """A Letterboxd item that wasn't found in Plex."""
     title: str
     year: Optional[int]
     slug: str
@@ -164,6 +184,74 @@ class LetterboxdMissingItemOut(BaseModel):
     first_seen: datetime
     last_seen: datetime
     times_seen: int
+
+
+class MDBListSourceStatus(BaseModel):
+    # Status information for an MDBList source including sync history.
+    source_index: int
+    name: str
+    last_sync_time: Optional[datetime] = None
+    sync_status: Literal["success", "error", "pending", "never_synced"]
+    error_message: Optional[str] = None
+    items_matched: int = 0
+    items_total: int = 0
+
+
+class MDBListSyncResponse(BaseModel):
+    # Response from manual MDBList sync operation.
+    ok: bool
+    message: str
+    items_total: int
+    items_matched: int
+    items_missing: int
+    sync_time: datetime
+
+
+class MDBListMissingItemOut(BaseModel):
+    # An MDBList item that wasn't found in Plex.
+    title: str
+    year: Optional[int]
+    imdb_id: Optional[str]
+    tmdb_id: Optional[int]
+    trakt_id: Optional[int]
+    mdblist_id: Optional[str]
+    first_seen: datetime
+    last_seen: datetime
+    times_seen: int
+
+
+# Quick start setup endpoints
+class ConfigExistsResponse(BaseModel):
+    exists: bool
+    is_configured: bool
+    path: str
+
+
+# Check which configuration values are provided via environment variables.
+class EnvVarsResponse(BaseModel):
+    plex_token_from_env: bool
+    plex_url_from_env: bool
+    auth_password_from_env: bool
+    auth_secret_from_env: bool
+    trakt_client_id_from_env: bool
+
+
+# Incoming payload for quick start setup.
+class QuickStartRequest(BaseModel):
+    plex_url: str
+    plex_token: str
+    trakt_enabled: bool = False
+    trakt_client_id: Optional[str] = None
+    trakt_base_url: str = "https://api.trakt.tv"
+    libraries: List[str] = []
+    auth_enabled: bool = False
+    auth_username: Optional[str] = None
+    auth_password: Optional[str] = None
+    rotation_enabled: bool = False
+    rotation_interval_hours: int = 12
+    rotation_max_collections: int = 5
+    rotation_strategy: str = "random"
+    rotation_allow_repeats: bool = False
 
 
 # Helper to load and save the full config mapping
@@ -212,6 +300,19 @@ def _load_letterboxd_sources(data: dict) -> list[dict]:
     sources = letterboxd_section.get("sources") if isinstance(letterboxd_section, dict) else []
     if sources and not isinstance(sources, list):
         raise ValueError("config.letterboxd.sources must be a list")
+
+    return list(sources or [])
+
+
+# Helper to load the list of MDBList sources from config mapping
+def _load_mdblist_sources(data: dict) -> list[dict]:
+    mdblist_section = data.get("mdblist")
+    if mdblist_section and not isinstance(mdblist_section, dict):
+        raise ValueError("config.mdblist must be a mapping if present")
+
+    sources = mdblist_section.get("sources") if isinstance(mdblist_section, dict) else []
+    if sources and not isinstance(sources, list):
+        raise ValueError("config.mdblist.sources must be a list")
 
     return list(sources or [])
 
@@ -495,11 +596,11 @@ def delete_trakt_source(
 
 
 # Get sync status for all Trakt sources
+# Return sync status for each configured Trakt source.
 @router.get("/trakt/sources/status", response_model=list[TraktSourceStatus])
 def get_trakt_sources_status(
     current_user: str = Depends(get_current_user)
 ) -> list[TraktSourceStatus]:
-    """Return sync status for each configured Trakt source."""
     try:
         config = load_config()
         sources = list(getattr(getattr(config, "trakt", None), "sources", []) or [])
@@ -528,12 +629,12 @@ def get_trakt_sources_status(
 
 
 # Manually trigger sync for a specific Trakt source
+# Manually sync a specific Trakt source to Plex collection.
 @router.post("/trakt/sources/{index}/sync", response_model=TraktSyncResponse)
 def sync_trakt_source(
     index: int,
     current_user: str = Depends(get_current_user)
 ) -> TraktSyncResponse:
-    """Manually sync a specific Trakt source to Plex collection."""
     try:
         from homescreen_hero.core.integrations.trakt_sync import sync_single_trakt_source
 
@@ -566,12 +667,12 @@ def sync_trakt_source(
 
 
 # Get missing items for a specific Trakt source
+# Get items from a Trakt list that weren't found in Plex.
 @router.get("/trakt/sources/{index}/missing", response_model=list[TraktMissingItemOut])
 def get_missing_items_for_source(
     index: int,
     current_user: str = Depends(get_current_user)
 ) -> list[TraktMissingItemOut]:
-    """Get items from a Trakt list that weren't found in Plex."""
     try:
         from homescreen_hero.core.db import get_session
         from homescreen_hero.core.db.models import TraktMissingItem
@@ -784,11 +885,11 @@ def delete_letterboxd_source(
 
 
 # Get sync status for all Letterboxd sources
+# Return sync status for each configured Letterboxd source.
 @router.get("/letterboxd/sources/status", response_model=list[LetterboxdSourceStatus])
 def get_letterboxd_sources_status(
     current_user: str = Depends(get_current_user)
 ) -> list[LetterboxdSourceStatus]:
-    """Return sync status for each configured Letterboxd source."""
     try:
         config = load_config()
         sources = list(getattr(getattr(config, "letterboxd", None), "sources", []) or [])
@@ -817,12 +918,12 @@ def get_letterboxd_sources_status(
 
 
 # Manually trigger sync for a specific Letterboxd source
+# Manually sync a specific Letterboxd source to Plex collection.
 @router.post("/letterboxd/sources/{index}/sync", response_model=LetterboxdSyncResponse)
 def sync_letterboxd_source(
     index: int,
     current_user: str = Depends(get_current_user)
 ) -> LetterboxdSyncResponse:
-    """Manually sync a specific Letterboxd source to Plex collection."""
     try:
         from homescreen_hero.core.integrations.letterboxd_sync import sync_single_letterboxd_source
 
@@ -855,12 +956,12 @@ def sync_letterboxd_source(
 
 
 # Get missing items for a specific Letterboxd source
+# Get items from a Letterboxd list that weren't found in Plex.
 @router.get("/letterboxd/sources/{index}/missing", response_model=list[LetterboxdMissingItemOut])
 def get_missing_items_for_letterboxd_source(
     index: int,
     current_user: str = Depends(get_current_user)
 ) -> list[LetterboxdMissingItemOut]:
-    """Get items from a Letterboxd list that weren't found in Plex."""
     try:
         from homescreen_hero.core.db import get_session
         from homescreen_hero.core.db.models import LetterboxdMissingItem
@@ -897,6 +998,309 @@ def get_missing_items_for_letterboxd_source(
         raise
     except Exception as exc:  # pragma: no cover - defensive
         logger.error("Error fetching missing items for Letterboxd source at index %d: %s", index, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ===== MDBList Integration Endpoints =====
+
+# Return the currently configured MDBList settings
+@router.get("/mdblist", response_model=MDBListSettings)
+def get_mdblist_settings(current_user: str = Depends(get_current_user)) -> MDBListSettings:
+    try:
+        config = load_config()
+        if config.mdblist is None:
+            return MDBListSettings(enabled=False, api_key=None, base_url="https://api.mdblist.com", sources=[])
+        return config.mdblist
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Update only MDBList settings in config.yaml while preserving other keys
+@router.post("/mdblist", response_model=ConfigSaveResponse)
+def save_mdblist_settings(
+    payload: MDBListConfigSaveRequest,
+    current_user: str = Depends(get_current_user)
+) -> ConfigSaveResponse:
+    try:
+        data = _load_config_mapping()
+
+        mdblist_section = data.get("mdblist") if isinstance(data.get("mdblist"), dict) else {}
+        mdblist_section = dict(mdblist_section)
+
+        # Only save api_key to config if it's not coming from environment variable
+        api_key_from_env = os.getenv("HSH_MDBLIST_API_KEY")
+        if api_key_from_env:
+            # Don't write api_key to config if it's set in environment
+            mdblist_section.pop("api_key", None)
+        else:
+            # Write api_key to config only if not using env var
+            mdblist_section["api_key"] = payload.api_key
+
+        mdblist_section.update(
+            enabled=payload.enabled,
+            base_url=payload.base_url,
+        )
+
+        data["mdblist"] = mdblist_section
+        _save_config_mapping(data)
+
+        config_path = get_config_path()
+        return ConfigSaveResponse(
+            ok=True,
+            path=str(config_path),
+            env_override=CONFIG_ENV_VAR in os.environ,
+            message="MDBList settings saved and validated.",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Return list of all configured MDBList sources
+@router.get("/mdblist/sources", response_model=list[MDBListSource])
+def list_mdblist_sources(current_user: str = Depends(get_current_user),) -> list[MDBListSource]:
+    try:
+        config = load_config()
+        return list(getattr(getattr(config, "mdblist", None), "sources", []) or [])
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Append new MDBList source to config.yaml
+@router.post("/mdblist/sources", response_model=ConfigSaveResponse)
+def create_mdblist_source(
+    payload: MDBListSourcePayload,
+    current_user: str = Depends(get_current_user)
+) -> ConfigSaveResponse:
+    try:
+        data = _load_config_mapping()
+        mdblist_section = data.get("mdblist") if isinstance(data.get("mdblist"), dict) else {}
+        mdblist_section = dict(mdblist_section)
+
+        sources = _load_mdblist_sources(data)
+        sources.append(payload.model_dump(exclude_none=True))
+
+        mdblist_section["sources"] = sources
+        data["mdblist"] = mdblist_section
+
+        _save_config_mapping(data)
+
+        config_path = get_config_path()
+        return ConfigSaveResponse(
+            ok=True,
+            path=str(config_path),
+            env_override=CONFIG_ENV_VAR in os.environ,
+            message=f"MDBList source '{payload.name}' added.",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Replace existing MDBList source at given index in config.yaml
+@router.put("/mdblist/sources/{index}", response_model=ConfigSaveResponse)
+def update_mdblist_source(
+    index: int,
+    payload: MDBListSourcePayload,
+    current_user: str = Depends(get_current_user),
+) -> ConfigSaveResponse:
+    try:
+        data = _load_config_mapping()
+        mdblist_section = data.get("mdblist") if isinstance(data.get("mdblist"), dict) else {}
+        mdblist_section = dict(mdblist_section)
+
+        sources = _load_mdblist_sources(data)
+        if index < 0 or index >= len(sources):
+            raise HTTPException(status_code=404, detail="MDBList source not found")
+
+        sources[index] = payload.model_dump(exclude_none=True)
+        mdblist_section["sources"] = sources
+        data["mdblist"] = mdblist_section
+
+        _save_config_mapping(data)
+
+        config_path = get_config_path()
+        return ConfigSaveResponse(
+            ok=True,
+            path=str(config_path),
+            env_override=CONFIG_ENV_VAR in os.environ,
+            message=f"MDBList source '{payload.name}' updated.",
+        )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Remove MDBList source at given index from config.yaml
+@router.delete("/mdblist/sources/{index}", response_model=ConfigSaveResponse)
+def delete_mdblist_source(
+    index: int,
+    current_user: str = Depends(get_current_user)
+) -> ConfigSaveResponse:
+    try:
+        data = _load_config_mapping()
+        mdblist_section = data.get("mdblist") if isinstance(data.get("mdblist"), dict) else {}
+        mdblist_section = dict(mdblist_section)
+
+        sources = _load_mdblist_sources(data)
+        if index < 0 or index >= len(sources):
+            raise HTTPException(status_code=404, detail="MDBList source not found")
+
+        removed = sources.pop(index)
+        mdblist_section["sources"] = sources
+        data["mdblist"] = mdblist_section
+
+        _save_config_mapping(data)
+
+        name = removed.get("name") if isinstance(removed, dict) else None
+        config_path = get_config_path()
+        return ConfigSaveResponse(
+            ok=True,
+            path=str(config_path),
+            env_override=CONFIG_ENV_VAR in os.environ,
+            message=f"MDBList source '{name or index}' deleted.",
+        )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Get sync status for all MDBList sources
+@router.get("/mdblist/sources/status", response_model=list[MDBListSourceStatus])
+def get_mdblist_sources_status(
+    current_user: str = Depends(get_current_user)
+) -> list[MDBListSourceStatus]:
+    # Return sync status for each configured MDBList source.
+    try:
+        config = load_config()
+        sources = list(getattr(getattr(config, "mdblist", None), "sources", []) or [])
+
+        # For now, return basic status without historical sync data
+        # Future enhancement: query database for actual sync history
+        statuses: list[MDBListSourceStatus] = []
+        for idx, source in enumerate(sources):
+            statuses.append(
+                MDBListSourceStatus(
+                    source_index=idx,
+                    name=source.name,
+                    last_sync_time=None,
+                    sync_status="never_synced",
+                    error_message=None,
+                    items_matched=0,
+                    items_total=0,
+                )
+            )
+
+        return statuses
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Manually trigger sync for a specific MDBList source
+@router.post("/mdblist/sources/{index}/sync", response_model=MDBListSyncResponse)
+def sync_mdblist_source(
+    index: int,
+    current_user: str = Depends(get_current_user)
+) -> MDBListSyncResponse:
+    # Manually sync a specific MDBList source to Plex collection.
+    try:
+        from homescreen_hero.core.integrations.mdblist_sync import sync_single_mdblist_source
+
+        config = load_config()
+        sources = list(getattr(getattr(config, "mdblist", None), "sources", []) or [])
+
+        if index < 0 or index >= len(sources):
+            raise HTTPException(status_code=404, detail="MDBList source not found")
+
+        source = sources[index]
+        server = get_plex_server(config)
+
+        # Execute the sync
+        total, matched = sync_single_mdblist_source(server, config, source)
+        missing = total - matched
+
+        return MDBListSyncResponse(
+            ok=True,
+            message=f"Synced '{source.name}' successfully",
+            items_total=total,
+            items_matched=matched,
+            items_missing=missing,
+            sync_time=datetime.utcnow(),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Error syncing MDBList source at index %d: %s", index, exc)
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(exc)}") from exc
+
+
+# Get missing items for a specific MDBList source
+@router.get("/mdblist/sources/{index}/missing", response_model=list[MDBListMissingItemOut])
+def get_missing_items_for_mdblist_source(
+    index: int,
+    current_user: str = Depends(get_current_user)
+) -> list[MDBListMissingItemOut]:
+    # Get items from an MDBList list that weren't found in Plex.
+    try:
+        from homescreen_hero.core.db import get_session
+        from homescreen_hero.core.db.models import MDBListMissingItem
+
+        config = load_config()
+        sources = list(getattr(getattr(config, "mdblist", None), "sources", []) or [])
+
+        if index < 0 or index >= len(sources):
+            raise HTTPException(status_code=404, detail="MDBList source not found")
+
+        source = sources[index]
+
+        # Query database for missing items from this source
+        with get_session() as session:
+            results = session.query(MDBListMissingItem).filter(
+                MDBListMissingItem.source_name == source.name,
+                MDBListMissingItem.source_url == source.url
+            ).order_by(MDBListMissingItem.last_seen.desc()).all()
+
+            # Convert to response model
+            return [
+                MDBListMissingItemOut(
+                    title=item.title,
+                    year=item.year,
+                    imdb_id=item.imdb_id,
+                    tmdb_id=item.tmdb_id,
+                    trakt_id=item.trakt_id,
+                    mdblist_id=item.mdblist_id,
+                    first_seen=item.first_seen,
+                    last_seen=item.last_seen,
+                    times_seen=item.times_seen,
+                )
+                for item in results
+            ]
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("Error fetching missing items for MDBList source at index %d: %s", index, exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
@@ -1101,7 +1505,19 @@ def list_group_sources(current_user: str = Depends(get_current_user)) -> Collect
                     )
                 )
 
-        return CollectionSourcesResponse(plex=plex_sources, trakt=trakt_sources, letterboxd=letterboxd_sources)
+        mdblist_sources: list[CollectionSourcesResponse.CollectionSource] = []
+        mdblist_cfg: Optional[MDBListSettings] = getattr(config, "mdblist", None)
+        if mdblist_cfg and getattr(mdblist_cfg, "sources", None):
+            for src in mdblist_cfg.sources:
+                mdblist_sources.append(
+                    CollectionSourcesResponse.CollectionSource(
+                        name=src.name,
+                        source="mdblist",
+                        detail=src.plex_library or src.url,
+                    )
+                )
+
+        return CollectionSourcesResponse(plex=plex_sources, trakt=trakt_sources, letterboxd=letterboxd_sources, mdblist=mdblist_sources)
     except Exception as exc:  # pragma: no cover - defensive
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -1162,41 +1578,9 @@ def save_rotation_settings(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-# Quick start setup endpoints
-class ConfigExistsResponse(BaseModel):
-    exists: bool
-    is_configured: bool
-    path: str
-
-
-class EnvVarsResponse(BaseModel):
-    plex_token_from_env: bool
-    plex_url_from_env: bool
-    auth_password_from_env: bool
-    auth_secret_from_env: bool
-    trakt_client_id_from_env: bool
-
-
-class QuickStartRequest(BaseModel):
-    plex_url: str
-    plex_token: str
-    trakt_enabled: bool = False
-    trakt_client_id: Optional[str] = None
-    trakt_base_url: str = "https://api.trakt.tv"
-    libraries: List[str] = []
-    auth_enabled: bool = False
-    auth_username: Optional[str] = None
-    auth_password: Optional[str] = None
-    rotation_enabled: bool = False
-    rotation_interval_hours: int = 12
-    rotation_max_collections: int = 5
-    rotation_strategy: str = "random"
-    rotation_allow_repeats: bool = False
-
-
+# Check if config file exists and is minimally configured.
 @router.get("/exists", response_model=ConfigExistsResponse)
 def check_config_exists() -> ConfigExistsResponse:
-    """Check if config file exists and is minimally configured."""
     try:
         config_path = get_config_path()
         exists = config_path.exists()
@@ -1220,9 +1604,9 @@ def check_config_exists() -> ConfigExistsResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+# Check which configuration values are provided via environment variables.
 @router.get("/env-vars", response_model=EnvVarsResponse)
 def check_env_vars() -> EnvVarsResponse:
-    """Check which configuration values are provided via environment variables."""
     return EnvVarsResponse(
         plex_token_from_env=bool(os.getenv("HSH_PLEX_TOKEN")),
         plex_url_from_env=bool(os.getenv("HSH_PLEX_URL")),
@@ -1232,9 +1616,9 @@ def check_env_vars() -> EnvVarsResponse:
     )
 
 
+# Initialize config.yaml with minimal Plex and optional Trakt settings.
 @router.post("/quick-start", response_model=ConfigSaveResponse)
 def quick_start_setup(payload: QuickStartRequest) -> ConfigSaveResponse:
-    """Initialize config.yaml with minimal Plex and optional Trakt settings."""
     try:
         # SECURITY: Only allow quick-start if auth is not configured
         # This prevents unauthorized overwrites while allowing the wizard to work

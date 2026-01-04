@@ -138,6 +138,13 @@ def _apply_env_overrides(config: AppConfig) -> AppConfig:
                 "Trakt client ID is required when Trakt is enabled. Set it in config.yaml or via HSH_TRAKT_CLIENT_ID environment variable"
             )
 
+    # MDBList API key override (if MDBList is enabled)
+    if config.mdblist and config.mdblist.enabled:
+        mdblist_api_key = os.getenv("HSH_MDBLIST_API_KEY")
+        if mdblist_api_key:
+            logger.info("Using MDBList API key from HSH_MDBLIST_API_KEY environment variable")
+            config.mdblist.api_key = mdblist_api_key
+
     return config
 
 
@@ -150,8 +157,43 @@ def _validate_config_dict(raw_data: dict) -> AppConfig:
     # Apply environment variable overrides
     config = _apply_env_overrides(config)
 
+    # Validate that collections in groups have corresponding sources or are manual
+    _validate_collection_references(config)
+
     logger.info("Config validation successful")
     return config
+
+
+def _validate_collection_references(config: AppConfig) -> None:
+    """
+    Warn if collections are referenced in groups but don't have corresponding
+    integration sources. These might be manually created Plex collections or
+    orphaned references from deleted integration sources.
+    """
+    # Get all collection names from integration sources
+    integration_collections = set()
+
+    if config.trakt and config.trakt.enabled and config.trakt.sources:
+        for source in config.trakt.sources:
+            integration_collections.add(source.name)
+
+    if config.letterboxd and config.letterboxd.enabled and config.letterboxd.sources:
+        for source in config.letterboxd.sources:
+            integration_collections.add(source.name)
+
+    if config.mdblist and config.mdblist.enabled and config.mdblist.sources:
+        for source in config.mdblist.sources:
+            integration_collections.add(source.name)
+
+    # Check each group for collections that don't have integration sources
+    for group in config.groups:
+        for collection_name in group.collections:
+            if collection_name not in integration_collections:
+                logger.warning(
+                    f"Collection '{collection_name}' in group '{group.name}' has no corresponding "
+                    f"Trakt/Letterboxd/MDBList source. This may be a manually created Plex collection "
+                    f"or an orphaned reference from a deleted integration source."
+                )
 
 
 # Return the raw config.yaml as text

@@ -27,7 +27,7 @@ type CollectionGroup = {
 
 type CollectionSource = {
     name: string;
-    source: "plex" | "trakt" | "letterboxd";
+    source: "plex" | "trakt" | "letterboxd" | "mdblist";
     detail?: string | null;
 };
 
@@ -35,6 +35,7 @@ type CollectionSourcesResponse = {
     plex: CollectionSource[];
     trakt: CollectionSource[];
     letterboxd: CollectionSource[];
+    mdblist: CollectionSource[];
 };
 
 type ConfigSaveResponse = { ok: boolean; path: string; message: string; env_override: boolean };
@@ -78,7 +79,7 @@ export default function GroupDetailPage() {
     const [message, setMessage] = useState<string | null>(null);
     const [sources, setSources] = useState<CollectionSource[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
-    const [sourceFilter, setSourceFilter] = useState<"all" | "plex" | "trakt" | "letterboxd">("all");
+    const [sourceFilter, setSourceFilter] = useState<"all" | "plex" | "trakt" | "letterboxd" | "mdblist">("all");
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 24; // 4 columns × 6 rows
 
@@ -118,7 +119,7 @@ export default function GroupDetailPage() {
         fetchWithAuth("/api/admin/config/group-sources")
             .then((r) => r.json())
             .then((data: CollectionSourcesResponse) => {
-                const combined = [...(data.plex || []), ...(data.trakt || []), ...(data.letterboxd || [])];
+                const combined = [...(data.plex || []), ...(data.trakt || []), ...(data.letterboxd || []), ...(data.mdblist || [])];
                 setSources(combined);
             })
             .catch(() => {
@@ -415,14 +416,13 @@ export default function GroupDetailPage() {
                 >
                     <FieldRow
                         label="Group name"
-                        hint="Required. The label shown across dashboards and logs."
                     >
                         <input
                             type="text"
                             value={form.name}
                             onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                             className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/70"
-                            placeholder="Holiday Movies"
+                            placeholder="Holiday Movies (Required)"
                         />
                     </FieldRow>
 
@@ -558,7 +558,7 @@ export default function GroupDetailPage() {
 
             <FormSection
                 title="Content sources"
-                description="Pull collections from Plex, Trakt, and Letterboxd. Use the quick-add buttons or type names manually."
+                description="Pull collections from Plex or any enabled third-party sources. Use the quick-add buttons or type names manually."
                 actions={
                             <button
                                 type="button"
@@ -571,7 +571,7 @@ export default function GroupDetailPage() {
                             </button>
                         }
                     >
-                        <FieldRow label="Selected collections" hint="Click a chip to remove it from the group.">
+                        <FieldRow label="Selected collections" description="Click the × to remove it from the group.">
                             {form.collections.length ? (
                                 <div className="flex flex-wrap gap-2">
                                     {form.collections.map((collection) => (
@@ -623,9 +623,10 @@ export default function GroupDetailPage() {
                                     onClick={() => setSourceFilter("plex")}
                                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
                                         sourceFilter === "plex"
-                                            ? "bg-blue-500 text-white"
+                                            ? "text-white"
                                             : "bg-slate-800 text-slate-300 hover:bg-slate-700"
                                     }`}
+                                    style={sourceFilter === "plex" ? { backgroundColor: "#b8860b" } : undefined}
                                 >
                                     Plex
                                 </button>
@@ -634,9 +635,10 @@ export default function GroupDetailPage() {
                                     onClick={() => setSourceFilter("trakt")}
                                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
                                         sourceFilter === "trakt"
-                                            ? "bg-rose-500 text-white"
+                                            ? "text-white"
                                             : "bg-slate-800 text-slate-300 hover:bg-slate-700"
                                     }`}
+                                    style={sourceFilter === "trakt" ? { backgroundColor: "#8b2e82" } : undefined}
                                 >
                                     Trakt
                                 </button>
@@ -645,11 +647,24 @@ export default function GroupDetailPage() {
                                     onClick={() => setSourceFilter("letterboxd")}
                                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
                                         sourceFilter === "letterboxd"
-                                            ? "bg-green-500 text-white"
+                                            ? "text-white"
                                             : "bg-slate-800 text-slate-300 hover:bg-slate-700"
                                     }`}
+                                    style={sourceFilter === "letterboxd" ? { backgroundColor: "#00a63d" } : undefined}
                                 >
                                     Letterboxd
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSourceFilter("mdblist")}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                                        sourceFilter === "mdblist"
+                                            ? "text-white"
+                                            : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                                    }`}
+                                    style={sourceFilter === "mdblist" ? { backgroundColor: "#4284c9" } : undefined}
+                                >
+                                    MDBList
                                 </button>
                                 </div>
                             </div>
@@ -664,15 +679,18 @@ export default function GroupDetailPage() {
                                         <div className="flex items-start justify-between gap-2">
                                             <p className="font-semibold text-sm leading-tight flex-1">{source.name}</p>
                                             <span
-                                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold flex-shrink-0 ${
-                                                    source.source === "plex"
-                                                        ? "bg-blue-500/20 text-blue-100"
+                                                className="rounded-full px-2 py-0.5 text-[10px] font-semibold flex-shrink-0 text-white"
+                                                style={{
+                                                    backgroundColor: source.source === "plex"
+                                                        ? "#e5a00d"
                                                         : source.source === "trakt"
-                                                        ? "bg-rose-500/20 text-rose-100"
-                                                        : "bg-green-500/20 text-green-100"
-                                                    }`}
+                                                        ? "#af35a3"
+                                                        : source.source === "letterboxd"
+                                                        ? "#00a63d"
+                                                        : "#4284c9"
+                                                }}
                                             >
-                                                {source.source === "plex" ? "Plex" : source.source === "trakt" ? "Trakt" : "Letterboxd"}
+                                                {source.source === "plex" ? "Plex" : source.source === "trakt" ? "Trakt" : source.source === "letterboxd" ? "Letterboxd" : "MDBList"}
                                             </span>
                                         </div>
                                         {source.detail ? (
