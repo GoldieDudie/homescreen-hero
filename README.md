@@ -14,7 +14,7 @@
 
 ## Try the Demo
 
-**[Check out the live demo](https://demo.homescreenhero.com)** to see HomeScreen Hero in action!
+**[Check out the live demo!](https://demo.homescreenhero.com)** (Please note that this demo is a little outdated and based off version 0.2.0, so it's missing quite a few features)
 
 </div>
 
