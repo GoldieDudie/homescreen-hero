@@ -237,7 +237,7 @@ rotation:
   enabled: true
   interval_hours: 12
   max_collections: 5
-  strategy: random
+  strategy: random  # Options: random, weighted, lru
   allow_repeats: false
   sync_all_on_rotation: false # Controls if all third-party lists are synced on rotation, or just lists selected during rotation
 trakt:
@@ -274,10 +274,90 @@ groups:
 Key sections:
 - **plex** – Server URL, token, and library name to target.
 - **rotation** – Enable/disable scheduling, interval hours, max collections, strategy, and repeat rules.
+  - **strategy** – Three options available:
+    - `random` (default): Random selection with config order
+    - `weighted`: Process high-weight groups first (higher `weight` = higher priority)
+    - `lru`: Select least recently used collections (ensures fair rotation)
 - **groups** – Named pools of collections with min/max picks, weights, gaps between uses, and optional date windows.
+  - **weight** – Used by the `weighted` strategy to prioritize groups (higher weight = processed first)
+  - **min_gap_rotations** – Minimum rotations before reusing collections from this group
 - **trakt** – Enable Trakt, set the client ID, base URL, and list sources to sync into Plex collections.
 - **mdblist** – Enable MDBList, set the API key, base URL, and list sources to sync into Plex collections.
 - **logging** – Log level for both CLI and API processes.
+
+### Rotation Strategies
+
+HomeScreen Hero offers three rotation strategies to give you control over how collections are selected:
+
+#### Random Strategy (Default)
+```yaml
+rotation:
+  strategy: random
+```
+- Groups are processed in the order they appear in your config
+- Collections are randomly selected from each group
+- Simple and unpredictable - every rotation is different
+
+**Best for:** Users who want variety and don't need to prioritize specific content
+
+#### Weighted Strategy
+```yaml
+rotation:
+  strategy: weighted
+
+groups:
+  - name: "Holiday Specials"
+    weight: 10  # Highest priority
+    max_picks: 2
+    collections: [...]
+
+  - name: "New Releases"
+    weight: 5   # Medium priority
+    max_picks: 2
+    collections: [...]
+
+  - name: "Classic Films"
+    weight: 1   # Lowest priority (default)
+    max_picks: 1
+    collections: [...]
+```
+- Groups are processed in order of weight (highest first)
+- Higher weight = higher priority = processed before lower-weight groups
+- Groups with equal weight maintain config order
+- Collections within each group are still selected randomly
+
+**Best for:** Prioritizing seasonal content, new releases, or premium collections
+
+#### LRU Strategy (Least Recently Used)
+```yaml
+rotation:
+  strategy: lru
+
+groups:
+  - name: "Movie Marathon"
+    max_picks: 2
+    collections:
+      - "Action Classics"    # Never used → Selected first
+      - "Sci-Fi Favorites"   # Last used 5 rotations ago → Selected second
+      - "Drama Collection"   # Last used 12 rotations ago
+      - "Comedy Gold"        # Last used 15 rotations ago
+```
+- Groups are processed in config order
+- Collections that haven't been used (or used least recently) are selected first
+- Ensures all collections eventually get featured
+- Tracks usage history automatically
+
+**Best for:** Fair rotation across large collection libraries, ensuring variety over time
+
+#### Strategy Comparison
+
+| Strategy | Group Order | Collection Selection | Use Case |
+|----------|-------------|---------------------|----------|
+| `random` | Config order | Random | Simple, unpredictable variety |
+| `weighted` | By weight (descending) | Random | Prioritize important groups |
+| `lru` | Config order | Least recently used | Fair rotation, ensure all collections featured |
+
+**Note:** All strategies respect `min_gap_rotations` to prevent collections from appearing too frequently.
 
 ## Docker
 
