@@ -514,6 +514,37 @@ These interfaces provide detailed information about all available endpoints, the
 -   `/api/rotation/trigger`: Manually trigger a collection rotation.
 -   `/api/config`: Manage application configuration.
 
+## Release Process
+
+HomeScreen Hero uses semantic versioning with git tags to manage releases:
+
+### Creating a Release
+
+When you're ready to create a new release:
+
+1. **Tag the release on the `develop` branch:**
+   ```bash
+   git tag -a 0.4.0 -m "Release 0.4.0: Description of changes"
+   git push origin 0.4.0
+   ```
+
+2. **Automated build:**
+   - GitHub Actions automatically builds and pushes to DockerHub
+   - Creates both `:0.4.0` and `:latest` tags
+   - `:latest` always points to the most recent release
+
+3. **Version numbering:**
+   - `MAJOR.MINOR.PATCH` (e.g., `0.4.0`)
+   - MAJOR: Breaking changes
+   - MINOR: New features (backwards compatible)
+   - PATCH: Bug fixes
+
+### For Developers
+
+- **Nightly builds** are automatically created on every push to `develop`
+- Test new features using `:nightly` before creating a release
+- Only create release tags when features are stable and tested
+
 ## Contributing
 
 Any and all contributions to HomeScreen Hero are welcome! If you're interested in improving the project, please refer to our contribution guidelines (once available).
