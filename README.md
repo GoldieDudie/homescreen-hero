@@ -38,21 +38,37 @@ This app is very much a **WORK IN PROGRESS**. This started as a simple Python sc
 -   **Flexible Configuration:** Utilize either the Web UI, the Setup Wizard, or the YAML-based configuration file for detailed control over application settings and Plex interactions
 -   **Containerized Deployment:** Easily deploy and manage the entire application using Docker and Docker Compose.
 
-## Screenshots (or checkout the demo link above)
+## Web UI Screenshots
 
-### Dashboard/System Overview:
-<img width="1910" height="1214" alt="image" src="https://github.com/user-attachments/assets/81eaff32-f4bc-4d9a-8935-85935f49b528" />
+<details>
+<summary><strong>📸 View Screenshots</strong> (or checkout the demo link above)</summary>
 
-### Groups Page:
-<img width="1823" height="1123" alt="image" src="https://github.com/user-attachments/assets/04c69449-9849-4871-8924-e645371fa403" />
+<table>
+  <tr>
+    <td align="center"><strong>Dashboard/System Overview</strong></td>
+    <td align="center"><strong>Groups Page</strong></td>
+  </tr>
+  <tr>
+    <td><img width="600" alt="Dashboard" src="https://github.com/user-attachments/assets/81eaff32-f4bc-4d9a-8935-85935f49b528" /></td>
+    <td><img width="600" alt="Groups Page" src="https://github.com/user-attachments/assets/04c69449-9849-4871-8924-e645371fa403" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Manage Groups - Details</strong></td>
+    <td align="center"><strong>Manage Groups - Collections</strong></td>
+  </tr>
+  <tr>
+    <td><img width="600" alt="Manage Groups Details" src="https://github.com/user-attachments/assets/a9041a47-f41b-47df-915d-bdf542767a8d" /></td>
+    <td><img width="600" alt="Manage Groups Collections" src="https://github.com/user-attachments/assets/551083ab-9ebd-4d6e-a38e-0165344667c6" /></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><strong>Collections Page</strong></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img width="600" alt="Collections Page" src="https://github.com/user-attachments/assets/76f7e00c-1212-48f0-999a-1bcfee785d6f" /></td>
+  </tr>
+</table>
 
-### Manage Groups (edit details, change schedule, add/remove collections)
-<img width="1757" height="1214" alt="image" src="https://github.com/user-attachments/assets/a9041a47-f41b-47df-915d-bdf542767a8d" />
-<img width="1723" height="1124" alt="image" src="https://github.com/user-attachments/assets/551083ab-9ebd-4d6e-a38e-0165344667c6" />
-
-### Collections Page (Create, Edit, and Delete your Plex/Trakt collections):
-<img width="1711" height="1209" alt="image" src="https://github.com/user-attachments/assets/76f7e00c-1212-48f0-999a-1bcfee785d6f" />
-
+</details>
 
 ## Tech Stack
 
