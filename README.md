@@ -177,33 +177,6 @@ For users who prefer direct control or want to use environment variables for sec
 5.  **Access the dashboard**
     Visit `http://localhost:8000` to access the web UI
 
-## Project Structure
-
-```
-homescreen-hero/
-├── .dockerignore           # Files to ignore when building Docker images
-├── .gitignore              # Files to ignore in Git
-├── Dockerfile              # Dockerfile for building the application image
-├── LICENSE                 # Project license (MIT)
-├── docker-compose.yml      # Docker Compose configuration for multi-service setup
-├── example.config.yaml     # Example configuration file for HomeScreen Hero
-├── homescreen-hero-ui/     # Frontend React application source code
-│   ├── public/             # Static assets for the frontend
-│   ├── src/                # Frontend source code (React components, hooks, etc.)
-│   ├── package.json        # Frontend dependencies and scripts
-│   ├── tsconfig.json       # TypeScript configuration for frontend
-│   └── vite.config.ts      # Vite configuration for frontend build
-└── homescreen_hero/        # Backend FastAPI application source code
-    ├── app/                # Main application logic, routers, models
-    ├── core/               # Core utilities, configuration, dependencies
-    ├── api/                # API route definitions
-    ├── schemas/            # Pydantic models for request/response validation
-    ├── crud/               # Database interaction logic (if ORM used)
-    ├── main.py             # FastAPI application entry point
-    ├── requirements.txt    # Python dependencies for the backend
-    └── tests/              # Backend test files
-```
-
 ## Configuration
 
 ### Security Best Practices
@@ -385,7 +358,7 @@ docker-compose up -d
 
 HomeScreen Hero provides multiple Docker image tags to suit different needs:
 
-- **`latest`** - Latest stable release (recommended for production)
+- **`latest`** - Latest stable release
   ```bash
   docker pull trentferguson/homescreen-hero:latest
   ```
@@ -416,6 +389,7 @@ The `docker-compose.yml` is configured to read sensitive values from a `.env` fi
    HSH_PLEX_TOKEN=your-actual-plex-token
    HSH_AUTH_PASSWORD=your-secure-password
    HSH_AUTH_SECRET_KEY=your-generated-secret-key
+   ...
    ```
 
 3. **Start the container:**
@@ -480,96 +454,36 @@ For local development, you will typically run the frontend and backend services 
     ```
     The backend API will be available at `http://localhost:8000`. Access the auto-generated API documentation at `http://localhost:8000/docs` or `http://localhost:8000/redoc`.
 
-### Running Tests
+### Project Structure
 
-HomeScreen Hero includes test suites for both backend and frontend. See [TESTING.md](TESTING.md) for detailed testing documentation.
-
-**Backend Tests:**
-```bash
-# Install test dependencies
-pip install -r homescreen_hero/requirements-dev.txt
-
-# Run tests
-pytest
-
-# Run with coverage
-pytest --cov=homescreen_hero --cov-report=html
+```
+homescreen-hero/
+├── .dockerignore           # Files to ignore when building Docker images
+├── .gitignore              # Files to ignore in Git
+├── Dockerfile              # Dockerfile for building the application image
+├── LICENSE                 # Project license (MIT)
+├── docker-compose.yml      # Docker Compose configuration for multi-service setup
+├── example.config.yaml     # Example configuration file for HomeScreen Hero
+├── homescreen-hero-ui/     # Frontend React application source code
+│   ├── public/             # Static assets for the frontend
+│   ├── src/                # Frontend source code (React components, hooks, etc.)
+│   ├── package.json        # Frontend dependencies and scripts
+│   ├── tsconfig.json       # TypeScript configuration for frontend
+│   └── vite.config.ts      # Vite configuration for frontend build
+└── homescreen_hero/        # Backend FastAPI application source code
+    ├── app/                # Main application logic, routers, models
+    ├── core/               # Core utilities, configuration, dependencies
+    ├── api/                # API route definitions
+    ├── schemas/            # Pydantic models for request/response validation
+    ├── crud/               # Database interaction logic (if ORM used)
+    ├── main.py             # FastAPI application entry point
+    ├── requirements.txt    # Python dependencies for the backend
+    └── tests/              # Backend test files
 ```
 
-**Frontend Tests:**
-```bash
-cd homescreen-hero-ui
+## License/Contributions
 
-# Run tests in watch mode
-npm test
-
-# Run tests once
-npm run test:run
-
-# Run with UI
-npm run test:ui
-```
-
-## API Reference
-
-The FastAPI backend automatically generates interactive API documentation.
-Once the backend is running (either via `docker-compose` or locally), you can access:
-
--   **Swagger UI:** `http://localhost:[BACKEND_PORT]/docs`
--   **ReDoc:** `http://localhost:[BACKEND_PORT]/redoc`
-
-These interfaces provide detailed information about all available endpoints, their expected request bodies, and response schemas.
-
-### Key Endpoints (Expected)
-
--   `/api/plex/status`: Check Plex connection status.
--   `/api/plex/collections`: List/manage Plex collections.
--   `/api/rotation/schedule`: Configure collection rotation schedules.
--   `/api/rotation/trigger`: Manually trigger a collection rotation.
--   `/api/config`: Manage application configuration.
-
-## Release Process
-
-HomeScreen Hero uses semantic versioning with git tags to manage releases:
-
-### Creating a Release
-
-When you're ready to create a new release:
-
-1. **Tag the release on the `develop` branch:**
-   ```bash
-   git tag -a 0.4.0 -m "Release 0.4.0: Description of changes"
-   git push origin 0.4.0
-   ```
-
-2. **Automated build:**
-   - GitHub Actions automatically builds and pushes to DockerHub
-   - Creates both `:0.4.0` and `:latest` tags
-   - `:latest` always points to the most recent release
-
-3. **Version numbering:**
-   - `MAJOR.MINOR.PATCH` (e.g., `0.4.0`)
-   - MAJOR: Breaking changes
-   - MINOR: New features (backwards compatible)
-   - PATCH: Bug fixes
-
-### For Developers
-
-- **Nightly builds** are automatically created on every push to `develop`
-- Test new features using `:nightly` before creating a release
-- Only create release tags when features are stable and tested
-
-## Contributing
-
-Any and all contributions to HomeScreen Hero are welcome! If you're interested in improving the project, please refer to our contribution guidelines (once available).
-
-### Development Setup for Contributors
-
-Follow the **Development** section above to set up your local environment for both frontend and backend development.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE) - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the [MIT License](LICENSE) - see the [LICENSE](LICENSE) file for details. All contributions to this project are welcomed1!
 
 ## 🙏 Acknowledgments
 
