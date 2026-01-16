@@ -168,7 +168,6 @@ For users who prefer direct control or want to use environment variables for sec
     - `groups`: Define your collection groups
 
     **Note:** Sensitive values (tokens, passwords) should be in `.env`, not in `config.yaml`
-    **Note:** Sensitive values (tokens, passwords) should be in `.env`, not in `config.yaml`
 
 4.  **Start the application**
     ```bash
