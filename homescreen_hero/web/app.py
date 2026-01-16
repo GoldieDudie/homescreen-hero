@@ -23,6 +23,8 @@ from homescreen_hero.web.routers import (
     rotation_router,
     collections_router,
     auth_router,
+    analytics_router,
+    integrations_router,
 )
 from homescreen_hero.web.routers.collections import invalidate_collections_cache
 
@@ -53,6 +55,8 @@ def create_app() -> FastAPI:
     app.include_router(logs_router, prefix="/api")
     app.include_router(collections_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
+    app.include_router(analytics_router, prefix="/api")
+    app.include_router(integrations_router, prefix="/api")
 
     # Frontend (serve only if build exists)
     logger.info(

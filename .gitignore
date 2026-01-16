@@ -16,7 +16,9 @@ env/
 .idea/
 *.swp
 *.swo
-.claude/
+
+# --- Claude Code ---
+.claude/settings.local.json
 
 # --- OS files ---
 .DS_Store

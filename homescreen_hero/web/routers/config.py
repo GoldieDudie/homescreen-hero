@@ -28,9 +28,13 @@ from homescreen_hero.core.config.schema import (
     LetterboxdSource,
     MDBListSettings,
     MDBListSource,
+    TautulliSettings,
     CollectionGroupConfig,
 )
 from homescreen_hero.core.integrations.plex_client import get_plex_server
+from homescreen_hero.core.integrations.trakt_client import TraktClient, TraktConfig
+from homescreen_hero.core.integrations.mdblist_client import MDBListClient, MDBListConfig
+from homescreen_hero.core.integrations.tautulli_client import TautulliClient, TautulliConfig
 from homescreen_hero.core.scheduler import (
     update_rotation_schedule,
 )
@@ -95,6 +99,11 @@ class MDBListConfigSaveRequest(MDBListSettings):
 
 # Incoming payload for MDBList source create/update operations.
 class MDBListSourcePayload(MDBListSource):
+    pass
+
+
+# Incoming payload for Tautulli settings updates.
+class TautulliConfigSaveRequest(TautulliSettings):
     pass
 
 
@@ -235,6 +244,32 @@ class EnvVarsResponse(BaseModel):
     auth_secret_from_env: bool
     trakt_client_id_from_env: bool
     mdblist_api_key_from_env: bool
+    tautulli_api_key_from_env: bool
+    tautulli_url_from_env: bool
+
+
+# Request payload for testing Trakt connection with provided credentials.
+class TraktTestRequest(BaseModel):
+    client_id: Optional[str] = None  # Falls back to HSH_TRAKT_CLIENT_ID env var
+    base_url: str = "https://api.trakt.tv"
+
+
+# Request payload for testing MDBList connection with provided credentials.
+class MDBListTestRequest(BaseModel):
+    api_key: Optional[str] = None  # Falls back to HSH_MDBLIST_API_KEY env var
+    base_url: str = "https://api.mdblist.com"
+
+
+# Request payload for testing Tautulli connection with provided credentials.
+class TautulliTestRequest(BaseModel):
+    api_key: Optional[str] = None  # Falls back to HSH_TAUTULLI_API_KEY env var
+    base_url: str = "http://localhost:8181"  # Falls back to HSH_TAUTULLI_BASE_URL env var
+
+
+# Response for connection test endpoints.
+class ConnectionTestResponse(BaseModel):
+    ok: bool
+    error: Optional[str] = None
 
 
 # Incoming payload for quick start setup.
@@ -247,6 +282,9 @@ class QuickStartRequest(BaseModel):
     mdblist_enabled: bool = False
     mdblist_api_key: Optional[str] = None
     mdblist_base_url: str = "https://api.mdblist.com"
+    tautulli_enabled: bool = False
+    tautulli_api_key: Optional[str] = None
+    tautulli_base_url: str = "http://localhost:8181"
     libraries: List[str] = []
     auth_enabled: bool = False
     auth_username: Optional[str] = None
@@ -1356,6 +1394,80 @@ def validate_config_groups(current_user: str = Depends(get_current_user)) -> Lis
     return results
 
 
+# ========================================================================
+# TAUTULLI CONFIGURATION ENDPOINTS
+# ========================================================================
+
+# Return the currently configured Tautulli settings
+@router.get("/tautulli", response_model=TautulliSettings)
+def get_tautulli_settings(current_user: str = Depends(get_current_user)) -> TautulliSettings:
+    try:
+        config = load_config()
+        if config.tautulli is None:
+            return TautulliSettings(
+                enabled=False,
+                api_key=None,
+                base_url="http://localhost:8181",
+                collect_on_rotation=True,
+                collect_interval_hours=24,
+            )
+        return config.tautulli
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Update only Tautulli settings in config.yaml while preserving other keys
+@router.post("/tautulli", response_model=ConfigSaveResponse)
+def save_tautulli_settings(
+    payload: TautulliConfigSaveRequest,
+    current_user: str = Depends(get_current_user)
+) -> ConfigSaveResponse:
+    try:
+        data = _load_config_mapping()
+
+        tautulli_section = data.get("tautulli") if isinstance(data.get("tautulli"), dict) else {}
+        tautulli_section = dict(tautulli_section)
+
+        # Only save api_key to config if it's not coming from environment variable
+        api_key_from_env = os.getenv("HSH_TAUTULLI_API_KEY")
+        if api_key_from_env:
+            # Don't write api_key to config if it's set in environment
+            tautulli_section.pop("api_key", None)
+        else:
+            # Write api_key to config only if not using env var
+            tautulli_section["api_key"] = payload.api_key
+
+        tautulli_section.update(
+            enabled=payload.enabled,
+            base_url=payload.base_url,
+            collect_on_rotation=payload.collect_on_rotation,
+            collect_interval_hours=payload.collect_interval_hours,
+        )
+
+        data["tautulli"] = tautulli_section
+        _save_config_mapping(data)
+
+        config_path = get_config_path()
+        return ConfigSaveResponse(
+            ok=True,
+            path=str(config_path),
+            env_override=CONFIG_ENV_VAR in os.environ,
+            message="Tautulli settings saved and validated.",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ========================================================================
+# COLLECTION GROUPS CONFIGURATION ENDPOINTS
+# ========================================================================
+
 # Return list of all configured collection groups
 @router.get("/groups", response_model=list[CollectionGroupConfig])
 def list_groups(current_user: str = Depends(get_current_user)) -> list[CollectionGroupConfig]:
@@ -1618,7 +1730,73 @@ def check_env_vars() -> EnvVarsResponse:
         auth_secret_from_env=bool(os.getenv("HSH_AUTH_SECRET_KEY")),
         trakt_client_id_from_env=bool(os.getenv("HSH_TRAKT_CLIENT_ID")),
         mdblist_api_key_from_env=bool(os.getenv("HSH_MDBLIST_API_KEY")),
+        tautulli_api_key_from_env=bool(os.getenv("HSH_TAUTULLI_API_KEY")),
+        tautulli_url_from_env=bool(os.getenv("HSH_TAUTULLI_BASE_URL")),
     )
+
+
+# Test Trakt connection with provided credentials (for quick-start wizard).
+@router.post("/test-trakt", response_model=ConnectionTestResponse)
+def test_trakt_connection(payload: TraktTestRequest) -> ConnectionTestResponse:
+    try:
+        # Use provided client_id or fall back to environment variable
+        client_id = payload.client_id or os.getenv("HSH_TRAKT_CLIENT_ID")
+        if not client_id:
+            return ConnectionTestResponse(ok=False, error="No Trakt Client ID provided")
+
+        cfg = TraktConfig(
+            client_id=client_id,
+            base_url=payload.base_url,
+        )
+        client = TraktClient(cfg)
+        ok, error = client.ping()
+        return ConnectionTestResponse(ok=ok, error=error)
+    except Exception as exc:
+        logger.exception("Trakt connection test failed")
+        return ConnectionTestResponse(ok=False, error=str(exc))
+
+
+# Test MDBList connection with provided credentials (for quick-start wizard).
+@router.post("/test-mdblist", response_model=ConnectionTestResponse)
+def test_mdblist_connection(payload: MDBListTestRequest) -> ConnectionTestResponse:
+    try:
+        # Use provided api_key or fall back to environment variable
+        api_key = payload.api_key or os.getenv("HSH_MDBLIST_API_KEY")
+        if not api_key:
+            return ConnectionTestResponse(ok=False, error="No MDBList API Key provided")
+
+        cfg = MDBListConfig(
+            api_key=api_key,
+            base_url=payload.base_url,
+        )
+        client = MDBListClient(cfg)
+        ok, error = client.ping()
+        return ConnectionTestResponse(ok=ok, error=error)
+    except Exception as exc:
+        logger.exception("MDBList connection test failed")
+        return ConnectionTestResponse(ok=False, error=str(exc))
+
+
+# Test Tautulli connection with provided credentials (for quick-start wizard).
+@router.post("/test-tautulli", response_model=ConnectionTestResponse)
+def test_tautulli_connection(payload: TautulliTestRequest) -> ConnectionTestResponse:
+    try:
+        # Use provided values or fall back to environment variables
+        api_key = payload.api_key or os.getenv("HSH_TAUTULLI_API_KEY")
+        base_url = payload.base_url or os.getenv("HSH_TAUTULLI_BASE_URL", "http://localhost:8181")
+        if not api_key:
+            return ConnectionTestResponse(ok=False, error="No Tautulli API Key provided")
+
+        cfg = TautulliConfig(
+            api_key=api_key,
+            base_url=base_url,
+        )
+        client = TautulliClient(cfg)
+        ok, error = client.ping()
+        return ConnectionTestResponse(ok=ok, error=error)
+    except Exception as exc:
+        logger.exception("Tautulli connection test failed")
+        return ConnectionTestResponse(ok=False, error=str(exc))
 
 
 # Initialize config.yaml with minimal Plex and optional Trakt settings.
@@ -1714,6 +1892,33 @@ def quick_start_setup(payload: QuickStartRequest) -> ConfigSaveResponse:
                 "enabled": False,
                 "base_url": payload.mdblist_base_url,
                 "sources": []
+            }
+
+        # Add Tautulli if enabled
+        # Use environment variables if payload values are empty
+        tautulli_api_key = payload.tautulli_api_key or os.getenv("HSH_TAUTULLI_API_KEY", "")
+        tautulli_api_key_from_env = os.getenv("HSH_TAUTULLI_API_KEY")
+        tautulli_base_url = payload.tautulli_base_url or os.getenv("HSH_TAUTULLI_BASE_URL", "http://localhost:8181")
+        tautulli_url_from_env = os.getenv("HSH_TAUTULLI_BASE_URL")
+
+        if payload.tautulli_enabled and tautulli_api_key:
+            minimal_config["tautulli"] = {
+                "enabled": True,
+                "collect_on_rotation": True,
+                "collect_interval_hours": 24,
+            }
+            # Only write api_key to config if not from environment variable
+            if not tautulli_api_key_from_env:
+                minimal_config["tautulli"]["api_key"] = tautulli_api_key
+            # Only write base_url to config if not from environment variable
+            if not tautulli_url_from_env:
+                minimal_config["tautulli"]["base_url"] = tautulli_base_url
+        else:
+            minimal_config["tautulli"] = {
+                "enabled": False,
+                "base_url": tautulli_base_url,
+                "collect_on_rotation": True,
+                "collect_interval_hours": 24,
             }
 
         # Add auth configuration

@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
 import type { ActiveCollection } from "../components/ActiveCollectionsCard";
 import ActiveCollectionsCard from "../components/ActiveCollectionsCard";
+import AnalyticsCard from "../components/AnalyticsCard";
+import MostActiveUsersCard from "../components/MostActiveUsersCard";
+import ActiveStreamsCard from "../components/ActiveStreamsCard";
+import GraphCarouselCard from "../components/GraphCarouselCard";
 import HealthCard from "../components/HealthCard";
 import RotationStatusCard from "../components/RotationStatusCard";
 import RecentRotationsCard from "../components/RecentRotationsCard";
+import IntegrationsHealthCard from "../components/IntegrationsHealthCard";
 import Toast from "../components/Toast";
 import { timeAgo } from "../utils/dates";
 import { fetchWithAuth } from "../utils/api";
@@ -72,6 +77,7 @@ export default function Dashboard() {
     const [activeCollections, setActiveCollections] = useState<ActiveCollection[]>([]);
     const [activeLoading, setActiveLoading] = useState(true);
     const [lastHealthCheck, setLastHealthCheck] = useState<number | null>(null);
+    const [tautulliEnabled, setTautulliEnabled] = useState<boolean | null>(null);
     const [schedulerStatus, setSchedulerStatus] = useState<{
         enabled: boolean;
         interval_hours: number;
@@ -81,8 +87,6 @@ export default function Dashboard() {
     const [currentTime, setCurrentTime] = useState(Date.now());
 
     const plex = health.plex;
-    const db = health.database;
-    const trakt = health.trakt;
 
     const plexServerName = plex?.details?.server_name ?? plex?.server_name ?? "Plex";
     const plexLibraries = plex?.details?.libraries;
@@ -165,14 +169,6 @@ export default function Dashboard() {
         setHealthLoading(false);
     };
 
-    // Treat trakt “disabled/not configured” as OK but show message
-    const traktDisabledMsg =
-        trakt?.error && trakt.error.toLowerCase().includes("disabled")
-            ? trakt.error
-            : null;
-
-    const traktOk = trakt?.ok ?? false;
-    const traktDisplayOk = traktDisabledMsg ? true : traktOk;
 
     const loadActiveCollections = async () => {
         setActiveLoading(true);
@@ -198,9 +194,25 @@ export default function Dashboard() {
         }
     };
 
+    const loadTautulliConfig = async () => {
+        try {
+            const response = await fetchWithAuth("/api/admin/config/tautulli");
+            if (response.ok) {
+                const config = await response.json();
+                setTautulliEnabled(config.enabled ?? false);
+            } else {
+                setTautulliEnabled(false);
+            }
+        } catch (e) {
+            console.error("Failed to load Tautulli config:", e);
+            setTautulliEnabled(false);
+        }
+    };
+
     useEffect(() => {
         void loadActiveCollections();
         void loadSchedulerStatus();
+        void loadTautulliConfig();
     }, []);
 
     // Update current time every second for live countdown
@@ -552,39 +564,14 @@ export default function Dashboard() {
                                     ? plexDetail
                                     : plex?.error ?? "Connection failed"
                         }
-                    />
-
-                    <HealthCard
-                        title="SQL Database"
-                        ok={db?.ok}
-                        loading={!db && healthLoading}
-                        subtitleOk="Ready"
-                        subtitleBad="Error"
-                        detail={
-                            !db && healthLoading
-                                ? "Checking health…"
-                                : db?.ok
-                                    ? "DB OK"
-                                    : db?.error ?? "Database unavailable"
+                        icon={
+                            <img src="/plex_icon_white.png" alt="Plex" className="w-12 h-12 object-contain" />
                         }
                     />
 
-                    <HealthCard
-                        title="Trakt"
-                        ok={traktDisplayOk}
-                        loading={!trakt && healthLoading}
-                        subtitleOk={traktDisabledMsg ? "Disabled" : "Online"}
-                        subtitleBad="Error"
-                        detail={
-                            !trakt && healthLoading
-                                ? "Checking health…"
-                                : traktDisabledMsg
-                                    ? traktDisabledMsg
-                                    : traktOk
-                                        ? "Trakt OK"
-                                        : trakt?.error ?? "Trakt check failed"
-                        }
-                    />
+                    <ActiveStreamsCard loading={healthLoading} />
+
+                    <IntegrationsHealthCard loading={healthLoading} />
 
                     <RotationStatusCard
                         enabled={schedulerStatus?.enabled ?? false}
@@ -597,15 +584,28 @@ export default function Dashboard() {
                     <div className="col-span-full w-full">
                         <ActiveCollectionsCard collections={activeCollections} loading={activeLoading} />
                     </div>
+
+                    {/* Analytics - only show when Tautulli is enabled */}
+                    {tautulliEnabled && (
+                        <>
+                            <AnalyticsCard loading={healthLoading} />
+                            <MostActiveUsersCard loading={healthLoading} />
+                            <div className="sm:col-span-2">
+                                <GraphCarouselCard loading={healthLoading} />
+                            </div>
+                        </>
+                    )}
                 </div>
 
-                <RecentRotationsCard
-                    items={rotationItems}
-                    lastRun={lastRun}
-                    loading={historyLoading}
-                    formatTimeAgo={timeAgo}
-                />
-
+                {/* Recent Rotations - Half Width */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <RecentRotationsCard
+                        items={rotationItems}
+                        lastRun={lastRun}
+                        loading={historyLoading}
+                        formatTimeAgo={timeAgo}
+                    />
+                </div>
 
                 {/* Footer */}
                 <div className="border-t border-slate-200 dark:border-slate-800 mt-4 pt-6 flex flex-col md:flex-row justify-between items-center text-xs text-slate-500 dark:text-slate-500">
