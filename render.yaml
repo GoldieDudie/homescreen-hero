@@ -1,0 +1,35 @@
+# Render Blueprint for HomeScreen Hero Demo
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: homescreen-hero-demo
+    runtime: docker
+    dockerfilePath: ./Dockerfile.demo
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      # Demo mode flag
+      - key: DEMO_MODE
+        value: "true"
+      # Config path
+      - key: HOMESCREEN_HERO_CONFIG
+        value: /app/config.demo.yaml
+      # Database (ephemeral for free tier)
+      - key: HOMESCREEN_HERO_DB
+        value: sqlite:////data/homescreen_hero.sqlite
+      # Logging
+      - key: HOMESCREEN_HERO_LOG_DIR
+        value: /data/logs
+      # Auth (demo credentials)
+      - key: HSH_AUTH_PASSWORD
+        value: demo
+      - key: HSH_AUTH_SECRET_KEY
+        value: render-demo-secret-key-not-for-production
+      # Mock tokens
+      - key: HSH_PLEX_TOKEN
+        value: demo-mock-token
+      - key: HSH_TRAKT_CLIENT_ID
+        value: demo-mock-trakt-id
+      # Render sets PORT automatically

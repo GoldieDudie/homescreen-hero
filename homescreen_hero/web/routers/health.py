@@ -9,7 +9,7 @@ from plexapi.server import NotFound
 
 from homescreen_hero.core.config.loader import load_config
 from homescreen_hero.core.db import init_db
-from homescreen_hero.core.integrations.plex_client import get_plex_server
+from homescreen_hero.core.integrations import get_plex_server, is_demo_mode
 from homescreen_hero.core.integrations.trakt_client import get_trakt_client
 from homescreen_hero.core.integrations.mdblist_client import get_mdblist_client
 from homescreen_hero.core.logging_config import level_from_name, setup_logging
@@ -274,6 +274,12 @@ def health_plex() -> HealthComponent:
         return HealthComponent(ok=False, error=component.error)
 
     return _check_plex(config)
+
+
+# Check if the app is running in demo mode
+@router.get("/health/demo-mode")
+def health_demo_mode() -> Dict[str, bool]:
+    return {"demo_mode": is_demo_mode()}
 
 
 # Perform dependency checks for configuration, DB, Trakt, and Plex

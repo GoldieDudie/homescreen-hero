@@ -14,6 +14,7 @@ import LoginPage from "./pages/LoginPage";
 import QuickStartPage from "./pages/QuickStartPage";
 import { ThemeProvider } from "./utils/theme";
 import { AuthProvider } from "./utils/auth";
+import { DemoProvider } from "./utils/demo";
 import NotFoundPage from "./pages/NotFoundPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CollectionDetailPage from "./pages/CollectionDetailPage";
@@ -56,7 +57,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <DemoProvider>
+          <RouterProvider router={router} />
+        </DemoProvider>
       </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>

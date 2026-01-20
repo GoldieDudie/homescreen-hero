@@ -1,0 +1,65 @@
+# ============================
+# 1) Build the Vite frontend
+# ============================
+FROM node:20-alpine AS ui-build
+WORKDIR /ui
+
+# Install dependencies
+COPY homescreen-hero-ui/package*.json ./
+RUN npm ci
+
+# Copy source and build
+COPY homescreen-hero-ui/ ./
+RUN npm run build
+# Build output: /ui/dist
+
+
+# ============================
+# 2) Python runtime image
+# ============================
+FROM python:3.12-slim AS runtime
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# curl for healthchecks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY homescreen_hero/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy backend code
+COPY homescreen_hero/ /app/homescreen_hero/
+
+# Copy built frontend into the exact folder FastAPI serves
+RUN mkdir -p /app/homescreen_hero/web/frontend
+COPY --from=ui-build /ui/dist/ /app/homescreen_hero/web/frontend/
+
+# Copy demo-specific files
+COPY config.demo.yaml /app/config.demo.yaml
+COPY reset_demo.py /app/reset_demo.py
+COPY start_demo.sh /app/start_demo.sh
+RUN chmod +x /app/start_demo.sh
+
+# Create data directory
+RUN mkdir -p /data/logs
+
+EXPOSE 8000
+
+# Demo environment variables (can be overridden by Render)
+ENV DEMO_MODE=true \
+    HOMESCREEN_HERO_CONFIG=/app/config.demo.yaml \
+    HSH_PLEX_TOKEN=demo-mock-token \
+    HSH_AUTH_PASSWORD=demo \
+    HSH_AUTH_SECRET_KEY=render-demo-secret-key-not-for-production \
+    HSH_TRAKT_CLIENT_ID=demo-mock-trakt-id \
+    HOMESCREEN_HERO_DB=sqlite:////data/homescreen_hero.sqlite \
+    HOMESCREEN_HERO_LOG_DIR=/data/logs \
+    PORT=8000
+
+# Use startup script that seeds demo data
+CMD ["/app/start_demo.sh"]
