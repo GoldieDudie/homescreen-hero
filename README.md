@@ -35,8 +35,8 @@ This app is very much a **WORK IN PROGRESS**. This started as a simple Python sc
 -   **Manage all your Collections in One Place:** Whether it be your already existing Plex collections, or collections created from 3rd Party lists, you can create, edit, and delete them all inside the homescreen-hero UI!
 -   **Built Specifically for Plex:** Seamlessly connects with your Plex server to fetch libraries and manage collections. Pulls data directly from your Plex server for use (creating collection groups, displaying posters, etc.)
 -   **3rd Party Integrations:** Easily connect to third party applications to automatically create and feature collections based off Trakt, Letterboxd, and MDBList (IMDb, TMDb, TVDb, and more coming soon!)
--   **Flexible Configuration:** Utilize either the Web UI, the Setup Wizard, or the YAML-based configuration file for detailed control over application settings and Plex interactions
--   **Containerized Deployment:** Easily deploy and manage the entire application using Docker and Docker Compose.
+-   **Tautulli Support:** Integrate with your Tautulli setup to get even more insights on collection usage, user statistics, and more! All viewable from your homescreen-hero dashboard.
+-   **Helpful Tools (WIP):** Check out the tools page to find helpful tools, scripts, and utilities to make your life as a server owner a little easier (Adjust Date Added for redownloaded items, Bulk Edit watch status so shows show up in Continue Watching, generate Unwatched Content Report and export as CSV).
 
 ## Web UI Screenshots
 
@@ -94,8 +94,6 @@ This project is designed for easy deployment using Docker and Docker Compose.
 -   [Docker Compose](https://docs.docker.com/compose/install/) (v2.x recommended)
 -   A running [Plex Media Server](https://www.plex.tv/media-server-downloads/)
 -   A Plex authentication token ([how to find it](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/))
--   (Optional) A Trakt API Key for third-party list integration ([how to get it](https://trakt.tv/oauth/applications))
--   (Optional) An MDBList API Key for third-party list integration ([how to get it](https://mdblist.com/preferences/))
 
 ### Installation
 
