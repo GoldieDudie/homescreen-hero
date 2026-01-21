@@ -184,27 +184,27 @@ class MockMediaItem:
 class MockCollection:
     # Mock Plex collection
 
-    # Custom collection posters
+    # Custom collection posters (self-hosted for fast loading)
     CUSTOM_POSTERS = {
-        "80s Action Classics": "https://i.ibb.co/PGGN8mDW/80s-Action-Classics.png",
-        "90s Crime Dramas": "https://i.ibb.co/cKnsshL2/90s-Crime-Dramas.jpg",
-        "90s Sitcoms": "https://i.ibb.co/bgCJFWrn/90s-Sitcoms.png",
-        "Anime Classics": "https://i.ibb.co/v6R9Gbgj/Anime-Classics.png",
-        "Best Picture Winners": "https://i.ibb.co/rffqcTcD/Best-Picture-Winners.jpg",
-        "Classic Horror": "https://i.ibb.co/Jf3Rqm8/Horror.jpg",
-        "Criterion Collection": "https://i.ibb.co/CS3mJ9k/Criterion-Collection.png",
-        "Halloween Favorites": "https://i.ibb.co/RGyygQB4/Halloween.jpg",
-        "HBO Prestige Dramas": "https://i.ibb.co/Nn9MygPw/HBO-Prestige-Dramas.png",
-        "Holiday Comedies": "https://i.ibb.co/rK3ZGrkt/Christmas.png",
-        "Hot on TV": "https://i.ibb.co/5gjpymg4/Hot-on-TV.jpg",
-        "Modern Comedy Classics": "https://i.ibb.co/1f2Z4KMY/Modern-Comedy-Classics.png",
-        "Nolan Collection": "https://i.ibb.co/HfvsMSxq/Nolan-Collection.jpg",
-        "Oscar Winners 2024": "https://i.ibb.co/05402BS/Oscar-Winners-2024.png",
-        "Recently Requested": "https://i.ibb.co/HLZdCMsv/Recently-Requested-by-You.png",
-        "Sci-Fi Essentials": "https://i.ibb.co/tpQPvGn8/Science-Fiction-Collection.png",
-        "Studio Ghibli Films": "https://i.ibb.co/nML2xm36/Studio-Ghibli-Films.png",
-        "Trending Movies": "https://i.ibb.co/RTKN17G8/Trending-Movies.png",
-        "British Comedy": "https://i.ibb.co/jPgBdfy2/British-Comedies.jpg",
+        "80s Action Classics": "/demo-posters/80s-Action-Classics.png",
+        "90s Crime Dramas": "/demo-posters/90s-Crime-Dramas.jpg",
+        "90s Sitcoms": "/demo-posters/90s-Sitcoms.png",
+        "Anime Classics": "/demo-posters/Anime-Classics.png",
+        "Best Picture Winners": "/demo-posters/Best-Picture-Winners.jpg",
+        "Classic Horror": "/demo-posters/Classic-Horror.jpg",
+        "Criterion Collection": "/demo-posters/Criterion-Collection.png",
+        "Halloween Favorites": "/demo-posters/Halloween-Favorites.jpg",
+        "HBO Prestige Dramas": "/demo-posters/HBO-Prestige-Dramas.png",
+        "Holiday Comedies": "/demo-posters/Holiday-Comedies.png",
+        "Hot on TV": "/demo-posters/Hot-on-TV.jpg",
+        "Modern Comedy Classics": "/demo-posters/Modern-Comedy-Classics.png",
+        "Nolan Collection": "/demo-posters/Nolan-Collection.jpg",
+        "Oscar Winners 2024": "/demo-posters/Oscar-Winners-2024.png",
+        "Recently Requested": "/demo-posters/Recently-Requested.png",
+        "Sci-Fi Essentials": "/demo-posters/Sci-Fi-Essentials.png",
+        "Studio Ghibli Films": "/demo-posters/Studio-Ghibli-Films.png",
+        "Trending Movies": "/demo-posters/Trending-Movies.png",
+        "British Comedy": "/demo-posters/British-Comedy.jpg",
     }
 
 
