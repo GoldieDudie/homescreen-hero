@@ -458,9 +458,25 @@ class MockPlexServer:
         # If already a full URL, return as-is
         if path.startswith("http://") or path.startswith("https://"):
             return path
+        # Demo poster paths should be returned as-is (served by frontend)
+        if path.startswith("/demo-posters/"):
+            return path
         url = f"{self.base_url}{path}"
         if includeToken:
             url += f"?X-Plex-Token={self.token}"
+        return url
+
+    def transcodeImage(self, url: str, height: int = 450, width: int = 300, minSize: int = 1) -> str:
+        # For demo posters, return the URL unchanged (no transcoding needed)
+        if "/demo-posters/" in url:
+            # Extract just the path portion if it's a full URL
+            if url.startswith("/demo-posters/"):
+                return url
+            # Handle case where url() was called first and prepended base_url
+            import re
+            match = re.search(r'(/demo-posters/[^?]+)', url)
+            if match:
+                return match.group(1)
         return url
 
     def fetchItem(self, rating_key: int):
