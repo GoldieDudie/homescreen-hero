@@ -498,19 +498,19 @@ export default function Dashboard() {
 
             <div className="max-w-8xl mx-auto flex flex-col gap-8">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex flex-col gap-1.5">
-                        <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">System Overview</h2>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4">
+                    <div className="flex flex-col gap-1">
+                        <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">System Overview</h2>
+                        <p className="hidden sm:block text-slate-500 dark:text-slate-400 text-sm">
                             Monitor rotation status, history, and collection usage.
                         </p>
                     </div>
 
-                    <div className="flex gap-3 flex-wrap">
+                    <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3 w-full sm:w-auto">
                         <button
                             onClick={refreshHealth}
                             disabled={healthLoading}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium transition-all duration-200 active:scale-95 disabled:opacity-60"
+                            className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-medium transition-all duration-200 active:scale-95 disabled:opacity-60"
                             title={lastHealthCheck ? `Last checked: ${new Date(lastHealthCheck).toLocaleTimeString()}` : undefined}
                         >
                             {healthLoading ? "Checking…" : "Refresh Health"}
@@ -519,7 +519,7 @@ export default function Dashboard() {
                         <button
                             onClick={simulateRotation}
                             disabled={busy !== null}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium transition-all duration-200 active:scale-95 disabled:opacity-60"
+                            className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-medium transition-all duration-200 active:scale-95 disabled:opacity-60"
                         >
                             {busy === "simulate" ? "Simulating…" : "Simulate Rotation"}
                         </button>
@@ -527,7 +527,7 @@ export default function Dashboard() {
                         <button
                             onClick={syncAllLists}
                             disabled={busy !== null}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium transition-all duration-200 active:scale-95 disabled:opacity-60"
+                            className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-medium transition-all duration-200 active:scale-95 disabled:opacity-60"
                         >
                             {busy === "sync" ? "Syncing…" : "Sync All Lists"}
                         </button>
@@ -535,7 +535,7 @@ export default function Dashboard() {
                         <button
                             onClick={forceRunRotation}
                             disabled={busy !== null}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white shadow-lg shadow-primary/30 hover:shadow-primary/40 text-sm font-bold transition-all duration-200 active:scale-95 disabled:opacity-60"
+                            className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-primary hover:bg-blue-600 text-white shadow-lg shadow-primary/30 hover:shadow-primary/40 text-xs sm:text-sm font-bold transition-all duration-200 active:scale-95 disabled:opacity-60"
                         >
                             {busy === "sync" ? "Running…" : "Run Rotation Now"}
                         </button>
@@ -550,7 +550,7 @@ export default function Dashboard() {
                 ) : null}
 
                 {/* Health Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
                     <HealthCard
                         title="Plex"
                         ok={plex?.ok}
@@ -588,9 +588,13 @@ export default function Dashboard() {
                     {/* Analytics - only show when Tautulli is enabled */}
                     {tautulliEnabled && (
                         <>
-                            <AnalyticsCard loading={healthLoading} />
-                            <MostActiveUsersCard loading={healthLoading} />
-                            <div className="sm:col-span-2">
+                            <div className="col-span-2 lg:col-span-1">
+                                <AnalyticsCard loading={healthLoading} />
+                            </div>
+                            <div className="col-span-2 lg:col-span-1">
+                                <MostActiveUsersCard loading={healthLoading} />
+                            </div>
+                            <div className="col-span-2">
                                 <GraphCarouselCard loading={healthLoading} />
                             </div>
                         </>

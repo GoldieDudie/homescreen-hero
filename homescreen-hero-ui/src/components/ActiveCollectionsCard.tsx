@@ -42,59 +42,59 @@ export default function ActiveCollectionsCard({
     };
     return (
         <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 via-slate-900/50 to-slate-900/50 shadow-lg shadow-primary/5 px-5 py-4 transition-all duration-300 hover:bg-slate-800/30">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div>
                     <h3 className="text-lg font-bold text-white tracking-tight">Active Collections</h3>
-                    <p className="text-sm text-slate-400 mt-0.5">
+                    <p className="hidden sm:block text-sm text-slate-400 mt-0.5">
                         Currently featured on your Plex home screen
                     </p>
                 </div>
 
                 {/* Filter Tabs - Segmented Control */}
-                <div className="flex p-1 rounded-lg border border-slate-700/50 bg-slate-800/30">
+                <div className="flex p-1 rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-x-auto">
                     <button
                         type="button"
                         onClick={() => setVisibilityFilter("all")}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
+                        className={`px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 whitespace-nowrap ${
                             visibilityFilter === "all"
                                 ? "bg-primary/20 text-white shadow-sm"
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
-                        All {!loading && collections.length > 0 && `(${collections.length})`}
+                        All<span className="hidden sm:inline"> {!loading && collections.length > 0 && `(${collections.length})`}</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setVisibilityFilter("my_home")}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
+                        className={`px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 whitespace-nowrap ${
                             visibilityFilter === "my_home"
                                 ? "bg-primary/20 text-white shadow-sm"
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
-                        My Home {!loading && `(${collections.filter(c => c.promoted_to_own_home).length})`}
+                        My Home<span className="hidden sm:inline"> {!loading && `(${collections.filter(c => c.promoted_to_own_home).length})`}</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setVisibilityFilter("shared")}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
+                        className={`px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 whitespace-nowrap ${
                             visibilityFilter === "shared"
                                 ? "bg-primary/20 text-white shadow-sm"
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
-                        Shared {!loading && `(${collections.filter(c => c.promoted_to_shared).length})`}
+                        Shared<span className="hidden sm:inline"> {!loading && `(${collections.filter(c => c.promoted_to_shared).length})`}</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setVisibilityFilter("recommended")}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
+                        className={`px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 whitespace-nowrap ${
                             visibilityFilter === "recommended"
                                 ? "bg-primary/20 text-white shadow-sm"
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
-                        Recommended {!loading && `(${collections.filter(c => c.promoted_to_recommended).length})`}
+                        Recommended<span className="hidden sm:inline"> {!loading && `(${collections.filter(c => c.promoted_to_recommended).length})`}</span>
                     </button>
                 </div>
             </div>
