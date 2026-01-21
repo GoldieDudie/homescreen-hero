@@ -11,8 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Response
 from pydantic import BaseModel
 
 from homescreen_hero.core.config.loader import load_config
-from homescreen_hero.core.integrations.plex_client import get_plex_server
-from homescreen_hero.core.integrations.tautulli_client import get_tautulli_client
+from homescreen_hero.core.integrations import get_plex_server, get_tautulli_client
 from homescreen_hero.core.auth import get_current_user
 
 

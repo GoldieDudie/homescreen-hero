@@ -5,6 +5,7 @@ import { ConfigPanel } from "./shared/ConfigPanel";
 import { SourceListManager } from "./shared/SourceListManager";
 import { useListIntegration } from "../../hooks/integrations/useListIntegration";
 import { usePlexLibraries } from "../../hooks/integrations/usePlexLibraries";
+import { useDemo } from "../../utils/demo";
 import type { MDBListSettings, MDBListMissingItem } from "../../types/integrations";
 
 const initialSettings: MDBListSettings = {
@@ -19,6 +20,7 @@ function formatDate(dateString: string | null): string {
 }
 
 export function MDBListIntegration() {
+    const { isDemoMode } = useDemo();
     const { enabledLibraries } = usePlexLibraries();
 
     const integration = useListIntegration<MDBListSettings, MDBListMissingItem>({
@@ -139,7 +141,13 @@ export function MDBListIntegration() {
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
-                            onClick={integration.saveSettings}
+                            onClick={() => {
+                                if (isDemoMode) {
+                                    integration.setSettingsError("Saving settings is disabled in demo mode");
+                                    return;
+                                }
+                                integration.saveSettings();
+                            }}
                             disabled={integration.savingSettings || integration.loadingSettings}
                             className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-800 disabled:opacity-60"
                         >
@@ -163,6 +171,7 @@ export function MDBListIntegration() {
 
             {/* Source List */}
             <SourceListManager<MDBListMissingItem>
+                isDemoMode={isDemoMode}
                 title="MDBList Lists"
                 description="Add or remove MDBList list sources that sync into Plex collections."
                 urlPlaceholder="https://mdblist.com/lists/username/listname"

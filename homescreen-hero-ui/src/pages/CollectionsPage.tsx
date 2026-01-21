@@ -4,6 +4,7 @@ import { fetchWithAuth } from "../utils/api";
 import { RefreshCw, Plus, X, Search, Trash2, Check, ChevronDown, ArrowUpAZ, ArrowDownAZ, Edit, Image } from "lucide-react";
 import { Listbox } from "@headlessui/react";
 import Toast from "../components/Toast";
+import { useDemo } from "../utils/demo";
 
 type Collection = {
     title: string;
@@ -37,6 +38,7 @@ type CollectionsCache = {
 };
 
 export default function CollectionsPage() {
+    const { isDemoMode } = useDemo();
     const [collections, setCollections] = useState<Collection[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -255,6 +257,11 @@ export default function CollectionsPage() {
     };
 
     const handleCreateCollection = async () => {
+        if (isDemoMode) {
+            setToast({ message: "Creating collections is disabled in demo mode", type: "error" });
+            return;
+        }
+
         if (!newCollectionTitle.trim() || !newCollectionLibrary.trim()) {
             setToast({ message: "Title and Library are required", type: "error" });
             return;
@@ -338,6 +345,11 @@ export default function CollectionsPage() {
     const handleDeleteCollection = async (library: string, title: string, e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent navigating to collection detail
 
+        if (isDemoMode) {
+            setToast({ message: "Deleting collections is disabled in demo mode", type: "error" });
+            return;
+        }
+
         if (!confirm(`Delete collection "${title}"? This cannot be undone.`)) return;
 
         try {
@@ -365,6 +377,11 @@ export default function CollectionsPage() {
 
     const openQuickEditModal = async (collection: Collection, e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent navigating to collection detail
+
+        if (isDemoMode) {
+            setToast({ message: "Editing collections is disabled in demo mode", type: "error" });
+            return;
+        }
 
         setEditingCollection(collection);
         setQuickEditTitle(collection.title);
@@ -400,6 +417,11 @@ export default function CollectionsPage() {
 
     const handleQuickEditSubmit = async () => {
         if (!editingCollection) return;
+
+        if (isDemoMode) {
+            setToast({ message: "Editing collections is disabled in demo mode", type: "error" });
+            return;
+        }
 
         try {
             setQuickEditing(true);

@@ -5,6 +5,7 @@ import { ConfigPanel } from "./shared/ConfigPanel";
 import { SourceListManager } from "./shared/SourceListManager";
 import { useListIntegration } from "../../hooks/integrations/useListIntegration";
 import { usePlexLibraries } from "../../hooks/integrations/usePlexLibraries";
+import { useDemo } from "../../utils/demo";
 import type { TraktSettings, TraktMissingItem } from "../../types/integrations";
 
 const initialSettings: TraktSettings = {
@@ -19,6 +20,7 @@ function formatDate(dateString: string | null): string {
 }
 
 export function TraktIntegration() {
+    const { isDemoMode } = useDemo();
     const { enabledLibraries } = usePlexLibraries();
 
     const integration = useListIntegration<TraktSettings, TraktMissingItem>({
@@ -140,7 +142,13 @@ export function TraktIntegration() {
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
-                            onClick={integration.saveSettings}
+                            onClick={() => {
+                                if (isDemoMode) {
+                                    integration.setSettingsError("Saving settings is disabled in demo mode");
+                                    return;
+                                }
+                                integration.saveSettings();
+                            }}
                             disabled={integration.savingSettings || integration.loadingSettings}
                             className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-800 disabled:opacity-60"
                         >
@@ -164,6 +172,7 @@ export function TraktIntegration() {
 
             {/* Source List */}
             <SourceListManager<TraktMissingItem>
+                isDemoMode={isDemoMode}
                 title="Trakt Lists"
                 description="Add or remove Trakt list sources that sync into Plex collections."
                 urlPlaceholder="https://trakt.tv/users/you/lists/favorites"

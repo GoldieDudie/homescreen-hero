@@ -3,6 +3,7 @@ import { fetchWithAuth } from "../utils/api";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CalendarRange, Check, Loader2, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
 import { getGroupStatus } from "../utils/dates";
+import { useDemo } from "../utils/demo";
 
 
 type DateRange = {
@@ -68,6 +69,7 @@ const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void 
 export default function GroupDetailPage() {
     const navigate = useNavigate();
     const { groupId } = useParams();
+    const { isDemoMode } = useDemo();
     const [groups, setGroups] = useState<CollectionGroup[]>([]);
     const [selectedIndex, setSelectedIndex] = useState<number | "new">("new");
     const [form, setForm] = useState<CollectionGroup>(emptyGroup);
@@ -210,6 +212,10 @@ export default function GroupDetailPage() {
     }, [sourceFilter, searchQuery]);
 
     const saveGroup = async () => {
+        if (isDemoMode) {
+            setMessage("Saving groups is disabled in demo mode");
+            return;
+        }
         try {
             setSaving(true);
             setError(null);
@@ -255,6 +261,10 @@ export default function GroupDetailPage() {
 
     const deleteGroup = async () => {
         if (selectedIndex === "new") return;
+        if (isDemoMode) {
+            setMessage("Deleting groups is disabled in demo mode");
+            return;
+        }
         try {
             setDeleting(true);
             setError(null);

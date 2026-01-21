@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../utils/auth";
+import { useDemo } from "../utils/demo";
 import PosterBackground from "../components/PosterBackground";
 
 export default function LoginPage() {
@@ -10,6 +11,7 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     const { login, authEnabled, loading: authLoading } = useAuth();
+    const { isDemoMode } = useDemo();
 
     // If auth is disabled, redirect to dashboard
     useEffect(() => {
@@ -52,17 +54,38 @@ export default function LoginPage() {
     return (
         <PosterBackground>
             <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 w-full max-w-md p-8 space-y-6">
-                    {/* Logo */}
-                    <div className="flex flex-col items-center gap-4">
-                        <img
-                            src="/logo_text.png"
-                            alt="HomeScreen Hero"
-                            className="h-auto w-auto select-none"
-                        />
-                    </div>
+                <div className="w-full max-w-md space-y-4">
+                    {/* Demo credentials banner */}
+                    {isDemoMode && (
+                        <div className="backdrop-blur-md bg-gradient-to-r from-primary/90 to-purple-600/90 rounded-xl shadow-lg px-5 py-4 text-center">
+                            <p className="text-white/90 text-sm mb-2">
+                                Welcome to the demo! Log in with:
+                            </p>
+                            <div className="flex items-center justify-center gap-6">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-white/70 text-xs uppercase tracking-wide">User</span>
+                                    <span className="font-mono font-bold text-white bg-white/20 px-2.5 py-1 rounded-md text-sm">admin</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-white/70 text-xs uppercase tracking-wide">Pass</span>
+                                    <span className="font-mono font-bold text-white bg-white/20 px-2.5 py-1 rounded-md text-sm">demo</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                    {/* Login Form */}
+                    {/* Login Card */}
+                    <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 w-full p-8 space-y-6">
+                        {/* Logo */}
+                        <div className="flex flex-col items-center gap-4">
+                            <img
+                                src="/logo_text.png"
+                                alt="HomeScreen Hero"
+                                className="h-auto w-auto select-none"
+                            />
+                        </div>
+
+                        {/* Login Form */}
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label
@@ -122,7 +145,8 @@ export default function LoginPage() {
                                 </span>
                             ) : "Sign In"}
                         </button>
-                    </form>
+                        </form>
+                    </div>
                 </div>
             </div>
         </PosterBackground>

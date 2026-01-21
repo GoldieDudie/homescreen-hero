@@ -4,6 +4,7 @@ import { fetchWithAuth } from "../utils/api";
 import { ArrowLeft, Plus, Trash2, Search, Image, Edit, ChevronDown, Check, X } from "lucide-react";
 import { Listbox } from "@headlessui/react";
 import Toast from "../components/Toast";
+import { useDemo } from "../utils/demo";
 
 
 type CollectionItem = {
@@ -40,6 +41,7 @@ type LibraryItem = {
 export default function CollectionDetailPage() {
     const { library, collectionTitle } = useParams<{ library: string; collectionTitle: string }>();
     const navigate = useNavigate();
+    const { isDemoMode } = useDemo();
 
     const [collection, setCollection] = useState<CollectionDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -140,6 +142,11 @@ export default function CollectionDetailPage() {
     };
 
     const handleAddSelectedItems = async () => {
+        if (isDemoMode) {
+            setToast({ message: "Adding items is disabled in demo mode", type: "error" });
+            return;
+        }
+
         if (selectedItems.size === 0) {
             setToast({ message: "Please select at least one item to add", type: "error" });
             return;
@@ -180,6 +187,11 @@ export default function CollectionDetailPage() {
 
 
     const handleRemoveItem = async (ratingKey: string) => {
+        if (isDemoMode) {
+            setToast({ message: "Removing items is disabled in demo mode", type: "error" });
+            return;
+        }
+
         if (!confirm("Remove this item from the collection?")) return;
 
         try {
@@ -205,6 +217,10 @@ export default function CollectionDetailPage() {
 
 
     const openAddModal = () => {
+        if (isDemoMode) {
+            setToast({ message: "Adding items is disabled in demo mode", type: "error" });
+            return;
+        }
         setShowAddModal(true);
         setSelectedItems(new Set()); // Clear any previous selections
         setSearchQuery(""); // Reset search query - the debounce effect will handle the initial load
@@ -219,6 +235,10 @@ export default function CollectionDetailPage() {
     };
 
     const openEditModal = () => {
+        if (isDemoMode) {
+            setToast({ message: "Editing collections is disabled in demo mode", type: "error" });
+            return;
+        }
         setShowEditModal(true);
         setEditTitle(collection?.title || "");
         setEditSummary(collection?.summary || "");
@@ -256,6 +276,11 @@ export default function CollectionDetailPage() {
     };
 
     const handleUpdateCollection = async () => {
+        if (isDemoMode) {
+            setToast({ message: "Editing collections is disabled in demo mode", type: "error" });
+            return;
+        }
+
         if (!editTitle.trim()) {
             setToast({ message: "Title cannot be empty", type: "error" });
             return;
@@ -322,6 +347,10 @@ export default function CollectionDetailPage() {
 
     const openItemPosterModal = (item: CollectionItem, e: React.MouseEvent) => {
         e.stopPropagation();
+        if (isDemoMode) {
+            setToast({ message: "Editing posters is disabled in demo mode", type: "error" });
+            return;
+        }
         setEditingItem(item);
         setItemPosterFile(null);
         setItemPosterUrl("");
@@ -347,6 +376,11 @@ export default function CollectionDetailPage() {
 
     const handleUploadItemPoster = async () => {
         if (!editingItem) return;
+
+        if (isDemoMode) {
+            setToast({ message: "Editing posters is disabled in demo mode", type: "error" });
+            return;
+        }
 
         try {
             setUploadingItemPoster(true);

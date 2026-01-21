@@ -19,8 +19,7 @@ from ...core.db.analytics import (
     get_top_collections_by_plays,
 )
 from ...core.integrations.tautulli_analytics import collect_analytics_for_all_active
-from ...core.integrations.tautulli_client import get_tautulli_client
-from ...core.integrations.plex_client import get_plex_server
+from ...core.integrations import get_plex_server, get_tautulli_client
 
 logger = logging.getLogger(__name__)
 

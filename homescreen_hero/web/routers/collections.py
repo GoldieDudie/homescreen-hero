@@ -13,7 +13,7 @@ from homescreen_hero.core.config.loader import load_config
 from homescreen_hero.core.config.schema import HealthResponse
 from homescreen_hero.core.db.history import init_db
 from homescreen_hero.core.db.tools import list_rotations
-from homescreen_hero.core.integrations.plex_client import get_plex_server
+from homescreen_hero.core.integrations import get_plex_server
 
 
 class ActiveCollectionOut(BaseModel):
@@ -338,11 +338,15 @@ async def get_group_posters(collection_names: str) -> GroupPostersResponse:
                 poster_url = f"/api/collections/group-poster-proxy/{cache_key}"
                 posters.append(poster_url)
 
-                # Build the full Plex URL
-                base_url = config.plex.base_url.rstrip('/')
-                thumb_path = item.thumb if item.thumb.startswith('/') else f"/{item.thumb}"
-                token = config.plex.token
-                actual_url = f"{base_url}{thumb_path}?X-Plex-Token={token}"
+                # Build the full URL - check if already a full URL (for demo/mock mode)
+                thumb = item.thumb
+                if thumb.startswith('http://') or thumb.startswith('https://'):
+                    actual_url = thumb
+                else:
+                    base_url = config.plex.base_url.rstrip('/')
+                    thumb_path = thumb if thumb.startswith('/') else f"/{thumb}"
+                    token = config.plex.token
+                    actual_url = f"{base_url}{thumb_path}?X-Plex-Token={token}"
 
                 # Store in TTL cache (expires after 1 hour)
                 poster_url_cache[cache_key] = actual_url

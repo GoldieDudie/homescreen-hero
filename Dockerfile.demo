@@ -43,7 +43,9 @@ COPY --from=ui-build /ui/dist/ /app/homescreen_hero/web/frontend/
 COPY config.demo.yaml /app/config.demo.yaml
 COPY reset_demo.py /app/reset_demo.py
 COPY start_demo.sh /app/start_demo.sh
-RUN chmod +x /app/start_demo.sh
+
+# Fix line endings (Windows -> Unix) and make executable
+RUN sed -i 's/\r$//' /app/start_demo.sh && chmod +x /app/start_demo.sh
 
 # Create data directory
 RUN mkdir -p /data/logs
@@ -57,6 +59,7 @@ ENV DEMO_MODE=true \
     HSH_AUTH_PASSWORD=demo \
     HSH_AUTH_SECRET_KEY=render-demo-secret-key-not-for-production \
     HSH_TRAKT_CLIENT_ID=demo-mock-trakt-id \
+    HSH_MDBLIST_API_KEY=demo-mock-mdblist-key \
     HOMESCREEN_HERO_DB=sqlite:////data/homescreen_hero.sqlite \
     HOMESCREEN_HERO_LOG_DIR=/data/logs \
     PORT=8000

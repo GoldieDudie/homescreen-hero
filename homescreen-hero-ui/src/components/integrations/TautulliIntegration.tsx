@@ -3,8 +3,10 @@ import { Wifi, WifiOff } from "lucide-react";
 import FieldRow from "../FieldRow";
 import { ConfigPanel } from "./shared/ConfigPanel";
 import { useTautulliConfig } from "../../hooks/integrations/useTautulliConfig";
+import { useDemo } from "../../utils/demo";
 
 export function TautulliIntegration() {
+    const { isDemoMode } = useDemo();
     const config = useTautulliConfig();
 
     return (
@@ -165,7 +167,13 @@ export function TautulliIntegration() {
                     <button
                         type="button"
                         disabled={config.saving || config.loading}
-                        onClick={config.saveSettings}
+                        onClick={() => {
+                            if (isDemoMode) {
+                                config.setError("Saving settings is disabled in demo mode");
+                                return;
+                            }
+                            config.saveSettings();
+                        }}
                         className="rounded-lg bg-slate-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                         {config.saving ? "Saving..." : "Save Settings"}

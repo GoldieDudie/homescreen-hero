@@ -5,6 +5,9 @@ import { SyncStatusBadge } from "./SyncStatusBadge";
 import { LibrarySelect } from "./LibrarySelect";
 
 interface SourceListManagerProps<TMissing extends BaseMissingItem> {
+    // Demo mode
+    isDemoMode?: boolean;
+
     // Header
     title: string;
     description: string;
@@ -59,6 +62,7 @@ export function SourceListManager<TMissing extends BaseMissingItem>(
     props: SourceListManagerProps<TMissing>
 ) {
     const {
+        isDemoMode = false,
         title,
         description,
         urlPlaceholder,
@@ -167,6 +171,7 @@ export function SourceListManager<TMissing extends BaseMissingItem>(
                         return (
                             <SourceCard
                                 key={`${source.name}-${idx}`}
+                                isDemoMode={isDemoMode}
                                 source={source}
                                 status={status}
                                 onSync={() => onSyncSource(idx)}
@@ -192,6 +197,7 @@ export function SourceListManager<TMissing extends BaseMissingItem>(
 
 // Internal SourceCard component
 interface SourceCardProps<TMissing> {
+    isDemoMode?: boolean;
     source: Source;
     status: SourceStatus | undefined;
     onSync: () => void;
@@ -210,6 +216,7 @@ interface SourceCardProps<TMissing> {
 
 function SourceCard<TMissing extends BaseMissingItem>(props: SourceCardProps<TMissing>) {
     const {
+        isDemoMode = false,
         source,
         status,
         onSync,
@@ -269,7 +276,8 @@ function SourceCard<TMissing extends BaseMissingItem>(props: SourceCardProps<TMi
                         <button
                             type="button"
                             onClick={onRemove}
-                            disabled={isDeleting}
+                            disabled={isDeleting || isDemoMode}
+                            title={isDemoMode ? "Removing lists is disabled in demo mode" : undefined}
                             className="rounded-lg border border-rose-800 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-900/40 disabled:opacity-60"
                         >
                             {isDeleting ? "Removing…" : "Remove"}

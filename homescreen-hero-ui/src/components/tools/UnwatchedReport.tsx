@@ -14,6 +14,7 @@ import {
 import { Listbox } from "@headlessui/react";
 import { format } from "date-fns";
 import { fetchWithAuth } from "../../utils/api";
+import { useDemo } from "../../utils/demo";
 import Toast from "../Toast";
 import {
     Dialog,
@@ -57,6 +58,8 @@ type UnwatchedReportProps = {
 };
 
 export default function UnwatchedReport({ onClose }: UnwatchedReportProps) {
+    const { isDemoMode } = useDemo();
+
     // Configuration state
     const [libraries, setLibraries] = useState<Library[]>([]);
     const [selectedLibrary, setSelectedLibrary] = useState<string>("");
@@ -177,6 +180,10 @@ export default function UnwatchedReport({ onClose }: UnwatchedReportProps) {
 
     // Export to CSV
     const handleExport = async () => {
+        if (isDemoMode) {
+            setToast({ message: "Export is disabled in demo mode", type: "error" });
+            return;
+        }
         if (!selectedLibrary || !tautulliEnabled) return;
 
         setExporting(true);

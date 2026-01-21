@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "../utils/api";
 import { useNavigate } from "react-router-dom";
+import { useDemo } from "../utils/demo";
 import {
     ArrowRight,
     Check,
@@ -59,6 +60,7 @@ const coverGradients = [
 
 export default function GroupsPage() {
     const navigate = useNavigate();
+    const { isDemoMode } = useDemo();
     const [groups, setGroups] = useState<CollectionGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -106,6 +108,10 @@ export default function GroupsPage() {
 
     const handleCreate = async () => {
         if (!newName.trim()) return;
+        if (isDemoMode) {
+            setMessage("Creating groups is disabled in demo mode");
+            return;
+        }
         try {
             setCreating(true);
             setMessage(null);
@@ -131,6 +137,11 @@ export default function GroupsPage() {
         if (!renaming) return;
         const target = groups[renaming.index];
         if (!target) return;
+        if (isDemoMode) {
+            setMessage("Editing groups is disabled in demo mode");
+            setRenaming(null);
+            return;
+        }
         try {
             setProcessingIndex(renaming.index);
             setMessage(null);
@@ -155,6 +166,10 @@ export default function GroupsPage() {
     const handleDelete = async (index: number) => {
         const target = groups[index];
         if (!target) return;
+        if (isDemoMode) {
+            setMessage("Deleting groups is disabled in demo mode");
+            return;
+        }
         try {
             setProcessingIndex(index);
             setMessage(null);

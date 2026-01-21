@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { fetchWithAuth } from "../utils/api";
+import { useDemo } from "../utils/demo";
 import { SlidersHorizontal, Check, ChevronDown, FileText, Copy, Pause, Play, RefreshCw, Search, Trash2, Server, Clock } from "lucide-react";
 import { Switch, Listbox } from "@headlessui/react";
 import FieldRow from "../components/FieldRow";
@@ -82,6 +83,7 @@ function IconButton({
 }
 
 export default function SettingsPage() {
+    const { isDemoMode } = useDemo();
     const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<TabId>("general");
     const [plexTestStatus, setPlexTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
@@ -264,6 +266,10 @@ export default function SettingsPage() {
     };
 
     async function saveRotationSettings() {
+        if (isDemoMode) {
+            setRotationError("Saving settings is disabled in demo mode");
+            return;
+        }
         try {
             setSavingRotation(true);
             setRotationError(null);
@@ -300,6 +306,10 @@ export default function SettingsPage() {
     };
 
     async function savePlexSettings() {
+        if (isDemoMode) {
+            setPlexError("Saving settings is disabled in demo mode");
+            return;
+        }
         try {
             setSavingPlex(true);
             setPlexError(null);

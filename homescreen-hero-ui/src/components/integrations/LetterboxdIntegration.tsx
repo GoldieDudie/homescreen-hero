@@ -1,6 +1,7 @@
 import { SourceListManager } from "./shared/SourceListManager";
 import { useListIntegration } from "../../hooks/integrations/useListIntegration";
 import { usePlexLibraries } from "../../hooks/integrations/usePlexLibraries";
+import { useDemo } from "../../utils/demo";
 import type { LetterboxdMissingItem } from "../../types/integrations";
 
 // Letterboxd has no settings - just sources
@@ -12,6 +13,7 @@ function formatDate(dateString: string | null): string {
 }
 
 export function LetterboxdIntegration() {
+    const { isDemoMode } = useDemo();
     const { enabledLibraries } = usePlexLibraries();
 
     const integration = useListIntegration<typeof emptySettings, LetterboxdMissingItem>({
@@ -22,6 +24,7 @@ export function LetterboxdIntegration() {
 
     return (
         <SourceListManager<LetterboxdMissingItem>
+            isDemoMode={isDemoMode}
             title="Letterboxd Lists"
             description="Add or remove Letterboxd list sources that sync into Plex collections."
             urlPlaceholder="https://letterboxd.com/username/list/listname/"

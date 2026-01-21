@@ -16,7 +16,7 @@ from homescreen_hero.core.auth import (
     verify_password,
 )
 from homescreen_hero.core.config.loader import load_config
-from homescreen_hero.core.integrations.plex_client import get_plex_server
+from homescreen_hero.core.integrations import get_plex_server
 
 logger = logging.getLogger(__name__)
 
@@ -143,14 +143,17 @@ async def get_login_posters() -> PosterResponse:
                 poster_url = f"/api/auth/poster-proxy/{idx}"
                 posters.append(poster_url)
 
-                # Build the full Plex URL manually
-                # item.thumb is just the path, we need to prepend the base URL
-                base_url = config.plex.base_url.rstrip('/')
-                thumb_path = item.thumb if item.thumb.startswith('/') else f"/{item.thumb}"
-                token = config.plex.token
-                actual_url = f"{base_url}{thumb_path}?X-Plex-Token={token}"
-
-                logger.debug(f"Poster {idx}: base_url={base_url}, thumb_path={thumb_path}, final_url={actual_url}")
+                # Build the full URL - check if already a full URL (for demo/mock mode)
+                thumb = item.thumb
+                if thumb.startswith('http://') or thumb.startswith('https://'):
+                    actual_url = thumb
+                    logger.debug(f"Poster {idx}: using full URL: {actual_url}")
+                else:
+                    base_url = config.plex.base_url.rstrip('/')
+                    thumb_path = thumb if thumb.startswith('/') else f"/{thumb}"
+                    token = config.plex.token
+                    actual_url = f"{base_url}{thumb_path}?X-Plex-Token={token}"
+                    logger.debug(f"Poster {idx}: base_url={base_url}, thumb_path={thumb_path}, final_url={actual_url}")
 
                 # Store in a simple dict cache (this should be Redis or similar in production)
                 if not hasattr(get_login_posters, '_poster_cache'):

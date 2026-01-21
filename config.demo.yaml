@@ -26,7 +26,7 @@ auth:
 rotation:
   enabled: true
   interval_hours: 6
-  max_collections: 5
+  max_collections: 8
   min_gap_rotations: 2
 
 # Trakt integration (mocked)
@@ -41,9 +41,42 @@ trakt:
     - name: "Studio Ghibli"
       url: "https://trakt.tv/users/demo/lists/ghibli-films"
       plex_library: "Movies"
+    - name: "Christmas Movies"
+      url: "https://trakt.tv/users/hdlists/lists/christmas-movies"
+      plex_library: "Movies"
+    - name: "Halloween Movies"
+      url: "https://trakt.tv/users/movistapp/lists/halloween-movies"
+      plex_library: "Movies"
+
+# MDBList integration (mocked)
+mdblist:
+  enabled: true
+  api_key: "${HSH_MDBLIST_API_KEY}"
+  base_url: "https://api.mdblist.com"
+  sources:
+    - name: "Top Rated Sci-Fi"
+      url: "https://mdblist.com/lists/demo/top-scifi"
+      plex_library: "Movies"
+    - name: "Hidden Gems"
+      url: "https://mdblist.com/lists/demo/hidden-gems"
+      plex_library: "Movies"
 
 # Collection groups for rotation
 groups:
+  # Always Active group is first to ensure these collections always get selected
+  - name: "Always Active"
+    collections:
+      - "Recently Requested"
+      - "Trending Movies"
+      - "Hot on TV"
+    min_picks: 3
+    max_picks: 3
+    enabled: true
+    visibility:
+      home: true
+      shared: true
+      recommended: false
+
   - name: "Award Winners"
     collections:
       - "Oscar Winners 2024"
@@ -60,8 +93,8 @@ groups:
     collections:
       - "80s Action Classics"
       - "Nolan Collection"
-    min_picks: 0
-    max_picks: 1
+    min_picks: 1
+    max_picks: 2
     visibility:
       home: true
       shared: false
@@ -92,34 +125,46 @@ groups:
     collections:
       - "90s Sitcoms"
       - "Modern Comedy Classics"
-    min_picks: 0
+    min_picks: 1
     max_picks: 1
     visibility:
       home: true
       shared: false
       recommended: false
 
-  - name: "Anime"
+  - name: "Christmas Collections"
     collections:
-      - "Anime Classics"
+      - "Christmas Classics"
+      - "Holiday Comedies"
     min_picks: 0
-    max_picks: 1
-    enabled: true
+    max_picks: 2
+    date_range:
+      start: "11-20"
+      end: "12-26"
     visibility:
       home: true
-      shared: false
-      recommended: true
-
-  - name: "Genre Picks"
-    collections:
-      - "90s Crime Dramas"
-      - "Sci-Fi Essentials"
-    min_picks: 0
-    max_picks: 1
-    visibility:
-      home: true
-      shared: false
+      shared: true
       recommended: false
+
+  - name: "Spooky Season"
+    collections:
+      - "Halloween Favorites"
+      - "Classic Horror"
+    min_picks: 0
+    max_picks: 2
+    date_range:
+      start: "10-01"
+      end: "10-31"
+    visibility:
+      home: true
+      shared: true
+      recommended: false
+
+# Tautulli integration (mocked)
+tautulli:
+  enabled: true
+  api_key: "demo-tautulli-key"
+  base_url: "http://demo-tautulli:8181"
 
 # Logging configuration
 logging:

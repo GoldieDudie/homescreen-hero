@@ -17,7 +17,7 @@ from homescreen_hero.core.config.schema import (
     LetterboxdSettings,
     MDBListSettings,
 )
-from homescreen_hero.core.integrations.plex_client import get_plex_server
+from homescreen_hero.core.integrations import get_plex_server
 
 from .helpers import load_config_mapping, save_config_mapping, load_group_list
 from .schemas import (

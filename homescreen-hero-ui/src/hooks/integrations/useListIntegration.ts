@@ -30,6 +30,7 @@ export interface UseListIntegrationReturn<TSettings, TMissing> {
     loadingSettings: boolean;
     savingSettings: boolean;
     settingsError: string | null;
+    setSettingsError: React.Dispatch<React.SetStateAction<string | null>>;
     settingsMessage: string | null;
     saveSettings: () => Promise<void>;
     clearSettingsMessages: () => void;
@@ -42,6 +43,7 @@ export interface UseListIntegrationReturn<TSettings, TMissing> {
     sources: Source[];
     loadingSources: boolean;
     sourcesError: string | null;
+    setSourcesError: React.Dispatch<React.SetStateAction<string | null>>;
     sourcesMessage: string | null;
     clearSourcesMessages: () => void;
 
@@ -415,6 +417,7 @@ export function useListIntegration<TSettings, TMissing extends BaseMissingItem>(
         loadingSettings,
         savingSettings,
         settingsError,
+        setSettingsError,
         settingsMessage,
         saveSettings,
         clearSettingsMessages,
@@ -427,6 +430,7 @@ export function useListIntegration<TSettings, TMissing extends BaseMissingItem>(
         sources,
         loadingSources,
         sourcesError,
+        setSourcesError,
         sourcesMessage,
         clearSourcesMessages,
 

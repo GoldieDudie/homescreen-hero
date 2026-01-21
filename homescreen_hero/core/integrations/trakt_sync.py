@@ -9,7 +9,15 @@ from plexapi.server import PlexServer
 from plexapi.exceptions import NotFound
 from homescreen_hero.core.db.models import TraktMissingItem
 from homescreen_hero.core.config.schema import AppConfig, TraktSource
-from homescreen_hero.core.integrations.trakt_client import get_trakt_client
+from homescreen_hero.core.integrations.trakt_client import get_trakt_client as _get_real_trakt_client
+
+def _get_trakt_client(config):
+    # Check if running in demo mode - if so, use mock client
+    import os
+    if os.environ.get("DEMO_MODE", "").lower() in ("true", "1", "yes"):
+        from homescreen_hero.core.integrations.mock_plex_client import get_mock_trakt_client
+        return get_mock_trakt_client(config)
+    return _get_real_trakt_client(config)
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +64,7 @@ def sync_single_trakt_source(
     source: TraktSource,
 ) -> Tuple[int, int]:
     # Returns (total_items, matched_items)
-    trakt_client = get_trakt_client(config)
+    trakt_client = _get_trakt_client(config)
     if trakt_client is None:
         logger.info("Trakt client not available; skipping source %s from %s", source.name, source.url)
         return 0, 0

@@ -110,6 +110,7 @@ export function useTautulliConfig() {
         loading,
         saving,
         error,
+        setError,
         message,
         testStatus,
         clearMessages,

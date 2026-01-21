@@ -9,9 +9,7 @@ from plexapi.server import NotFound
 
 from homescreen_hero.core.config.loader import load_config
 from homescreen_hero.core.db import init_db
-from homescreen_hero.core.integrations import get_plex_server, is_demo_mode
-from homescreen_hero.core.integrations.trakt_client import get_trakt_client
-from homescreen_hero.core.integrations.mdblist_client import get_mdblist_client
+from homescreen_hero.core.integrations import get_plex_server, get_trakt_client, get_mdblist_client, is_demo_mode
 from homescreen_hero.core.logging_config import level_from_name, setup_logging
 from homescreen_hero.core.config.schema import HealthComponent, HealthResponse
 
@@ -154,7 +152,7 @@ def _check_mdblist(config: Any) -> HealthComponent:
 # Helper function for Tautulli health check
 def _check_tautulli(config: Any) -> HealthComponent:
     try:
-        from homescreen_hero.core.integrations.tautulli_client import get_tautulli_client
+        from homescreen_hero.core.integrations import get_tautulli_client
 
         tautulli_client = get_tautulli_client(config)
 

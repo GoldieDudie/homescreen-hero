@@ -8,8 +8,7 @@ from plexapi.exceptions import NotFound
 
 from ..config.schema import AppConfig
 from ..db.analytics import record_collection_analytics
-from .tautulli_client import get_tautulli_client
-from .plex_client import get_plex_server
+from . import get_plex_server, get_tautulli_client
 
 logger = logging.getLogger(__name__)
 
