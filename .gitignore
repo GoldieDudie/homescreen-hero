@@ -55,4 +55,4 @@ scripts
 homescreen-hero-ui/dist
 homescreen-hero-ui/node_modules
 data/
-
+.github/workflows/homescreen-hero.code-workspace
