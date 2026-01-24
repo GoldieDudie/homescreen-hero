@@ -27,7 +27,7 @@ This app is very much a WORK IN PROGRESS. This started as a simple Python script
 - **3rd Party List Integrations:** Create and sync collections from third-party lists (Trakt, Letterboxd, and MDBList)
 - **Tautulli Support:** Get insights on collection usage, user statistics, and more! All viewable from your homescreen-hero dashboard.
 - **Seerr Support (WIP):** View, approve, and request media directly from the homescreen-hero dashboard!
-- **Helpful Tools (WIP):** Useful tools, scripts and utilites for managing your Plex server (Adjust Date Added, bulk edit watch status, generate unwatched content reports)
+- **Helpful Tools (WIP):** Useful tools, scripts and utilites for managing your Plex server (checkout the Tools section below)
 
 ## Screenshots
 <details>
@@ -141,6 +141,28 @@ Settings are stored in `data/config.yaml`. See [example.config.yaml](example.con
 
 All strategies respect `min_gap_rotations` to prevent collections from appearing too frequently.
 
+</details>
+
+## Tools & Utilities
+
+As this app as grown, so has the scope of tools and utilities I envision adding. Here you can find a list of current tools implemented on the Tools page, and a general overview of what they do. Do you have a Plex tool that you'd like to see added? I love adding requested features, so just open an issue here on Github, or ping me on our Discord server!
+
+<details>
+<summary><strong>Date Added Editor</strong></summary>
+
+Fix the "Date Added" timestamp on movies and shows that were redownloaded to your library. Choose from a custom date, 30 days ago, or match the media's original release date.
+</details>
+
+<details>
+<summary><strong>Watch History Cleaner</strong></summary>
+
+Mark TV shows as unwatched to fix issues with Plex's "Continue Watching" row. Useful when shows disappear from Continue Watching or you want to start a fresh rewatch.
+</details>
+
+<details>
+<summary><strong>Unwatched Report</strong></summary>
+
+Find content that's collecting dust in your library. Search for items that have never been watched or haven't been watched within a specified time period (30 days, 90 days, 6 months, etc.). Requires Tautulli integration. Export results to CSV for library cleanup decisions.
 </details>
 
 ## Docker Image Tags
