@@ -105,6 +105,8 @@ Store sensitive values in a `.env` file (copy from `.env.example`). These overri
 | `HSH_MDBLIST_API_KEY` | If MDBList enabled | [Get from MDBList](https://mdblist.com/preferences/) |
 | `HSH_TAUTULLI_API_KEY` | If Tautulli enabled | Found in Tautulli Settings → Web Interface → API |
 | `HSH_TAUTULLI_BASE_URL` | No | Defaults to `http://localhost:8181` |
+| `HSH_SEERR_API_KEY` | If Seerr enabled | Found in Seerr Settings → General |
+| `HSH_SEERR_BASE_URL` | No | Defaults to `http://localhost:5055` |
 
 <details>
 <summary><strong>Internal/Docker paths</strong></summary>
