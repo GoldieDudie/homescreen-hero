@@ -183,6 +183,4 @@ I'm not ashamed to use my cutie for free internet points! (she was also great mo
 
 Made with ❤️, 💧, and ☕ by [trentferguson](https://github.com/trentferguson)
 
-Made with love by [trentferguson](https://github.com/trentferguson)
-
 </div>
