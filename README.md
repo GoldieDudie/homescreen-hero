@@ -24,8 +24,9 @@ This app is very much a WORK IN PROGRESS. This started as a simple Python script
 - **First-Time Setup Wizard:** Get started in minutes without touching config files
 - **Web Dashboard:** Modern React UI for configuration, monitoring, and server insights
 - **Collection Management:** Create, edit, and delete collections from one place (Plex and third-party lists)
-- **3rd Party Integrations:** Create and sync collections from third-party lists (Trakt, Letterboxd, and MDBList)
+- **3rd Party List Integrations:** Create and sync collections from third-party lists (Trakt, Letterboxd, and MDBList)
 - **Tautulli Support:** Get insights on collection usage, user statistics, and more! All viewable from your homescreen-hero dashboard.
+- **Seerr Support (WIP):** View, approve, and request media directly from the homescreen-hero dashboard!
 - **Helpful Tools (WIP):** Useful tools, scripts and utilites for managing your Plex server (Adjust Date Added, bulk edit watch status, generate unwatched content reports)
 
 ## Screenshots
