@@ -72,42 +72,33 @@ This app is very much a WORK IN PROGRESS. This started as a simple Python script
 
 **Prerequisites:** [Docker](https://docs.docker.com/engine/install/), a running [Plex server](https://www.plex.tv/media-server-downloads/), and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)
 
+> **Security tip:** Want to keep secrets out of config files? Copy `.env.example` to `.env` and fill in your sensitive values *before* running the wizard. The wizard will automatically use your environment variables instead of writing them to config.yaml.
+
 ```bash
 git clone https://github.com/trentferguson/homescreen-hero.git
 cd homescreen-hero
 mkdir -p data
 docker-compose up -d
+Open http://localhost:8000 and the Setup Wizard will guide you through configuration.
 ```
-
-Open `http://localhost:8000` and the **Setup Wizard** will guide you through configuration.
-
-<details>
-<summary><strong>Manual Configuration (Advanced)</strong></summary>
-
-If you prefer to configure manually instead of using the wizard:
-
-1. Copy `.env.example` to `.env` and fill in your values (see Environment Variables below)
-2. Copy `example.config.yaml` to `data/config.yaml` and configure your settings
-3. Run `docker-compose up -d`
-
-</details>
 
 ## Environment Variables
 
 Store sensitive values in a `.env` file (copy from `.env.example`). These override any values in `config.yaml`.
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `HSH_PLEX_URL` | Yes | Your Plex server URL (e.g., `http://192.168.1.100:32400`) |
-| `HSH_PLEX_TOKEN` | Yes | Your Plex authentication token ([how to find](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)) |
-| `HSH_AUTH_PASSWORD` | If auth enabled | Password for web UI login |
-| `HSH_AUTH_SECRET_KEY` | If auth enabled | JWT secret (generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"`) |
-| `HSH_TRAKT_CLIENT_ID` | If Trakt enabled | [Get from Trakt](https://trakt.tv/oauth/applications) |
-| `HSH_MDBLIST_API_KEY` | If MDBList enabled | [Get from MDBList](https://mdblist.com/preferences/) |
-| `HSH_TAUTULLI_API_KEY` | If Tautulli enabled | Found in Tautulli Settings → Web Interface → API |
-| `HSH_TAUTULLI_BASE_URL` | No | Defaults to `http://localhost:8181` |
-| `HSH_SEERR_API_KEY` | If Seerr enabled | Found in Seerr Settings → General |
-| `HSH_SEERR_BASE_URL` | No | Defaults to `http://localhost:5055` |
+| Variable | Description | Required |
+|----------|-----------------|:-----------:|
+| `HSH_PORT` | Port you want homescreen-hero to run on (default: 8000) | Yes |
+| `HSH_PLEX_URL` | Your Plex server URL (e.g., `http://192.168.1.100:32400`) | Yes |
+| `HSH_PLEX_TOKEN` | Your Plex authentication token ([how to find](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)) | Yes |
+| `HSH_AUTH_PASSWORD` | Password for web UI login | If auth enabled |
+| `HSH_AUTH_SECRET_KEY` | JWT secret (generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"`) | If auth enabled |
+| `HSH_TRAKT_CLIENT_ID` | [Get from Trakt](https://trakt.tv/oauth/applications) | If Trakt enabled |
+| `HSH_MDBLIST_API_KEY` | [Get from MDBList](https://mdblist.com/preferences/) | If MDBList enabled |
+| `HSH_TAUTULLI_API_KEY` | Found in Tautulli Settings → Web Interface → API | If Tautulli enabled |
+| `HSH_TAUTULLI_BASE_URL` | Defaults to `http://localhost:8181` | No |
+| `HSH_SEERR_API_KEY` | Found in Seerr Settings → General | If Seerr enabled |
+| `HSH_SEERR_BASE_URL` | Defaults to `http://localhost:5055` | No |
 
 <details>
 <summary><strong>Internal/Docker paths</strong></summary>
