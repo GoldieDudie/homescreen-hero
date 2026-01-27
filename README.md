@@ -3,12 +3,13 @@
 
 [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Oxanium&size=36&pause=1000&color=F3B358&background=FFFFFF00&center=true&repeat=false&width=435&lines=homescreen-hero)](https://git.io/typing-svg)
 
-**A self-hosted web app for keeping your Plex home screen fresh and providing useful server tools and insights, all via a modern FastAPI + React dashboard.**
+**A self-hosted Plex companion app with homescreen management, server insights, and useful tools, all in a sleek web dashboard**
 
 ![Static Badge](https://img.shields.io/badge/Plex-%20Built%20for%20Plex-e5a00d?style=flat&logo=Plex)
 [![](https://dcbadge.limes.pink/api/server/https://discord.gg/yQ8pJzURsr?theme=default-inverted&style=flat&compact=true)](https://discord.gg/yQ8pJzURsr) ![Static Badge](https://img.shields.io/badge/Claude-vibecoded(ish)-%23D97757?style=flat&logo=Claude) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) ![GitHub Release](https://img.shields.io/github/v/release/trentferguson/homescreen-hero?logo=GitHub&color=%2327B63F)
 
 ## **[Try the Live Demo!](https://demo.homescreenhero.com)**
+*Note: The demo does not currently have the widget/dashboard drag-n-drop feature implemented (**yet!**)*
 
 </div>
 
@@ -16,22 +17,30 @@
 
 This app is very much a WORK IN PROGRESS. This started as a simple Python script to rotate my Plex homescreen, and slowly turned in to much, much more. I still have a lot of really cool things planned in the coming weeks, so stay tuned!
 
-**Important Note:** a good portion of this app is vibe-coded (especially the frontend). As a Data Engineer who originally went to school to become a full-stack developer, a big part of creating this app for myself was to get a true understanding of where AI Coding Agents stand today, and what exactly they can/cannot do. I got tired of the headlines/Reddit comments and figured this was the quickest way to the truth.
+**Important Note:** portions of this app is vibe-coded (especially the frontend). As a Data Engineer who originally went to school to become a full-stack developer, a big part of creating this app for myself was to get a true understanding of where AI Coding Agents stand today, and what exactly they can/cannot do. I got tired of the headlines/Reddit comments and figured this was the quickest way to the truth.
 
 ## Features
 
-- **Automated Collection Rotation:** Schedule collections to rotate on your Plex home screen at configurable intervals
+- **Web Dashboard:** Manage your Plex Server, curate your homescreen(s), and get useful analytics & insights all in one place!
+- **Automated Collection Rotation:** Schedule collections to rotate on your Plex home screen to constantly keep things fresh for all your users.
 - **First-Time Setup Wizard:** Get started in minutes without touching config files
-- **Web Dashboard:** Modern React UI for configuration, monitoring, and server insights
-- **Collection Management:** Create, edit, and delete collections from one place (Plex and third-party lists)
-- **3rd Party List Integrations:** Create and sync collections from third-party lists (Trakt, Letterboxd, and MDBList)
-- **Tautulli Support:** Get insights on collection usage, user statistics, and more! All viewable from your homescreen-hero dashboard.
-- **Seerr Support (WIP):** View, approve, and request media directly from the homescreen-hero dashboard!
-- **Helpful Tools (WIP):** Useful tools, scripts and utilites for managing your Plex server (checkout the Tools section below)
+- **3rd Party List Integrations:** Grow your library with curated lists from your favorite websites! Create/Sync collections from Trakt, Letterboxd, and MDBLists
+- **Widgets for your favorite apps:** Add widgets to your dashboard from popular self-hosted apps (Tautulli, Seerr, more to come!)
+- **Useful Tools (WIP):** Collection of tools, scripts and utilites for managing your Plex server (checkout the Tools section below)
 
-## Screenshots
+## See It In Action!
+
+### Dashboard & Widget System
 <details>
-<summary><strong>Check out screenshots of the homescreen-hero Dashboard UI</strong></summary>
+<summary><strong>Quick video demo of the homescreen-hero dashboard and widgets system</strong></summary>
+
+<video src="https://github.com/user-attachments/assets/74216471-acb2-4a67-812e-c2c640bede66" autoplay muted loop playsinline width="100%"></video>
+
+</details>
+
+### Screenshots
+<details>
+<summary><strong>Check out screenshots of the homescreen-hero UI</strong></summary>
 
 <table>
   <tr>
