@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Iterable, List, Set
+from typing import Any, Dict, Iterable, List, Set
 
 from plexapi.server import PlexServer
 
@@ -77,11 +77,13 @@ def cleanup_deleted_integration_sources(
     1. Identifies collections that were previously rotated but are no longer in:
        - Integration sources (Trakt/Letterboxd/MDBList)
        - Groups (manual collections or integration-backed collections)
+       - Pinned collections
     2. Deletes those collections from Plex
 
-    IMPORTANT: Collections that are still in groups will NEVER be deleted, even if
-    they have no integration source. This preserves manually created Plex collections
-    that users have added to their groups.
+    IMPORTANT: Collections are protected from deletion if they are:
+    - Still in groups (manual or integration-backed)
+    - Pinned by the user
+    This preserves manually created Plex collections and user-pinned collections.
 
     Args:
         server: PlexServer instance
@@ -123,19 +125,32 @@ def cleanup_deleted_integration_sources(
         for name in group.collections:
             group_collections.add(name)
 
+    # Get pinned collections - users explicitly want these preserved
+    from ..db import get_pinned_collection_names
+    pinned_collections = get_pinned_collection_names()
+
+    logger.info(f"Cleanup check - Previously rotated: {sorted(previously_rotated)}")
+    logger.info(f"Cleanup check - Integration sources: {sorted(current_integration_sources)}")
+    logger.info(f"Cleanup check - Group collections: {sorted(group_collections)}")
+    logger.info(f"Cleanup check - Pinned collections: {sorted(pinned_collections)}")
+
     # Find collections that were from integration sources but have been deleted
     # CRITICAL: Only delete collections if they meet ALL criteria:
     # 1. Previously rotated (in history)
     # 2. NOT in current integration sources (source was removed)
     # 3. NOT in current groups (not a manual collection)
+    # 4. NOT pinned by the user
     #
-    # If a collection is still in a group, it's either:
+    # If a collection is still in a group or pinned, it's either:
     # - A manual Plex collection that should be preserved
     # - An integration source that will be synced later
+    # - A collection the user explicitly pinned
     # Either way, we should NEVER delete it.
 
-    # Collections that were rotated but are no longer in integration sources OR groups
-    deleted_sources = previously_rotated - current_integration_sources - group_collections
+    # Collections that were rotated but are no longer protected
+    deleted_sources = previously_rotated - current_integration_sources - group_collections - pinned_collections
+
+    logger.info(f"Cleanup check - Will delete (not protected): {sorted(deleted_sources)}")
 
     deleted_from_plex = []
     orphaned_in_groups = []
@@ -146,7 +161,7 @@ def cleanup_deleted_integration_sources(
     logger.info("Checking for deleted integration sources to clean up...")
 
     if deleted_sources:
-        logger.info(f"Found {len(deleted_sources)} deleted integration sources to clean up")
+        logger.warning(f"DELETING {len(deleted_sources)} collections: {sorted(deleted_sources)}")
 
         for collection_name in sorted(deleted_sources):
             # These collections are no longer in config at all, safe to delete
@@ -251,7 +266,19 @@ def apply_home_screen_selection(
         dry_run,
     )
 
-    for name in sorted(all_names_to_process):
+    # Get pinned collections to ensure they come first in the applied order
+    from ..db import get_pinned_collections
+    pinned_collections = get_pinned_collections()
+    pinned_order = {p.collection_name: p.display_order for p in pinned_collections}
+    pinned_names = set(pinned_order.keys())
+
+    # Sort: pinned first (by pin order), then non-pinned (alphabetically)
+    def sort_key(name: str) -> tuple:
+        if name in pinned_names:
+            return (0, pinned_order[name], name)
+        return (1, 0, name)
+
+    for name in sorted(all_names_to_process, key=sort_key):
         coll = all_collections.get(name)
         if coll is None:
             # Collection not found in Plex - might have been deleted from Plex library
@@ -304,4 +331,88 @@ def apply_home_screen_selection(
     if dry_run:
         logger.info("Dry run — no changes were sent to Plex")
 
+    # Reorder collections on the homescreen to match the selection order
+    if applied and not dry_run:
+        reorder_homescreen_collections(server, config, applied)
+
     return applied
+
+
+def reorder_homescreen_collections(
+    server: PlexServer,
+    config: AppConfig,
+    ordered_collection_names: List[str],
+    *,
+    dry_run: bool = False,
+) -> List[str]:
+    # Reorder collections on the Plex homescreen using ManagedHub.move().
+    # Plex keeps libraries separate, so we reorder within each library.
+    enabled_libraries = [lib.name for lib in config.plex.libraries if lib.enabled]
+
+    # Build map: collection_name -> (ManagedHub, library_name)
+    hub_map: Dict[str, tuple[Any, str]] = {}
+    for library_name in enabled_libraries:
+        try:
+            library = server.library.section(library_name)
+            hubs = library.managedHubs()
+            for hub in hubs:
+                if hasattr(hub, "title"):
+                    hub_map[hub.title] = (hub, library_name)
+        except Exception as e:
+            logger.warning(
+                "Could not get managed hubs for library %s: %s", library_name, e
+            )
+
+    logger.debug("Found %d collections available for reordering", len(hub_map))
+
+    if dry_run:
+        logger.info("Dry run - would reorder collections: %s", ordered_collection_names)
+        return ordered_collection_names
+
+    # Group requested collections by library, preserving order within each library
+    library_orders: Dict[str, List[tuple[str, Any]]] = {}
+    for name in ordered_collection_names:
+        if name not in hub_map:
+            # Collection might be a built-in Plex hub (not a custom collection)
+            logger.debug("Skipping '%s' - not a custom collection or not found", name)
+            continue
+        hub, library_name = hub_map[name]
+        if library_name not in library_orders:
+            library_orders[library_name] = []
+        library_orders[library_name].append((name, hub))
+
+    # Reorder within each library
+    applied_order: List[str] = []
+    for library_name, collections in library_orders.items():
+        logger.debug("Reordering %d collections in '%s'", len(collections), library_name)
+
+        if len(collections) < 2:
+            for name, _ in collections:
+                applied_order.append(name)
+            continue
+
+        # Move first item to top, then position others relative to it
+        first_name, first_hub = collections[0]
+        try:
+            first_hub.move(after=None)
+            applied_order.append(first_name)
+            logger.debug("Moved '%s' to top", first_name)
+        except Exception as e:
+            logger.warning("Failed to move collection '%s': %s", first_name, e)
+            continue
+
+        # Move subsequent items after the previous one
+        prev_hub = first_hub
+        for name, hub in collections[1:]:
+            try:
+                hub.move(after=prev_hub)
+                applied_order.append(name)
+                logger.debug("Moved '%s' after '%s'", name, prev_hub.title)
+                prev_hub = hub
+            except Exception as e:
+                logger.warning("Failed to move collection '%s': %s", name, e)
+
+    if applied_order:
+        logger.info("Reordered %d collections on homescreen", len(applied_order))
+
+    return applied_order

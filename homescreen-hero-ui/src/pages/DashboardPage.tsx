@@ -1,5 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { DndContext, rectIntersection, DragOverlay } from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent, DragOverEvent } from "@dnd-kit/core";
+import { Lock, Unlock, ChevronDown } from "lucide-react";
 import type { ActiveCollection } from "../components/ActiveCollectionsCard";
+import { DraggableWidget, DroppableSection, EditModeBanner } from "../components/dashboard";
+import { widgetRegistry } from "../widgets/registry";
 import ActiveCollectionsCard from "../components/ActiveCollectionsCard";
 import AnalyticsCard from "../components/AnalyticsCard";
 import MostActiveUsersCard from "../components/MostActiveUsersCard";
@@ -13,6 +18,7 @@ import SeerrCarouselCard from "../components/SeerrCarouselCard";
 import Toast from "../components/Toast";
 import { timeAgo } from "../utils/dates";
 import { fetchWithAuth } from "../utils/api";
+import { useDashboardLayout } from "../hooks/useDashboardLayout";
 
 type RotationHistoryItem = {
     id: number;
@@ -77,8 +83,8 @@ export default function Dashboard() {
 
     const [activeCollections, setActiveCollections] = useState<ActiveCollection[]>([]);
     const [activeLoading, setActiveLoading] = useState(true);
-    const [lastHealthCheck, setLastHealthCheck] = useState<number | null>(null);
-    const [tautulliEnabled, setTautulliEnabled] = useState<boolean | null>(null);
+    const [tautulliEnabled, setTautulliEnabled] = useState<boolean>(false);
+    const [seerrEnabled, setSeerrEnabled] = useState<boolean>(false);
     const [schedulerStatus, setSchedulerStatus] = useState<{
         enabled: boolean;
         interval_hours: number;
@@ -86,6 +92,69 @@ export default function Dashboard() {
         is_running: boolean;
     } | null>(null);
     const [currentTime, setCurrentTime] = useState(Date.now());
+    const [rotationDropdownOpen, setRotationDropdownOpen] = useState(false);
+    const rotationDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Dashboard layout customization
+    const {
+        visibilityMap,
+        visibleStatusBarWidgets,
+        visibleMainWidgets,
+        toggleVisibility,
+        isWidgetAvailable,
+        isEditMode,
+        toggleEditMode,
+        reorderStatusBarWidgets,
+        reorderMainWidgets,
+    } = useDashboardLayout({ tautulli: tautulliEnabled, seerr: seerrEnabled });
+
+    // Compute hidden widgets for the "Add Widget" dropdown
+    const hiddenWidgets = useMemo(() => {
+        return Object.values(widgetRegistry)
+            .filter((widget) => !visibilityMap[widget.id])
+            .map((widget) => ({
+                id: widget.id,
+                name: widget.name,
+                description: widget.description,
+                available: isWidgetAvailable(widget.id),
+            }));
+    }, [visibilityMap, isWidgetAvailable]);
+
+    // Track which widget is being dragged for overlay
+    const [activeId, setActiveId] = useState<string | null>(null);
+
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(String(event.active.id));
+    };
+
+    // Handle drag over for real-time reordering preview
+    const handleDragOver = (event: DragOverEvent) => {
+        const { active, over } = event;
+
+        if (!over || active.id === over.id) return;
+
+        const draggedId = String(active.id);
+        const overId = String(over.id);
+
+        // Only reorder within the same section
+        const activeWidget = widgetRegistry[draggedId];
+        const overWidget = widgetRegistry[overId];
+
+        if (!activeWidget || !overWidget) return;
+        if (activeWidget.section !== overWidget.section) return;
+
+        // Reorder during drag for real-time preview
+        if (activeWidget.section === "status-bar") {
+            reorderStatusBarWidgets(draggedId, overId);
+        } else {
+            reorderMainWidgets(draggedId, overId);
+        }
+    };
+
+    // Handle drag end - just clear the active state
+    const handleDragEnd = (_event: DragEndEvent) => {
+        setActiveId(null);
+    };
 
     const plex = health.plex;
 
@@ -124,7 +193,6 @@ export default function Dashboard() {
                 timestamp: Date.now(),
             };
             localStorage.setItem(HEALTH_CACHE_KEY, JSON.stringify(cache));
-            setLastHealthCheck(Date.now());
         } catch {
             // Ignore cache save errors
         }
@@ -136,7 +204,6 @@ export default function Dashboard() {
             const cached = loadHealthFromCache();
             if (cached) {
                 setHealth(cached.data);
-                setLastHealthCheck(cached.timestamp);
                 setHealthLoading(false);
                 return;
             }
@@ -210,10 +277,26 @@ export default function Dashboard() {
         }
     };
 
+    const loadSeerrConfig = async () => {
+        try {
+            const response = await fetchWithAuth("/api/admin/config/seerr");
+            if (response.ok) {
+                const config = await response.json();
+                setSeerrEnabled(config.enabled ?? false);
+            } else {
+                setSeerrEnabled(false);
+            }
+        } catch (e) {
+            console.error("Failed to load Seerr config:", e);
+            setSeerrEnabled(false);
+        }
+    };
+
     useEffect(() => {
         void loadActiveCollections();
         void loadSchedulerStatus();
         void loadTautulliConfig();
+        void loadSeerrConfig();
     }, []);
 
     // Update current time every second for live countdown
@@ -224,10 +307,6 @@ export default function Dashboard() {
 
         return () => clearInterval(interval);
     }, []);
-
-    const refreshHealth = async () => {
-        await loadHealth(true);
-    };
 
     const refresh = () => {
         setError(null);
@@ -249,6 +328,17 @@ export default function Dashboard() {
         refresh();
     }, []);
 
+    // Close rotation dropdown when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (rotationDropdownRef.current && !rotationDropdownRef.current.contains(event.target as Node)) {
+                setRotationDropdownOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
     const rotationItems = history.map((record) => {
         const { featured_collections } = record;
 
@@ -258,10 +348,12 @@ export default function Dashboard() {
         }
 
         return {
+            id: record.id,
             created_at: record.created_at,
             success: record.success,
             summary,
             error_message: record.error_message,
+            featured_collections: featured_collections ?? [],
         };
     });
 
@@ -363,6 +455,68 @@ export default function Dashboard() {
         }
     }
 
+    // Render individual widgets based on ID
+    const renderWidget = (widgetId: string) => {
+        switch (widgetId) {
+            case "plex-health":
+                return (
+                    <HealthCard
+                        key={widgetId}
+                        title="Plex"
+                        ok={plex?.ok}
+                        loading={!plex && healthLoading}
+                        subtitleOk="Online"
+                        subtitleBad="Offline"
+                        detail={
+                            !plex && healthLoading
+                                ? "Checking health…"
+                                : plex?.ok
+                                    ? plexDetail
+                                    : plex?.error ?? "Connection failed"
+                        }
+                        icon={
+                            <img src="/plex_icon_white.png" alt="Plex" className="w-12 h-12 object-contain" />
+                        }
+                    />
+                );
+            case "active-streams":
+                return <ActiveStreamsCard key={widgetId} loading={healthLoading} />;
+            case "integrations-health":
+                return <IntegrationsHealthCard key={widgetId} loading={healthLoading} />;
+            case "rotation-status":
+                return (
+                    <RotationStatusCard
+                        key={widgetId}
+                        enabled={schedulerStatus?.enabled ?? false}
+                        nextRunTime={schedulerStatus?.next_run_time ?? null}
+                        loading={schedulerStatus === null}
+                        currentTime={currentTime}
+                    />
+                );
+            case "active-collections":
+                return <ActiveCollectionsCard key={widgetId} collections={activeCollections} loading={activeLoading} />;
+            case "analytics":
+                return <AnalyticsCard key={widgetId} loading={healthLoading} />;
+            case "most-active-users":
+                return <MostActiveUsersCard key={widgetId} loading={healthLoading} />;
+            case "graph-carousel":
+                return <GraphCarouselCard key={widgetId} loading={healthLoading} />;
+            case "recent-rotations":
+                return (
+                    <RecentRotationsCard
+                        key={widgetId}
+                        items={rotationItems}
+                        lastRun={lastRun}
+                        loading={historyLoading}
+                        formatTimeAgo={timeAgo}
+                    />
+                );
+            case "seerr-carousel":
+                return <SeerrCarouselCard key={widgetId} loading={healthLoading} />;
+            default:
+                return null;
+        }
+    };
 
     return (
         <>
@@ -497,7 +651,7 @@ export default function Dashboard() {
                 </div>
             ) : null}
 
-            <div className="max-w-8xl mx-auto flex flex-col gap-8">
+            <div className="max-w-8xl mx-auto flex flex-col gap-4">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div className="flex flex-col gap-1.5">
@@ -509,20 +663,15 @@ export default function Dashboard() {
 
                     <div className="flex gap-3 flex-wrap">
                         <button
-                            onClick={refreshHealth}
-                            disabled={healthLoading}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium transition-all duration-200 active:scale-95 disabled:opacity-60"
-                            title={lastHealthCheck ? `Last checked: ${new Date(lastHealthCheck).toLocaleTimeString()}` : undefined}
+                            onClick={toggleEditMode}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 active:scale-95 ${
+                                isEditMode
+                                    ? "border-amber-500/50 bg-amber-500/10 text-amber-400"
+                                    : "border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300"
+                            }`}
+                            title={isEditMode ? "Lock dashboard" : "Edit layout"}
                         >
-                            {healthLoading ? "Checking…" : "Refresh Health"}
-                        </button>
-
-                        <button
-                            onClick={simulateRotation}
-                            disabled={busy !== null}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium transition-all duration-200 active:scale-95 disabled:opacity-60"
-                        >
-                            {busy === "simulate" ? "Simulating…" : "Simulate Rotation"}
+                            {isEditMode ? <Unlock size={18} /> : <Lock size={18} />}
                         </button>
 
                         <button
@@ -533,13 +682,39 @@ export default function Dashboard() {
                             {busy === "sync" ? "Syncing…" : "Sync All Lists"}
                         </button>
 
-                        <button
-                            onClick={forceRunRotation}
-                            disabled={busy !== null}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white shadow-lg shadow-primary/30 hover:shadow-primary/40 text-sm font-bold transition-all duration-200 active:scale-95 disabled:opacity-60"
-                        >
-                            {busy === "sync" ? "Running…" : "Run Rotation Now"}
-                        </button>
+                        {/* Split button for Run Rotation */}
+                        <div className="relative" ref={rotationDropdownRef}>
+                            <div className="flex">
+                                <button
+                                    onClick={forceRunRotation}
+                                    disabled={busy !== null}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-l-lg bg-primary hover:bg-blue-600 text-white shadow-lg shadow-primary/30 hover:shadow-primary/40 text-sm font-bold transition-all duration-200 active:scale-95 disabled:opacity-60"
+                                >
+                                    {busy === "apply" ? "Running…" : "Run Rotation Now"}
+                                </button>
+                                <button
+                                    onClick={() => setRotationDropdownOpen(!rotationDropdownOpen)}
+                                    disabled={busy !== null}
+                                    className="flex items-center px-2 py-2 rounded-r-lg bg-primary hover:bg-blue-600 text-white shadow-lg shadow-primary/30 hover:shadow-primary/40 border-l border-blue-400/30 transition-all duration-200 active:scale-95 disabled:opacity-60"
+                                >
+                                    <ChevronDown size={16} className={`transition-transform ${rotationDropdownOpen ? "rotate-180" : ""}`} />
+                                </button>
+                            </div>
+                            {rotationDropdownOpen && (
+                                <div className="absolute right-0 top-full mt-2 w-48 rounded-lg bg-slate-800 border border-slate-700 shadow-xl z-50 overflow-hidden">
+                                    <button
+                                        onClick={() => {
+                                            simulateRotation();
+                                            setRotationDropdownOpen(false);
+                                        }}
+                                        disabled={busy !== null}
+                                        className="w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-colors disabled:opacity-60"
+                                    >
+                                        {busy === "simulate" ? "Simulating…" : "Simulate Rotation"}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -550,68 +725,70 @@ export default function Dashboard() {
                     </pre>
                 ) : null}
 
-                {/* Health Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <HealthCard
-                        title="Plex"
-                        ok={plex?.ok}
-                        loading={!plex && healthLoading}
-                        subtitleOk="Online"
-                        subtitleBad="Offline"
-                        detail={
-                            !plex && healthLoading
-                                ? "Checking health…"
-                                : plex?.ok
-                                    ? plexDetail
-                                    : plex?.error ?? "Connection failed"
-                        }
-                        icon={
-                            <img src="/plex_icon_white.png" alt="Plex" className="w-12 h-12 object-contain" />
-                        }
-                    />
-
-                    <ActiveStreamsCard loading={healthLoading} />
-
-                    <IntegrationsHealthCard loading={healthLoading} />
-
-                    <RotationStatusCard
-                        enabled={schedulerStatus?.enabled ?? false}
-                        nextRunTime={schedulerStatus?.next_run_time ?? null}
-                        loading={schedulerStatus === null}
-                        currentTime={currentTime}
-                    />
-
-                    {/* Active Collections */}
-                    <div className="col-span-full w-full">
-                        <ActiveCollectionsCard collections={activeCollections} loading={activeLoading} />
-                    </div>
-
-                    {/* Analytics - only show when Tautulli is enabled */}
-                    {tautulliEnabled && (
-                        <>
-                            <AnalyticsCard loading={healthLoading} />
-                            <MostActiveUsersCard loading={healthLoading} />
-                            <div className="sm:col-span-2">
-                                <GraphCarouselCard loading={healthLoading} />
-                            </div>
-                        </>
+                <DndContext
+                    collisionDetection={rectIntersection}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd}
+                >
+                    {/* Edit mode banner */}
+                    {isEditMode && (
+                        <EditModeBanner
+                            hiddenWidgets={hiddenWidgets}
+                            onAddWidget={toggleVisibility}
+                        />
                     )}
-                </div>
 
-                {/* Recent Rotations + Seerr Requests - Half Width */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <RecentRotationsCard
-                        items={rotationItems}
-                        lastRun={lastRun}
-                        loading={historyLoading}
-                        formatTimeAgo={timeAgo}
-                    />
-                    <SeerrCarouselCard loading={healthLoading} />
-                </div>
+                    {/* Status Bar - always 4 columns for 1x1 health widgets */}
+                    {visibleStatusBarWidgets.length > 0 && (
+                        <DroppableSection id="status-bar" items={visibleStatusBarWidgets}>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {visibleStatusBarWidgets.map((widgetId) => (
+                                    <DraggableWidget
+                                        key={widgetId}
+                                        id={widgetId}
+                                        isEditMode={isEditMode}
+                                        onHide={() => toggleVisibility(widgetId)}
+                                    >
+                                        {renderWidget(widgetId)}
+                                    </DraggableWidget>
+                                ))}
+                            </div>
+                        </DroppableSection>
+                    )}
+
+                    {/* Main Widget Grid */}
+                    {visibleMainWidgets.length > 0 && (
+                        <DroppableSection id="main" items={visibleMainWidgets}>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {visibleMainWidgets.map((widgetId) => (
+                                    <DraggableWidget
+                                        key={widgetId}
+                                        id={widgetId}
+                                        isEditMode={isEditMode}
+                                        colSpan={widgetRegistry[widgetId]?.colSpan}
+                                        onHide={() => toggleVisibility(widgetId)}
+                                    >
+                                        {renderWidget(widgetId)}
+                                    </DraggableWidget>
+                                ))}
+                            </div>
+                        </DroppableSection>
+                    )}
+
+                    {/* Drag overlay for smooth visual feedback */}
+                    <DragOverlay>
+                        {activeId ? (
+                            <div className="opacity-90 shadow-2xl rounded-xl">
+                                {renderWidget(activeId)}
+                            </div>
+                        ) : null}
+                    </DragOverlay>
+                </DndContext>
 
                 {/* Footer */}
                 <div className="border-t border-slate-200 dark:border-slate-800 mt-4 pt-6 flex flex-col md:flex-row justify-between items-center text-xs text-slate-500 dark:text-slate-500">
-                    <p>© {new Date().getFullYear()} HomeScreen Hero</p>
+                    <p>© {new Date().getFullYear()} homescreen-hero </p>
                     <div className="flex gap-4 mt-2 md:mt-0">
                         <button onClick={refresh} className="hover:text-slate-800 dark:hover:text-slate-300 transition-colors">
                             Refresh
