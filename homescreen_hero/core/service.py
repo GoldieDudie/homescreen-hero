@@ -13,7 +13,6 @@ from .integrations import (
     apply_home_screen_selection,
 )
 from .integrations.plex_client import cleanup_deleted_integration_sources
-
 from .config.loader import load_config
 from .config.schema import AppConfig, RotationExecution, RotationResult
 from .rotation import run_rotation_with_history, build_collection_visibility_map
@@ -24,6 +23,7 @@ from .db import (
     create_simulation,
     get_simulation_by_id,
     mark_simulation_applied,
+    get_pinned_collection_names,
 )
 
 
@@ -94,10 +94,11 @@ def run_rotation_once(
     # Connect to Plex
     server = get_plex_server(config)
 
-    # Clean up deleted integration sources (removes collections from Plex)
-    cleanup_result = cleanup_deleted_integration_sources(server, config)
-    if cleanup_result['deleted_from_plex']:
-        logger.info(f"Cleaned up {len(cleanup_result['deleted_from_plex'])} deleted integration sources from Plex")
+    # DISABLED: Auto-cleanup was too aggressive and deleting user's collections
+    # TODO: Redesign cleanup to only delete collections that HSH created (not native Plex collections)
+    # cleanup_result = cleanup_deleted_integration_sources(server, config)
+    # if cleanup_result['deleted_from_plex']:
+    #     logger.info(f"Cleaned up {len(cleanup_result['deleted_from_plex'])} deleted integration sources from Plex")
 
     # Determine sync strategy based on config
     if config.rotation.sync_all_on_rotation:
@@ -110,10 +111,12 @@ def run_rotation_once(
         # First, select collections to determine which ones need syncing
         logger.info("Selective sync mode: will only sync collections selected for rotation")
         max_rotation_id, usage_map = get_rotation_history_context()
+        pinned_names = get_pinned_collection_names()
         rotation_result = run_rotation_with_history(
             config,
             max_rotation_id=max_rotation_id,
             usage_map=usage_map,
+            pinned_names=pinned_names,
         )
 
         # Now sync only the selected collections
@@ -122,14 +125,21 @@ def run_rotation_once(
     # If we did a full sync, now select collections
     if config.rotation.sync_all_on_rotation:
         max_rotation_id, usage_map = get_rotation_history_context()
+        pinned_names = get_pinned_collection_names()
         rotation_result = run_rotation_with_history(
             config,
             max_rotation_id=max_rotation_id,
             usage_map=usage_map,
+            pinned_names=pinned_names,
         )
 
     # Build visibility map from group settings
     collection_visibility = build_collection_visibility_map(config)
+
+    # Add pinned collection visibility (overrides group settings for pinned collections)
+    from .db import get_pinned_visibility_map
+    pinned_visibility = get_pinned_visibility_map()
+    collection_visibility.update(pinned_visibility)
 
     # Apply the selection (or simulate if dry_run=True)
     applied = apply_home_screen_selection(
@@ -195,10 +205,13 @@ def simulate_rotation_once(
 
     logger.info("Simulating next rotation (no Plex write, no history write)")
 
+    pinned_names = get_pinned_collection_names()
+
     rotation_result = run_rotation_with_history(
         config,
         max_rotation_id=max_rotation_id,
         usage_map=usage_map,
+        pinned_names=pinned_names,
     )
 
     simulation_id = create_simulation(rotation_result)
@@ -283,6 +296,12 @@ def apply_simulation(
     # Apply collections to Plex
     server = get_plex_server(config)
     collection_visibility = build_collection_visibility_map(config)
+
+    # Add pinned collection visibility (overrides group settings for pinned collections)
+    from .db import get_pinned_visibility_map
+    pinned_visibility = get_pinned_visibility_map()
+    collection_visibility.update(pinned_visibility)
+
     applied = apply_home_screen_selection(
         server,
         config,

@@ -1,9 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../utils/api";
-import { RefreshCw, Plus, X, Search, Trash2, Check, ChevronDown, ArrowUpAZ, ArrowDownAZ, Edit, Image } from "lucide-react";
+import { RefreshCw, Plus, Search, Trash2, Check, ChevronDown, ArrowUpAZ, ArrowDownAZ, Edit, Image, Pin, Home, Users, Star } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "../components/ui/popover";
 import { Listbox } from "@headlessui/react";
 import Toast from "../components/Toast";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogCloseButton,
+    DialogFooter,
+} from "../components/ui/dialog";
 
 type Collection = {
     title: string;
@@ -36,6 +46,221 @@ type CollectionsCache = {
     version: number;
 };
 
+type VisibilityOptions = {
+    home: boolean;
+    shared: boolean;
+    recommended: boolean;
+};
+
+// Collection card component with pin popover
+function CollectionCard({
+    collection,
+    index,
+    isPinned,
+    isPinning,
+    onPinWithVisibility,
+    onUnpin,
+    onClick,
+    onEdit,
+    onDelete,
+}: {
+    collection: Collection;
+    index: number;
+    isPinned: boolean;
+    isPinning: boolean;
+    onPinWithVisibility: (visibility: VisibilityOptions) => void;
+    onUnpin: () => void;
+    onClick: () => void;
+    onEdit: (e: React.MouseEvent) => void;
+    onDelete: (e: React.MouseEvent) => void;
+}) {
+    const [popoverOpen, setPopoverOpen] = useState(false);
+    const [visibility, setVisibility] = useState<VisibilityOptions>({
+        home: true,
+        shared: false,
+        recommended: false,
+    });
+
+    const handlePin = () => {
+        onPinWithVisibility(visibility);
+        setPopoverOpen(false);
+    };
+
+    const handleUnpin = () => {
+        onUnpin();
+        setPopoverOpen(false);
+    };
+
+    const handleOpenChange = (open: boolean) => {
+        if (open) {
+            setVisibility({ home: true, shared: false, recommended: false });
+        }
+        setPopoverOpen(open);
+    };
+
+    return (
+        <button
+            key={`${collection.library}-${collection.title}`}
+            onClick={onClick}
+            className="group relative rounded-xl overflow-hidden border border-slate-800/60 bg-slate-900/50 shadow-md hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-1 transition-all duration-300 animate-slide-up text-left"
+            style={{ animationDelay: `${index * 0.03}s` }}
+        >
+            {/* Poster Image */}
+            <div className="aspect-[2/3] bg-slate-800 relative overflow-hidden">
+                {collection.poster_url ? (
+                    <img
+                        src={collection.poster_url}
+                        alt={collection.title}
+                        className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                        loading="lazy"
+                    />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-600">
+                        No Poster
+                    </div>
+                )}
+
+                {/* Edit Button (shown on hover, top-left) */}
+                <button
+                    onClick={onEdit}
+                    className="absolute top-2 left-2 p-2 bg-primary/70 hover:bg-primary/90 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    title="Edit collection"
+                >
+                    <Edit size={16} />
+                </button>
+
+                {/* Item Count Badge Overlay */}
+                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-900/60 text-slate-300 border border-slate-700/50 backdrop-blur-sm">
+                        {collection.item_count} items
+                    </span>
+                </div>
+
+                {/* Active Badge Overlay */}
+                {collection.is_active && (
+                    <div className="absolute bottom-2 left-2">
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-emerald-900/70 text-emerald-400 border border-emerald-800/50 backdrop-blur-sm">
+                            Active
+                        </span>
+                    </div>
+                )}
+            </div>
+
+            {/* Action Buttons (shown on hover, top-right) */}
+            <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                {/* Pin Button with Popover */}
+                <Popover open={popoverOpen} onOpenChange={handleOpenChange}>
+                    <PopoverTrigger asChild>
+                        <button
+                            disabled={isPinning}
+                            className={`p-2 rounded-lg transition-colors ${
+                                isPinned
+                                    ? "bg-primary/80 hover:bg-primary text-white"
+                                    : "bg-slate-800/70 hover:bg-slate-700/90 text-slate-300"
+                            } disabled:opacity-50`}
+                            title={isPinned ? "Edit pin settings" : "Pin to home"}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <Pin size={16} className={isPinned ? "fill-current" : ""} />
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                        align="end"
+                        className="w-44 p-2.5 bg-slate-900/90 backdrop-blur-md border-slate-700/50"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="space-y-1.5">
+                            {/* My Home checkbox */}
+                            <label className="flex items-center gap-2 px-1.5 py-1 rounded-md cursor-pointer hover:bg-white/5 transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={visibility.home}
+                                    onChange={(e) => setVisibility(v => ({ ...v, home: e.target.checked }))}
+                                    className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-800/50 text-primary focus:ring-1 focus:ring-primary/50 focus:ring-offset-0"
+                                />
+                                <Home size={12} className="text-slate-500" />
+                                <span className="text-xs text-slate-300">My Home</span>
+                            </label>
+
+                            {/* Shared checkbox */}
+                            <label className="flex items-center gap-2 px-1.5 py-1 rounded-md cursor-pointer hover:bg-white/5 transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={visibility.shared}
+                                    onChange={(e) => setVisibility(v => ({ ...v, shared: e.target.checked }))}
+                                    className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-800/50 text-primary focus:ring-1 focus:ring-primary/50 focus:ring-offset-0"
+                                />
+                                <Users size={12} className="text-slate-500" />
+                                <span className="text-xs text-slate-300">Shared</span>
+                            </label>
+
+                            {/* Recommended checkbox */}
+                            <label className="flex items-center gap-2 px-1.5 py-1 rounded-md cursor-pointer hover:bg-white/5 transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={visibility.recommended}
+                                    onChange={(e) => setVisibility(v => ({ ...v, recommended: e.target.checked }))}
+                                    className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-800/50 text-primary focus:ring-1 focus:ring-primary/50 focus:ring-offset-0"
+                                />
+                                <Star size={12} className="text-slate-500" />
+                                <span className="text-xs text-slate-300">Recommended</span>
+                            </label>
+
+                            <div className="pt-1.5 flex gap-1.5">
+                                {isPinned ? (
+                                    <>
+                                        <button
+                                            onClick={handleUnpin}
+                                            disabled={isPinning}
+                                            className="flex-1 px-2 py-1 text-[10px] font-medium rounded-md border border-slate-600/50 text-slate-400 hover:bg-slate-800/50 hover:text-white transition-colors disabled:opacity-50"
+                                        >
+                                            Unpin
+                                        </button>
+                                        <button
+                                            onClick={handlePin}
+                                            disabled={isPinning || (!visibility.home && !visibility.shared && !visibility.recommended)}
+                                            className="flex-1 px-2 py-1 text-[10px] font-medium rounded-md bg-primary/90 hover:bg-primary text-white transition-colors disabled:opacity-50"
+                                        >
+                                            Update
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button
+                                        onClick={handlePin}
+                                        disabled={isPinning || (!visibility.home && !visibility.shared && !visibility.recommended)}
+                                        className="w-full px-2 py-1 text-[10px] font-medium rounded-md bg-primary/90 hover:bg-primary text-white transition-colors disabled:opacity-50"
+                                    >
+                                        Pin
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+
+                {/* Delete Button */}
+                <button
+                    onClick={onDelete}
+                    className="p-2 bg-red-600/70 hover:bg-red-600/90 text-white rounded-lg"
+                    title="Delete collection"
+                >
+                    <Trash2 size={16} />
+                </button>
+            </div>
+
+            {/* Collection Info */}
+            <div className="p-3">
+                <h3 className="text-white font-medium text-sm truncate text-center">
+                    {collection.title}
+                </h3>
+                <p className="text-slate-400 text-xs text-center mt-1">
+                    {collection.library}
+                </p>
+            </div>
+        </button>
+    );
+}
+
 export default function CollectionsPage() {
     const [collections, setCollections] = useState<Collection[]>([]);
     const [loading, setLoading] = useState(true);
@@ -46,6 +271,10 @@ export default function CollectionsPage() {
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
     const [lastCacheCheck, setLastCacheCheck] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+    // Pinned collections
+    const [pinnedCollections, setPinnedCollections] = useState<Set<string>>(new Set());
+    const [pinningCollection, setPinningCollection] = useState<string | null>(null);
 
     // Create collection modal
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -79,6 +308,7 @@ export default function CollectionsPage() {
 
     useEffect(() => {
         loadCollections();
+        loadPinnedCollections();
     }, []);
 
     // Debounce collections search
@@ -119,6 +349,94 @@ export default function CollectionsPage() {
             setToast({ message: "Failed to load available libraries", type: "error" });
         } finally {
             setLoadingLibraries(false);
+        }
+    };
+
+    const loadPinnedCollections = async () => {
+        try {
+            const response = await fetchWithAuth("/api/collections/pinned");
+            const data = await response.json();
+            const pinnedNames = new Set<string>(data.pinned.map((p: { collection_name: string }) => p.collection_name));
+            setPinnedCollections(pinnedNames);
+        } catch (err) {
+            console.error("Failed to load pinned collections:", err);
+        }
+    };
+
+    const handlePinWithVisibility = async (collection: Collection, visibility: VisibilityOptions) => {
+        setPinningCollection(collection.title);
+
+        // Optimistic update
+        const newPinned = new Set(pinnedCollections);
+        newPinned.add(collection.title);
+        setPinnedCollections(newPinned);
+
+        try {
+            const response = await fetchWithAuth("/api/collections/toggle-pin", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    collection_name: collection.title,
+                    library: collection.library,
+                    home: visibility.home,
+                    shared: visibility.shared,
+                    recommended: visibility.recommended,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setToast({ message: "Collection pinned to home", type: "success" });
+            } else {
+                setPinnedCollections(pinnedCollections);
+                setToast({ message: data.message || "Failed to pin collection", type: "error" });
+            }
+        } catch (err) {
+            setPinnedCollections(pinnedCollections);
+            setToast({
+                message: err instanceof Error ? err.message : "Failed to pin collection",
+                type: "error",
+            });
+        } finally {
+            setPinningCollection(null);
+        }
+    };
+
+    const handleUnpin = async (collection: Collection) => {
+        setPinningCollection(collection.title);
+
+        // Optimistic update
+        const newPinned = new Set(pinnedCollections);
+        newPinned.delete(collection.title);
+        setPinnedCollections(newPinned);
+
+        try {
+            const response = await fetchWithAuth("/api/collections/toggle-pin", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    collection_name: collection.title,
+                    library: collection.library,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setToast({ message: "Collection unpinned", type: "success" });
+            } else {
+                setPinnedCollections(pinnedCollections);
+                setToast({ message: data.message || "Failed to unpin collection", type: "error" });
+            }
+        } catch (err) {
+            setPinnedCollections(pinnedCollections);
+            setToast({
+                message: err instanceof Error ? err.message : "Failed to unpin collection",
+                type: "error",
+            });
+        } finally {
+            setPinningCollection(null);
         }
     };
 
@@ -678,458 +996,410 @@ export default function CollectionsPage() {
                 ) : (
                     <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                         {filteredCollections.map((collection, index) => (
-                            <button
+                            <CollectionCard
                                 key={`${collection.library}-${collection.title}`}
+                                collection={collection}
+                                index={index}
+                                isPinned={pinnedCollections.has(collection.title)}
+                                isPinning={pinningCollection === collection.title}
+                                onPinWithVisibility={(visibility) => handlePinWithVisibility(collection, visibility)}
+                                onUnpin={() => handleUnpin(collection)}
                                 onClick={() => handleCollectionClick(collection)}
-                                className="group relative rounded-xl overflow-hidden border border-slate-800/60 bg-slate-900/50 shadow-md hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-1 transition-all duration-300 animate-slide-up"
-                                style={{ animationDelay: `${index * 0.03}s` }}
-                            >
-                                {/* Poster Image */}
-                                <div className="aspect-[2/3] bg-slate-800 relative overflow-hidden">
-                                    {collection.poster_url ? (
-                                        <img
-                                            src={collection.poster_url}
-                                            alt={collection.title}
-                                            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                                            loading="lazy"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-slate-600">
-                                            No Poster
-                                        </div>
-                                    )}
-
-                                    {/* Edit Button (shown on hover, top-left) */}
-                                    <button
-                                        onClick={(e) => openQuickEditModal(collection, e)}
-                                        className="absolute top-2 left-2 p-2 bg-primary/70 hover:bg-primary/90 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                        title="Edit collection"
-                                    >
-                                        <Edit size={16} />
-                                    </button>
-
-                                    {/* Item Count Badge Overlay */}
-                                    <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-900/60 text-slate-300 border border-slate-700/50 backdrop-blur-sm">
-                                            {collection.item_count} items
-                                        </span>
-                                    </div>
-
-                                    {/* Active Badge Overlay */}
-                                    {collection.is_active && (
-                                        <div className="absolute bottom-2 left-2">
-                                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-emerald-900/70 text-emerald-400 border border-emerald-800/50 backdrop-blur-sm">
-                                                Active
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Delete Button (shown on hover, top-right) */}
-                                <button
-                                    onClick={(e) => handleDeleteCollection(collection.library, collection.title, e)}
-                                    className="absolute top-2 right-2 p-2 bg-red-600/70 hover:bg-red-600/90 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                    title="Delete collection"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-
-                                {/* Collection Info */}
-                                <div className="p-3">
-                                    <h3 className="text-white font-medium text-sm truncate text-center">
-                                        {collection.title}
-                                    </h3>
-                                    <p className="text-slate-400 text-xs text-center mt-1">
-                                        {collection.library}
-                                    </p>
-                                </div>
-                            </button>
+                                onEdit={(e) => openQuickEditModal(collection, e)}
+                                onDelete={(e) => handleDeleteCollection(collection.library, collection.title, e)}
+                            />
                         ))}
                     </div>
                 )}
             </div>
 
             {/* Quick Edit Modal */}
-            {showQuickEditModal && editingCollection && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-[60] animate-in fade-in duration-200">
-                    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800/80 rounded-2xl shadow-2xl max-w-3xl w-full animate-in zoom-in-95 duration-300">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between p-6 border-b border-slate-800/80">
-                            <h2 className="text-xl font-bold text-white">Edit Collection Details</h2>
-                            <button
-                                onClick={closeQuickEditModal}
-                                className="text-slate-400 hover:text-white transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
+            <Dialog open={showQuickEditModal && editingCollection !== null} onOpenChange={(isOpen) => !isOpen && closeQuickEditModal()}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <div className="flex flex-col gap-1">
+                            <DialogTitle>Edit Collection Details</DialogTitle>
+                            <DialogDescription>
+                                Update the title, summary, or poster for this collection
+                            </DialogDescription>
                         </div>
+                        <DialogCloseButton />
+                    </DialogHeader>
 
-                        {/* Modal Content */}
-                        <div className="p-6">
-                            <div className="grid grid-cols-[200px_1fr] gap-6">
-                                {/* Left Column - Poster Preview */}
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
-                                        Cover Poster
-                                    </label>
+                    {/* Modal Content */}
+                    <div className="p-6">
+                        <div className="grid grid-cols-[200px_1fr] gap-6">
+                            {/* Left Column - Poster Preview */}
+                            <div>
+                                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
+                                    Cover Poster
+                                </label>
 
-                                    {/* Poster Preview */}
-                                    <div className="relative aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden border-2 border-dashed border-slate-700">
-                                        {quickEditCurrentPosterUrl ? (
-                                            <img
-                                                src={quickEditCurrentPosterUrl}
-                                                alt="Current poster"
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-slate-600">
-                                                No Poster
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <p className="text-xs text-slate-500 mt-2">
-                                        Recommended: 600×900px (JPG/PNG)
-                                    </p>
+                                {/* Poster Preview */}
+                                <div className="relative aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden border-2 border-dashed border-slate-700">
+                                    {quickEditCurrentPosterUrl ? (
+                                        <img
+                                            src={quickEditCurrentPosterUrl}
+                                            alt="Current poster"
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                            No Poster
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Right Column - Text Fields & Poster Upload */}
-                                <div className="space-y-4">
-                                    {/* Title */}
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                                            Collection Name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={quickEditTitle}
-                                            onChange={(e) => setQuickEditTitle(e.target.value)}
-                                            className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70"
-                                            autoFocus
-                                        />
+                                <p className="text-xs text-slate-500 mt-2">
+                                    Recommended: 600×900px (JPG/PNG)
+                                </p>
+                            </div>
+
+                            {/* Right Column - Text Fields & Poster Upload */}
+                            <div className="space-y-4">
+                                {/* Title */}
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                                        Collection Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={quickEditTitle}
+                                        onChange={(e) => setQuickEditTitle(e.target.value)}
+                                        className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70"
+                                        autoFocus
+                                    />
+                                </div>
+
+                                {/* Summary */}
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                                        Brief Summary
+                                    </label>
+                                    <textarea
+                                        value={quickEditSummary}
+                                        onChange={(e) => setQuickEditSummary(e.target.value)}
+                                        rows={4}
+                                        className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70 resize-none"
+                                        placeholder="Enter a brief description of this collection..."
+                                    />
+                                </div>
+
+                                {/* Poster Upload Options */}
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                                        Update Poster
+                                    </label>
+
+                                    {/* Tab Switcher */}
+                                    <div className="flex gap-2 mb-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setQuickEditPosterMode("upload");
+                                                setQuickEditPosterUrl("");
+                                            }}
+                                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
+                                                quickEditPosterMode === "upload"
+                                                    ? "bg-primary text-white"
+                                                    : "bg-slate-800/60 text-slate-400 hover:bg-slate-700"
+                                            }`}
+                                        >
+                                            Upload File
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setQuickEditPosterMode("url");
+                                                setQuickEditPosterFile(null);
+                                            }}
+                                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
+                                                quickEditPosterMode === "url"
+                                                    ? "bg-primary text-white"
+                                                    : "bg-slate-800/60 text-slate-400 hover:bg-slate-700"
+                                            }`}
+                                        >
+                                            From URL
+                                        </button>
                                     </div>
 
-                                    {/* Summary */}
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                                            Brief Summary
-                                        </label>
-                                        <textarea
-                                            value={quickEditSummary}
-                                            onChange={(e) => setQuickEditSummary(e.target.value)}
-                                            rows={4}
-                                            className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70 resize-none"
-                                            placeholder="Enter a brief description of this collection..."
-                                        />
-                                    </div>
-
-                                    {/* Poster Upload Options */}
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                                            Update Poster
-                                        </label>
-
-                                        {/* Tab Switcher */}
-                                        <div className="flex gap-2 mb-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setQuickEditPosterMode("upload");
-                                                    setQuickEditPosterUrl("");
-                                                }}
-                                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                                                    quickEditPosterMode === "upload"
-                                                        ? "bg-primary text-white"
-                                                        : "bg-slate-800/60 text-slate-400 hover:bg-slate-700"
-                                                }`}
-                                            >
-                                                Upload File
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setQuickEditPosterMode("url");
-                                                    setQuickEditPosterFile(null);
-                                                }}
-                                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                                                    quickEditPosterMode === "url"
-                                                        ? "bg-primary text-white"
-                                                        : "bg-slate-800/60 text-slate-400 hover:bg-slate-700"
-                                                }`}
-                                            >
-                                                From URL
-                                            </button>
-                                        </div>
-
-                                        {/* Upload Mode */}
-                                        {quickEditPosterMode === "upload" && (
-                                            <label className="block cursor-pointer">
-                                                <div className="border-2 border-dashed border-slate-700 rounded-xl p-4 text-center hover:border-slate-600 transition-colors">
-                                                    <Image size={20} className="mx-auto mb-2 text-slate-400" />
-                                                    <span className="text-xs text-slate-400">
-                                                        {quickEditPosterFile ? quickEditPosterFile.name : "Click to select file"}
-                                                    </span>
-                                                </div>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={handleQuickEditFileSelect}
-                                                    className="hidden"
-                                                />
-                                            </label>
-                                        )}
-
-                                        {/* URL Mode */}
-                                        {quickEditPosterMode === "url" && (
-                                            <div>
-                                                <input
-                                                    type="url"
-                                                    value={quickEditPosterUrl}
-                                                    onChange={(e) => setQuickEditPosterUrl(e.target.value)}
-                                                    placeholder="https://example.com/poster.jpg"
-                                                    className="w-full px-3 py-2 bg-slate-800/60 border border-slate-700 rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70"
-                                                />
-                                                <p className="text-xs text-slate-500 mt-2">
-                                                    e.g., from ThePosterDB.com
-                                                </p>
+                                    {/* Upload Mode */}
+                                    {quickEditPosterMode === "upload" && (
+                                        <label className="block cursor-pointer">
+                                            <div className="border-2 border-dashed border-slate-700 rounded-xl p-4 text-center hover:border-slate-600 transition-colors">
+                                                <Image size={20} className="mx-auto mb-2 text-slate-400" />
+                                                <span className="text-xs text-slate-400">
+                                                    {quickEditPosterFile ? quickEditPosterFile.name : "Click to select file"}
+                                                </span>
                                             </div>
-                                        )}
-                                    </div>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleQuickEditFileSelect}
+                                                className="hidden"
+                                            />
+                                        </label>
+                                    )}
+
+                                    {/* URL Mode */}
+                                    {quickEditPosterMode === "url" && (
+                                        <div>
+                                            <input
+                                                type="url"
+                                                value={quickEditPosterUrl}
+                                                onChange={(e) => setQuickEditPosterUrl(e.target.value)}
+                                                placeholder="https://example.com/poster.jpg"
+                                                className="w-full px-3 py-2 bg-slate-800/60 border border-slate-700 rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70"
+                                            />
+                                            <p className="text-xs text-slate-500 mt-2">
+                                                e.g., from ThePosterDB.com
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        {/* Modal Footer */}
-                        <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-800/80 bg-slate-950/50">
+                    <DialogFooter className="justify-end gap-3 bg-slate-950/50">
+                        <button
+                            onClick={closeQuickEditModal}
+                            disabled={quickEditing}
+                            className="px-4 py-2 rounded-lg border border-slate-700 bg-slate-800/60 text-slate-300 text-sm font-medium hover:bg-slate-700 hover:border-slate-600 transition-all duration-200 active:scale-95 disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleQuickEditSubmit}
+                            disabled={quickEditing || !quickEditTitle.trim()}
+                            className="px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-bold shadow-lg shadow-primary/30 hover:shadow-primary/40 transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {quickEditing ? "Saving..." : "Save Changes"}
+                        </button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Create Collection Modal */}
+            <Dialog
+                open={showCreateModal}
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) {
+                        setShowCreateModal(false);
+                        // Reset form
+                        setNewCollectionTitle("");
+                        setNewCollectionLibrary("");
+                        setNewCollectionSummary("");
+                        setMovieSearchQuery("");
+                        setMovieSearchResults([]);
+                        setSelectedMovies(new Set());
+                    }
+                }}
+            >
+                <DialogContent className="max-w-4xl">
+                    <DialogHeader>
+                        <div className="flex flex-col gap-1">
+                            <DialogTitle>Create Collection</DialogTitle>
+                            <DialogDescription>
+                                Create a new collection by selecting items from your library
+                            </DialogDescription>
+                        </div>
+                        <DialogCloseButton />
+                    </DialogHeader>
+
+                    {/* Form */}
+                    <div className="p-6 space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                                    Collection Title *
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newCollectionTitle}
+                                    onChange={(e) => setNewCollectionTitle(e.target.value)}
+                                    placeholder="e.g., Best of 2024"
+                                    className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                                    Library Name *
+                                </label>
+                                <Listbox
+                                    value={newCollectionLibrary}
+                                    onChange={(newLibrary) => {
+                                        setNewCollectionLibrary(newLibrary);
+                                        // Clear search results and selections when library changes
+                                        setMovieSearchResults([]);
+                                        setSelectedMovies(new Set());
+                                        setMovieSearchQuery("");
+                                        // Auto-load items from the selected library
+                                        if (newLibrary) {
+                                            searchMovies("", newLibrary);
+                                        }
+                                    }}
+                                    disabled={loadingLibraries}
+                                >
+                                    <div className="relative">
+                                        <Listbox.Button className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary/70 disabled:opacity-50 text-left flex items-center justify-between data-[disabled]:opacity-50">
+                                            <span className={newCollectionLibrary ? "" : "text-slate-500"}>
+                                                {loadingLibraries
+                                                    ? "Loading libraries..."
+                                                    : newCollectionLibrary || "Select a library..."}
+                                            </span>
+                                            <ChevronDown size={16} className="text-slate-400" />
+                                        </Listbox.Button>
+
+                                        <Listbox.Options className="absolute z-10 mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-60 overflow-auto focus:outline-none">
+                                            {availableLibraries.map((library) => (
+                                                <Listbox.Option
+                                                    key={library.title}
+                                                    value={library.title}
+                                                    className="px-4 py-2 cursor-pointer transition-colors data-[focus]:bg-slate-700"
+                                                >
+                                                    <div className="flex items-center justify-between text-white">
+                                                        <span className="data-[selected]:font-medium">{library.title}</span>
+                                                        <Check size={16} className="text-primary invisible data-[selected]:visible" />
+                                                    </div>
+                                                </Listbox.Option>
+                                            ))}
+                                        </Listbox.Options>
+                                    </div>
+                                </Listbox>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                                Summary (Optional)
+                            </label>
+                            <textarea
+                                value={newCollectionSummary}
+                                onChange={(e) => setNewCollectionSummary(e.target.value)}
+                                placeholder="Add a description for this collection..."
+                                rows={2}
+                                className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70 resize-none"
+                            />
+                        </div>
+
+                        {/* Search for movies */}
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                                Add Items to Collection * (Select at least one)
+                            </label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" size={20} />
+                                <input
+                                    type="text"
+                                    placeholder={newCollectionLibrary ? "Search your library..." : "Enter a library name first..."}
+                                    value={movieSearchQuery}
+                                    onChange={(e) => setMovieSearchQuery(e.target.value)}
+                                    disabled={!newCollectionLibrary}
+                                    className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70 disabled:opacity-50"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Movie Selection Grid */}
+                    <div className="flex-1 overflow-y-auto px-6 pb-4 scrollbar-hover-only max-h-[40vh]">
+                        {searchLoading ? (
+                            <div className="text-slate-400 text-center py-8">Loading...</div>
+                        ) : movieSearchResults.length > 0 ? (
+                            <div>
+                                <p className="text-sm text-slate-400 mb-3">
+                                    {selectedMovies.size} item(s) selected
+                                </p>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    {movieSearchResults.map((item) => (
+                                        <button
+                                            key={item.rating_key}
+                                            onClick={() => toggleMovieSelection(item.rating_key)}
+                                            className={`rounded-xl overflow-hidden border transition-all ${
+                                                selectedMovies.has(item.rating_key)
+                                                    ? "ring-2 ring-primary border-primary/50 bg-slate-800/80"
+                                                    : "border-slate-800/60 bg-slate-900/50 hover:border-slate-700"
+                                            }`}
+                                        >
+                                            {/* Poster */}
+                                            <div className="aspect-[2/3] bg-slate-800 relative">
+                                                {item.thumb ? (
+                                                    <img
+                                                        src={item.thumb}
+                                                        alt={item.title}
+                                                        className="w-full h-full object-cover"
+                                                        loading="lazy"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs">
+                                                        No Poster
+                                                    </div>
+                                                )}
+                                                {selectedMovies.has(item.rating_key) && (
+                                                    <div className="absolute top-2 right-2 bg-primary text-white rounded-full p-1">
+                                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Info */}
+                                            <div className="p-2">
+                                                <h3 className="text-white font-medium text-xs truncate">{item.title}</h3>
+                                                {item.year && <p className="text-slate-400 text-xs">{item.year}</p>}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : newCollectionLibrary.trim() ? (
+                            <div className="text-slate-400 text-center py-8">
+                                {movieSearchQuery ? "No results found" : "No items found in this library"}
+                            </div>
+                        ) : (
+                            <div className="text-slate-400 text-center py-8">
+                                Enter a library name to see available items
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter className="bg-slate-950/50">
+                        <p className="text-sm text-slate-400">
+                            {selectedMovies.size === 0
+                                ? "Select at least one item to create the collection"
+                                : `${selectedMovies.size} item(s) selected`}
+                        </p>
+                        <div className="flex items-center gap-3">
                             <button
-                                onClick={closeQuickEditModal}
-                                disabled={quickEditing}
+                                onClick={() => {
+                                    setShowCreateModal(false);
+                                    // Reset form
+                                    setNewCollectionTitle("");
+                                    setNewCollectionLibrary("");
+                                    setNewCollectionSummary("");
+                                    setMovieSearchQuery("");
+                                    setMovieSearchResults([]);
+                                    setSelectedMovies(new Set());
+                                }}
+                                disabled={creating}
                                 className="px-4 py-2 rounded-lg border border-slate-700 bg-slate-800/60 text-slate-300 text-sm font-medium hover:bg-slate-700 hover:border-slate-600 transition-all duration-200 active:scale-95 disabled:opacity-50"
                             >
                                 Cancel
                             </button>
                             <button
-                                onClick={handleQuickEditSubmit}
-                                disabled={quickEditing || !quickEditTitle.trim()}
+                                onClick={handleCreateCollection}
+                                disabled={creating || !newCollectionTitle.trim() || !newCollectionLibrary.trim() || selectedMovies.size === 0}
                                 className="px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-bold shadow-lg shadow-primary/30 hover:shadow-primary/40 transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {quickEditing ? "Saving..." : "Save Changes"}
+                                {creating ? "Creating..." : "Create Collection"}
                             </button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Create Collection Modal */}
-            {showCreateModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-[60] animate-in fade-in duration-200">
-                    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800/80 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-300">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between p-6 border-b border-slate-800/80">
-                            <h2 className="text-xl font-bold text-white">Create Collection</h2>
-                            <button
-                                onClick={() => setShowCreateModal(false)}
-                                className="text-slate-400 hover:text-white transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        {/* Form */}
-                        <div className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                                        Collection Title *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={newCollectionTitle}
-                                        onChange={(e) => setNewCollectionTitle(e.target.value)}
-                                        placeholder="e.g., Best of 2024"
-                                        className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                                        Library Name *
-                                    </label>
-                                    <Listbox
-                                        value={newCollectionLibrary}
-                                        onChange={(newLibrary) => {
-                                            setNewCollectionLibrary(newLibrary);
-                                            // Clear search results and selections when library changes
-                                            setMovieSearchResults([]);
-                                            setSelectedMovies(new Set());
-                                            setMovieSearchQuery("");
-                                            // Auto-load items from the selected library
-                                            if (newLibrary) {
-                                                searchMovies("", newLibrary);
-                                            }
-                                        }}
-                                        disabled={loadingLibraries}
-                                    >
-                                        <div className="relative">
-                                            <Listbox.Button className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary/70 disabled:opacity-50 text-left flex items-center justify-between data-[disabled]:opacity-50">
-                                                <span className={newCollectionLibrary ? "" : "text-slate-500"}>
-                                                    {loadingLibraries
-                                                        ? "Loading libraries..."
-                                                        : newCollectionLibrary || "Select a library..."}
-                                                </span>
-                                                <ChevronDown size={16} className="text-slate-400" />
-                                            </Listbox.Button>
-
-                                            <Listbox.Options className="absolute z-10 mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-60 overflow-auto focus:outline-none">
-                                                {availableLibraries.map((library) => (
-                                                    <Listbox.Option
-                                                        key={library.title}
-                                                        value={library.title}
-                                                        className="px-4 py-2 cursor-pointer transition-colors data-[focus]:bg-slate-700"
-                                                    >
-                                                        <div className="flex items-center justify-between text-white">
-                                                            <span className="data-[selected]:font-medium">{library.title}</span>
-                                                            <Check size={16} className="text-primary invisible data-[selected]:visible" />
-                                                        </div>
-                                                    </Listbox.Option>
-                                                ))}
-                                            </Listbox.Options>
-                                        </div>
-                                    </Listbox>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                                    Summary (Optional)
-                                </label>
-                                <textarea
-                                    value={newCollectionSummary}
-                                    onChange={(e) => setNewCollectionSummary(e.target.value)}
-                                    placeholder="Add a description for this collection..."
-                                    rows={2}
-                                    className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70 resize-none"
-                                />
-                            </div>
-
-                            {/* Search for movies */}
-                            <div>
-                                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                                    Add Items to Collection * (Select at least one)
-                                </label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" size={20} />
-                                    <input
-                                        type="text"
-                                        placeholder={newCollectionLibrary ? "Search your library..." : "Enter a library name first..."}
-                                        value={movieSearchQuery}
-                                        onChange={(e) => setMovieSearchQuery(e.target.value)}
-                                        disabled={!newCollectionLibrary}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70 disabled:opacity-50"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Movie Selection Grid */}
-                        <div className="flex-1 overflow-y-auto px-6 pb-4 scrollbar-hover-only">
-                            {searchLoading ? (
-                                <div className="text-slate-400 text-center py-8">Loading...</div>
-                            ) : movieSearchResults.length > 0 ? (
-                                <div>
-                                    <p className="text-sm text-slate-400 mb-3">
-                                        {selectedMovies.size} item(s) selected
-                                    </p>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        {movieSearchResults.map((item) => (
-                                            <button
-                                                key={item.rating_key}
-                                                onClick={() => toggleMovieSelection(item.rating_key)}
-                                                className={`rounded-xl overflow-hidden border transition-all ${
-                                                    selectedMovies.has(item.rating_key)
-                                                        ? "ring-2 ring-primary border-primary/50 bg-slate-800/80"
-                                                        : "border-slate-800/60 bg-slate-900/50 hover:border-slate-700"
-                                                }`}
-                                            >
-                                                {/* Poster */}
-                                                <div className="aspect-[2/3] bg-slate-800 relative">
-                                                    {item.thumb ? (
-                                                        <img
-                                                            src={item.thumb}
-                                                            alt={item.title}
-                                                            className="w-full h-full object-cover"
-                                                            loading="lazy"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs">
-                                                            No Poster
-                                                        </div>
-                                                    )}
-                                                    {selectedMovies.has(item.rating_key) && (
-                                                        <div className="absolute top-2 right-2 bg-primary text-white rounded-full p-1">
-                                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                                            </svg>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Info */}
-                                                <div className="p-2">
-                                                    <h3 className="text-white font-medium text-xs truncate">{item.title}</h3>
-                                                    {item.year && <p className="text-slate-400 text-xs">{item.year}</p>}
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : newCollectionLibrary.trim() ? (
-                                <div className="text-slate-400 text-center py-8">
-                                    {movieSearchQuery ? "No results found" : "No items found in this library"}
-                                </div>
-                            ) : (
-                                <div className="text-slate-400 text-center py-8">
-                                    Enter a library name to see available items
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="flex items-center justify-between gap-3 p-6 border-t border-slate-800/80 bg-slate-950/50">
-                            <p className="text-sm text-slate-400">
-                                {selectedMovies.size === 0
-                                    ? "Select at least one item to create the collection"
-                                    : `${selectedMovies.size} item(s) selected`}
-                            </p>
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={() => {
-                                        setShowCreateModal(false);
-                                        // Reset form
-                                        setNewCollectionTitle("");
-                                        setNewCollectionLibrary("");
-                                        setNewCollectionSummary("");
-                                        setMovieSearchQuery("");
-                                        setMovieSearchResults([]);
-                                        setSelectedMovies(new Set());
-                                    }}
-                                    disabled={creating}
-                                    className="px-4 py-2 rounded-lg border border-slate-700 bg-slate-800/60 text-slate-300 text-sm font-medium hover:bg-slate-700 hover:border-slate-600 transition-all duration-200 active:scale-95 disabled:opacity-50"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleCreateCollection}
-                                    disabled={creating || !newCollectionTitle.trim() || !newCollectionLibrary.trim() || selectedMovies.size === 0}
-                                    className="px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-bold shadow-lg shadow-primary/30 hover:shadow-primary/40 transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {creating ? "Creating..." : "Create Collection"}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Toast Notification */}
             {toast && (
