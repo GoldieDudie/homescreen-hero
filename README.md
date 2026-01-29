@@ -18,7 +18,7 @@
 
 This app is very much a WORK IN PROGRESS. This started as a simple Python script to rotate my Plex homescreen, and slowly turned in to much, much more. I still have a lot of really cool things planned in the coming weeks, so stay tuned!
 
-**Important Note:** portions of this app is vibe-coded (especially the frontend). As a Data Engineer who originally went to school to become a full-stack developer, a big part of creating this app for myself was to get a true understanding of where AI Coding Agents stand today, and what exactly they can/cannot do. I got tired of the headlines/Reddit comments and figured this was the quickest way to the truth.
+**Important Note:** portions of this app are vibe-coded (especially the frontend). As a Data Engineer who originally went to school to become a full-stack developer, a big part of creating this app for myself was to get a true understanding of where AI Coding Agents stand today, and what exactly they can/cannot do. I got tired of the headlines/Reddit comments and figured this was the quickest way to the truth.
 
 ## Features
 
