@@ -37,6 +37,7 @@ This app is very much a WORK IN PROGRESS. This started as a simple Python script
 
 <video src="https://github.com/user-attachments/assets/74216471-acb2-4a67-812e-c2c640bede66" autoplay muted loop playsinline width="100%"></video>
 
+
 </details>
 
 ### Screenshots
@@ -49,16 +50,16 @@ This app is very much a WORK IN PROGRESS. This started as a simple Python script
     <td align="center"><strong>Groups Page</strong></td>
   </tr>
   <tr>
-    <td><img width="600" alt="Dashboard" src="https://github.com/user-attachments/assets/b3b5ee09-522f-4a10-ae44-4aee56969bdc" /></td>
-    <td><img width="600" alt="Groups Page" src="https://github.com/user-attachments/assets/10c1a547-9f4d-486e-b917-25ff2adb408a" /></td>
+    <td><img width="600" alt="Dashboard" src="https://github.com/user-attachments/assets/da4771fb-e3f2-41df-9f13-3b0e5e1bed17" /></td>
+    <td><img width="600" alt="Groups Page" src="https://github.com/user-attachments/assets/1b6ef0f6-956e-40f0-aa56-66fe0e5c0e0a" /></td>
   </tr>
   <tr>
     <td align="center"><strong>Group Details</strong></td>
     <td align="center"><strong>Group Collections</strong></td>
   </tr>
   <tr>
-    <td><img width="600" alt="Group Details" src="https://github.com/user-attachments/assets/afad4b44-8c47-4e66-baeb-cdf7c12ee15e" /></td>
-    <td><img width="600" alt="Group Collections" src="https://github.com/user-attachments/assets/831e5a3a-67bc-47b6-b2da-c54d3bfa94f9" /></td>
+    <td><img width="600" alt="Group Details" src="https://github.com/user-attachments/assets/4ba5abd8-bc7b-402f-b3a5-28cd19ff1230" /></td>
+    <td><img width="600" alt="Group Collections" src="https://github.com/user-attachments/assets/808e7a8d-d995-49cb-97c8-50385a95058b" /></td>
   </tr>
   <tr>
     <td align="center"><strong>Collections Page</strong></td>
@@ -194,7 +195,7 @@ This project is licensed under the [MIT License](LICENSE) - see the [LICENSE](LI
 -   **Claude Code, Chat GPT, and Github Copilot:** For building ~90% of my frontend. As a Data Engineer, a big part of creating this app for myself was to get a true understanding of where AI Coding Agents stand today, and what exactly they can/cannot do. I got tired of the headlines/Reddit comments and figured this was the quickest way to the truth.
 
 ## 🐶 Puppy Tax 
-I'm not ashamed to use my cutie for free internet points! (she was also great moral support on the *"I've been banging my head against a wall for days trying to figure out why the rotation runs every thirty seconds lol*)
+I'm not ashamed to use my cutie for free internet points! (she was also great moral support on the *"I've been banging my head against a wall for days trying to figure out why the rotation runs every thirty seconds* types of issues lol)
 
 <img width="25%" height="25%" alt="IMG_3015" src="https://github.com/user-attachments/assets/e24b34da-b541-4ead-b822-98ec31b5154e" />
 <img width="25%" height="25%" alt="IMG_1225" src="https://github.com/user-attachments/assets/a4b6ad17-063b-4068-ac2d-91ec60f117f2" />
