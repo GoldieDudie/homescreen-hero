@@ -93,6 +93,12 @@ docker-compose up -d
 Open http://localhost:8000 and the Setup Wizard will guide you through configuration.
 ```
 
+### Windows Portable (Beta)
+
+**Note:** This is very much in beta and was solely created for a few users to simplify the Windows install process. Please feel free to report any issues. You can find the current version of the Windows Portablze .zip on the [Releases Page](https://github.com/trentferguson/homescreen-hero/releases/tag/v0.5.0-windows-beta)
+
+You can find detailed instructions in the homescreen-hero docs. Visit the [Windows Portable (Beta)](https://docs.homescreenhero.com/docs/getting-started/installation#windows-portable-beta) section for an installation guide.
+
 ## Environment Variables
 
 Store sensitive values in a `.env` file (copy from `.env.example`). These override any values in `config.yaml`.
