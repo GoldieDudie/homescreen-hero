@@ -28,6 +28,30 @@ class PlexSettings(BaseModel):
     )
 
 
+class AutoRotateSettings(BaseModel):
+    # Settings for auto-rotate mode (rotate all collections from selected libraries).
+    enabled: bool = Field(
+        default=False,
+        description="Rotate all collections from selected libraries instead of using groups",
+    )
+    libraries: List[str] = Field(
+        default_factory=list,
+        description="Library names to auto-rotate from (empty = all enabled libraries)",
+    )
+    visibility_home: bool = Field(
+        default=True,
+        description="Promote collections to server admin's Home page",
+    )
+    visibility_shared: bool = Field(
+        default=False,
+        description="Promote collections to shared users' Home pages",
+    )
+    visibility_recommended: bool = Field(
+        default=False,
+        description="Promote collections to Library Recommended section",
+    )
+
+
 class RotationSettings(BaseModel):
     # Global settings for how rotations are performed.
     enabled: bool = Field(default=True)
@@ -56,6 +80,10 @@ class RotationSettings(BaseModel):
     blacklisted_collections: List[str] = Field(
         default_factory=list,
         description="Collections that will never be selected during rotation",
+    )
+    auto_rotate: AutoRotateSettings = Field(
+        default_factory=AutoRotateSettings,
+        description="Settings for auto-rotate mode",
     )
 
 
