@@ -1,0 +1,71 @@
+name: Bug Report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug/issue.
+      placeholder: "When I do X, Y happens instead of Z."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Installation method
+      options:
+        - Docker
+        - Windows portable
+        - Unraid
+        - Local (manual install)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: App version or Docker image tag (shown in top right of the UI).
+      placeholder: "e.g. v0.4.0, v0.5.1:nightly"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Any relevant logs from `data/logs/` or `docker-compose logs`. Paste between the backticks.
+      render: text
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Config
+      description: Your config.yaml (remove any tokens/passwords). Paste between the backticks.
+      render: yaml
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain the problem.
