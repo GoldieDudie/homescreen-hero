@@ -41,18 +41,20 @@ Where type is one of:
 **Description:**
 
 ```markdown
-## Summary
+## Copy PR Title Here (e.g. Fix: Solved World Hunger, Brokered Peace in the Middle East)
+
+### Summary
 A few sentences explaining what this PR does and why. Write like you're
 explaining it to a teammate.
 
-## Major Changes
+### Major Changes
 - Notable changes that reviewers should pay attention to
 - New features, significant modifications, anything that changes behavior
 
-## Minor Changes
+### Minor Changes
 - Small stuff — tweaks, cleanup, minor fixes that came along for the ride
 
-## Notes (optional)
+### Notes (optional)
 Only include if there's something special: database migrations, breaking
 changes, deployment considerations, etc.
 ```
