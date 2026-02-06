@@ -259,8 +259,9 @@ def apply_home_screen_selection(
     _, usage_map = get_rotation_history_context()
     previously_rotated_names = set(usage_map.keys())
 
-    # Process both currently configured collections AND previously rotated ones
-    all_names_to_process = configured_names | previously_rotated_names
+    # Process configured, previously rotated, AND currently selected collections
+    # (auto-rotate can select collections that aren't in groups or history yet)
+    all_names_to_process = configured_names | previously_rotated_names | selected_set
 
     # Fetch collections from all enabled libraries
     all_collections: Dict[str, object] = {}
