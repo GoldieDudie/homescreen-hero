@@ -187,7 +187,9 @@ docker pull trentferguson/homescreen-hero:latest
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+All contributions welcome! Before you get started, please read through [CONTRIBUTING.md](CONTRIBUTING.md) to get an understanding of development setup and project guidelines. 
+
+**Note:** Please make sure to follow the outlined conventions for PR titles and descriptions. Thank you :)
 
 ## License
 
