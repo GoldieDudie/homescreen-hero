@@ -21,6 +21,26 @@ rotation:
   # If true, sync all third-party lists on each rotation run (good if < 15 lists)
   # If false, only sync lists when they're selected during a rotation (runs faster if you have a bunch of lists)
 
+  # Optional: Collections that will never be selected during rotation
+  # blacklisted_collections:
+  #   - "Some Collection You Want To Skip"
+  #   - "Another One To Ignore"
+
+  # Optional: Limit how many collections can be featured per library
+  # Useful if you want to prevent one library from dominating the homescreen
+  # per_library_limits:
+  #   Movies: 3
+  #   TV Shows: 2
+
+  # Optional: Auto-rotate mode - rotates ALL collections from selected libraries
+  # instead of using the group-based system below. Groups are ignored when this is enabled.
+  # auto_rotate:
+  #   enabled: false
+  #   libraries: []  # Empty = all enabled libraries. Or specify: ["Movies", "TV Shows"]
+  #   visibility_home: true
+  #   visibility_shared: false
+  #   visibility_recommended: false
+
 # Optional: Authentication settings
 auth:
   enabled: true
