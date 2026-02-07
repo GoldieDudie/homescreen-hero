@@ -6,7 +6,7 @@
 **A self-hosted Plex companion app with homescreen management, server insights, and useful tools, all in a sleek web dashboard**
 
 ![Static Badge](https://img.shields.io/badge/Plex-%20Built%20for%20Plex-e5a00d?style=flat&logo=Plex)
-[![](https://dcbadge.limes.pink/api/server/https://discord.gg/yQ8pJzURsr?theme=default-inverted&style=flat&compact=true)](https://discord.gg/yQ8pJzURsr) ![Static Badge](https://img.shields.io/badge/Claude-vibecoded(ish)-%23D97757?style=flat&logo=Claude) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Documentation](https://img.shields.io/badge/Documentation-195de6?logo=readthedocs&logoColor=white&labelColor=555&label=%20)](https://docs.homescreenhero.com)
+[![](https://dcbadge.limes.pink/api/server/https://discord.gg/yQ8pJzURsr?theme=default-inverted&style=flat&compact=true)](https://discord.gg/yQ8pJzURsr) ![Static Badge](https://img.shields.io/badge/Claude-Built%20with%20AI-%23D97757?style=flat&logo=Claude) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Documentation](https://img.shields.io/badge/Documentation-195de6?logo=readthedocs&logoColor=white&labelColor=555&label=%20)](https://docs.homescreenhero.com)
  ![GitHub Release](https://img.shields.io/github/v/release/trentferguson/homescreen-hero?logo=GitHub&color=%2327B63F)
 
 ## **[Try the Live Demo!](https://demo.homescreenhero.com)**
@@ -17,9 +17,9 @@
 
 ## A Quick Heads Up
 
-This app is very much a WORK IN PROGRESS. This started as a simple Python script to rotate my Plex homescreen, and slowly turned in to much, much more. I still have a lot of really cool things planned in the coming weeks, so stay tuned!
+This app is very much a **WORK IN PROGRESS!** This started as a simple Python script to rotate my Plex homescreen, and slowly turned in to much, much more. I still have a lot of really cool things planned in the coming weeks, so stay tuned!
 
-**Important Note:** portions of this app were built with AI (especially the frontend). As a Data Engineer who originally went to school to become a full-stack developer, a big part of creating this app for myself was to get a true understanding of where AI Coding Agents stand today, and what exactly they can/cannot do. I got tired of the headlines/Reddit comments and figured this was the quickest way to the truth.
+**Disclaimer:** Parts of this app were built with the help of AI. I'm a Data Engineer by day, which means my frontend and UI/UX skills suck, so a good portion of the frontend was built with Claude and Google Stitch.
 
 ## Features
 
