@@ -10,7 +10,8 @@
  ![GitHub Release](https://img.shields.io/github/v/release/trentferguson/homescreen-hero?logo=GitHub&color=%2327B63F)
 
 ## **[Try the Live Demo!](https://demo.homescreenhero.com)**
-*Note: The demo does not currently have the widget/dashboard drag-n-drop feature implemented (**yet!**)*
+***Note:** The demo uses a mock Plex server I built, and is meant to be a Dashboard/UI preview. Not all functionality is enabled*
+
 
 </div>
 
@@ -90,8 +91,10 @@ git clone https://github.com/trentferguson/homescreen-hero.git
 cd homescreen-hero
 mkdir -p data
 docker-compose up -d
-Open http://localhost:8000 and the Setup Wizard will guide you through configuration.
 ```
+
+Open http://localhost:8000 (or whichever port you specified in .env file) and the Setup Wizard will guide you through configuration.
+
 
 ### Windows Portable (Beta)
 
@@ -103,28 +106,36 @@ You can find detailed instructions in the homescreen-hero docs. Visit the [Windo
 
 Store sensitive values in a `.env` file (copy from `.env.example`). These override any values in `config.yaml`.
 
-| Variable | Description | Required |
+### Required
+
+| Variable | Description | Default/Example |
 |----------|-----------------|:-----------:|
-| `HSH_PORT` | Port you want homescreen-hero to run on (default: 8000) | Yes |
-| `HSH_PLEX_URL` | Your Plex server URL (e.g., `http://192.168.1.100:32400`) | Yes |
-| `HSH_PLEX_TOKEN` | Your Plex authentication token ([how to find](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)) | Yes |
-| `HSH_AUTH_PASSWORD` | Password for web UI login | If auth enabled |
-| `HSH_AUTH_SECRET_KEY` | JWT secret (generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"`) | If auth enabled |
-| `HSH_TRAKT_CLIENT_ID` | [Get from Trakt](https://trakt.tv/oauth/applications) | If Trakt enabled |
-| `HSH_MDBLIST_API_KEY` | [Get from MDBList](https://mdblist.com/preferences/) | If MDBList enabled |
-| `HSH_TAUTULLI_API_KEY` | Found in Tautulli Settings → Web Interface → API | If Tautulli enabled |
-| `HSH_TAUTULLI_BASE_URL` | Defaults to `http://localhost:8181` | No |
-| `HSH_SEERR_API_KEY` | Found in Seerr Settings → General | If Seerr enabled |
-| `HSH_SEERR_BASE_URL` | Defaults to `http://localhost:5055` | No |
+| `HSH_PORT` | Port to run the web UI on) | `8000` |
+| `HSH_PLEX_URL` | Your Plex server URL | `http://192.168.1.100:32400` |
+| `HSH_PLEX_TOKEN` | Your Plex authentication token  | [how to find](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/) |
+| `HSH_AUTH_PASSWORD` | Password for web UI login | ------ |
+| `HSH_AUTH_SECRET_KEY` | Secret key for JWT token | generate with `openssl rand -hex 32` |
 
-<details>
-<summary><strong>Internal/Docker paths</strong></summary>
 
-| Variable | Default | Description |
+### Optional Integrations
+
+| Variable | Description | Default/Example |
+|----------|-----------------|:-----------:|
+| `HSH_TRAKT_CLIENT_ID` | Your Trakt OAuth API key | [Get from Trakt](https://trakt.tv/oauth/applications) |
+| `HSH_MDBLIST_API_KEY` | Your MDBList API key | [Get from MDBList](https://mdblist.com/preferences/) |
+| `HSH_TAUTULLI_API_KEY` | Your personal Tautulli instance API key | Settings → Web Interface → API |
+| `HSH_TAUTULLI_BASE_URL` | Full URL of your Tautulli instance | `http://localhost:8181` |
+| `HSH_SEERR_API_KEY` | Your Seerr/Jellyseerr/Overseerr API key | Seerr Settings → General |
+| `HSH_SEERR_BASE_URL` | Full URL of your Seerr/Jellyseerr/Overseerr instance | `http://localhost:5055` |
+
+
+### Internal/Docker Paths
+
+| Variable | Description | Default |
 |----------|---------|-------------|
-| `HOMESCREEN_HERO_CONFIG` | `/data/config.yaml` | Path to config file |
-| `HOMESCREEN_HERO_DB` | `sqlite:////data/homescreen_hero.sqlite` | Database path |
-| `HOMESCREEN_HERO_LOG_DIR` | `/data/logs` | Log directory |
+| `HOMESCREEN_HERO_CONFIG` | Path to config.yaml file | `/data/config.yaml` |
+| `HOMESCREEN_HERO_DB` | Path to databse file | `sqlite:////data/homescreen_hero.sqlite` |
+| `HOMESCREEN_HERO_LOG_DIR` | Path to Log directory | `/data/logs` |
 
 </details>
 
@@ -184,6 +195,12 @@ Find content that's collecting dust in your library. Search for items that have 
 ```bash
 docker pull trentferguson/homescreen-hero:latest
 ```
+
+## Community Discord
+
+If you are experiencing any issues, have feedback about the app, or wanna throw out a really cool feature request you thought of, our Discord server is the best place to be! My goal with homescreen-hero is to follow a community-focused development cycle, focusing first on implementing features requested by users/other contributors 😊
+
+### Join the homescreen-hero [Discord Server](https://discord.gg/BsXtshZv8x)
 
 ## Contributing
 
