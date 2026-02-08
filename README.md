@@ -184,6 +184,12 @@ Mark TV shows as unwatched to fix issues with Plex's "Continue Watching" row. Us
 Find content that's collecting dust in your library. Search for items that have never been watched or haven't been watched within a specified time period (30 days, 90 days, 6 months, etc.). Requires Tautulli integration. Export results to CSV for library cleanup decisions.
 </details>
 
+<details>
+<summary><strong>Copy Watch History</summary>
+
+Tool for syncing watched status between Plex Home users. Supports Add Only mode (only mark things watched) and Mirror mode (make watch history identical). Includes preview step and real-time progress bar during sync. 
+</details>
+
 ## Docker Image Tags
 
 | Tag | Description |
