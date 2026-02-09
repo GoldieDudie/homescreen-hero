@@ -12,7 +12,7 @@ from .integrations import (
     sync_all_mdblist_sources,
     apply_home_screen_selection,
 )
-from .integrations.plex_client import cleanup_deleted_integration_sources, get_library_collections
+from .integrations.plex_client import get_library_collections
 from .config.loader import load_config
 from .config.schema import AppConfig, RotationExecution, RotationResult
 from .rotation import run_rotation_with_history, run_auto_rotation_with_history, build_collection_visibility_map
@@ -373,10 +373,12 @@ def sync_all_sources(config: Optional[AppConfig] = None) -> Dict[str, int]:
     # Connect to Plex
     server = get_plex_server(config)
 
-    # Clean up deleted integration sources first
-    cleanup_result = cleanup_deleted_integration_sources(server, config)
-    if cleanup_result['deleted_from_plex']:
-        logger.info(f"Cleaned up {len(cleanup_result['deleted_from_plex'])} deleted integration sources from Plex")
+    # DISABLED: Auto-cleanup was too aggressive and could delete collections
+    # managed by other tools (e.g. Kometa). Same issue as the rotation path.
+    # TODO: Redesign cleanup to only delete collections that HSH created
+    # cleanup_result = cleanup_deleted_integration_sources(server, config)
+    # if cleanup_result['deleted_from_plex']:
+    #     logger.info(f"Cleaned up {len(cleanup_result['deleted_from_plex'])} deleted integration sources from Plex")
 
     # Sync all sources
     sync_all_trakt_sources(server, config)
@@ -387,7 +389,6 @@ def sync_all_sources(config: Optional[AppConfig] = None) -> Dict[str, int]:
 
     return {
         "status": "success",
-        "cleanup": cleanup_result,
     }
 
 
