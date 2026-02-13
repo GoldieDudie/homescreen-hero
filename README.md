@@ -30,7 +30,7 @@ This app is very much a **WORK IN PROGRESS!** This started as a simple Python sc
 - **Widgets for your favorite apps:** Add widgets to your dashboard from popular self-hosted apps (Tautulli, Seerr, more to come!)
 - **Useful Tools (WIP):** Collection of tools, scripts and utilites for managing your Plex server (checkout the Tools section below)
 
-#### Got a feature idea? Head over [here](https://homescreenhero.fider.io/) to submit feature requests and vote on the ideas you'd like to see implemented first 😊
+#### Got a feature idea? Head over https://ideas.homescreenhero.com to submit feature requests and vote on the ideas you'd like to see implemented first 😊
 
 ## See It In Action!
 
