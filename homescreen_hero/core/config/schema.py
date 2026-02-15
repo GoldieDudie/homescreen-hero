@@ -203,11 +203,7 @@ class LetterboxdSource(BaseModel):
 
 
 class LetterboxdSettings(BaseModel):
-    # Letterboxd connection details.
-    enabled: bool = Field(
-        default=False,
-        description="Whether Letterboxd integration is enabled",
-    )
+    # Letterboxd needs no credentials — always enabled if sources exist.
     sources: List[LetterboxdSource] = Field(default_factory=list)
 
 
@@ -232,6 +228,23 @@ class MDBListSettings(BaseModel):
         description="Base URL for MDBList API",
     )
     sources: List[MDBListSource] = Field(default_factory=list)
+
+
+class AniListSource(BaseModel):
+    name: str = Field(..., description="Display name for this list (becomes Plex collection name)")
+    url: str = Field(..., description="AniList user list URL (e.g., https://anilist.co/user/username/animelist)")
+    plex_library: str = Field(..., description="Target Plex library name")
+    max_items: Optional[int] = Field(
+        default=100,
+        ge=10,
+        le=500,
+        description="Maximum number of items to fetch for browse lists (ignored for user lists)",
+    )
+
+
+class AniListSettings(BaseModel):
+    # AniList needs no credentials — always enabled if sources exist.
+    sources: List[AniListSource] = Field(default_factory=list)
 
 
 class TautulliSettings(BaseModel):
@@ -292,6 +305,7 @@ class AppConfig(BaseModel):
     trakt: Optional[TraktSettings] = None
     letterboxd: Optional[LetterboxdSettings] = None
     mdblist: Optional[MDBListSettings] = None
+    anilist: Optional[AniListSettings] = None
     tautulli: Optional[TautulliSettings] = None
     seerr: Optional[SeerrSettings] = None
     logging: LoggingSettings = LoggingSettings()

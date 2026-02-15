@@ -8,6 +8,7 @@ export interface Source {
     name: string;
     url: string;
     plex_library: string;
+    max_items?: number;
 }
 
 // Generic source status (identical for all list-based integrations)
@@ -50,6 +51,16 @@ export interface MDBListMissingItem extends BaseMissingItem {
     tmdb_id: number | null;
     trakt_id: number | null;
     mdblist_id: string | null;
+}
+
+// AniList-specific missing item
+export interface AniListMissingItem extends BaseMissingItem {
+    media_format: string | null;
+    anilist_id: number | null;
+    mal_id: number | null;
+    tmdb_id: number | null;
+    imdb_id: string | null;
+    tvdb_id: number | null;
 }
 
 // Settings types

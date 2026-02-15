@@ -70,7 +70,7 @@ def get_configured_collection_names(config: AppConfig) -> Set[str]:
             names.add(source.name)
 
     # Add collections from Letterboxd sources
-    if config.letterboxd and config.letterboxd.enabled and config.letterboxd.sources:
+    if config.letterboxd and config.letterboxd.sources:
         for source in config.letterboxd.sources:
             names.add(source.name)
 
@@ -79,9 +79,15 @@ def get_configured_collection_names(config: AppConfig) -> Set[str]:
         for source in config.mdblist.sources:
             names.add(source.name)
 
+    # Add collections from AniList sources
+    if config.anilist and config.anilist.sources:
+        for source in config.anilist.sources:
+            names.add(source.name)
+
     return names
 
 
+# Currently unused — auto-delete functionality is disabled in service.py
 def cleanup_deleted_integration_sources(
     server: PlexServer,
     config: AppConfig,
@@ -89,7 +95,7 @@ def cleanup_deleted_integration_sources(
     auto_update_config: bool = True,
 ) -> Dict[str, List[str]]:
     """
-    Automatically detect and clean up collections that have been removed from config.
+    This is deletion territory, so gonna try an detail exactly whats going on:
 
     This function:
     1. Identifies collections that were previously rotated but are no longer in:
@@ -125,12 +131,16 @@ def cleanup_deleted_integration_sources(
         for source in config.trakt.sources:
             current_integration_sources.add(source.name)
 
-    if config.letterboxd and config.letterboxd.enabled and config.letterboxd.sources:
+    if config.letterboxd and config.letterboxd.sources:
         for source in config.letterboxd.sources:
             current_integration_sources.add(source.name)
 
     if config.mdblist and config.mdblist.enabled and config.mdblist.sources:
         for source in config.mdblist.sources:
+            current_integration_sources.add(source.name)
+
+    if config.anilist and config.anilist.sources:
+        for source in config.anilist.sources:
             current_integration_sources.add(source.name)
 
     # Get previously rotated collections from history

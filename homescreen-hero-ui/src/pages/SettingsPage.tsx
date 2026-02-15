@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchWithAuth } from "../utils/api";
 import { SlidersHorizontal, Check, ChevronDown, FileText, Copy, Download, Pause, Play, RefreshCw, Search, Server, CalendarSync, Ban, Archive, Upload, HardDriveDownload, HardDriveUpload, Undo2 } from "lucide-react";
 import { Switch, Listbox } from "@headlessui/react";
@@ -35,7 +35,7 @@ type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR" | "ALL";
 
 type CollectionSource = {
     name: string;
-    source: "plex" | "trakt" | "letterboxd" | "mdblist";
+    source: "plex" | "trakt" | "letterboxd" | "mdblist" | "anilist";
     detail?: string | null;
 };
 
@@ -44,6 +44,7 @@ type CollectionSourcesResponse = {
     trakt: CollectionSource[];
     letterboxd: CollectionSource[];
     mdblist: CollectionSource[];
+    anilist: CollectionSource[];
 };
 
 function guessLevel(line: string): Exclude<LogLevel, "ALL"> | null {
@@ -100,7 +101,21 @@ function IconButton({
 
 export default function SettingsPage() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const [activeTab, setActiveTab] = useState<TabId>("general");
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    const activeTab = useMemo<TabId>(() => {
+        const hash = location.hash.replace("#", "").toLowerCase();
+        const match = tabs.find((t) => t.id === hash);
+        return match ? match.id : "general";
+    }, [location.hash]);
+
+    const setActiveTab = useCallback(
+        (id: TabId) => {
+            navigate(`#${id}`, { replace: true });
+        },
+        [navigate]
+    );
     const [plexTestStatus, setPlexTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
 
     // Track which section should be expanded based on URL param
@@ -127,7 +142,7 @@ export default function SettingsPage() {
     const [intervalInput, setIntervalInput] = useState("12");
     const [maxCollectionsInput, setMaxCollectionsInput] = useState("5");
     const [blacklistSearch, setBlacklistSearch] = useState("");
-    const [blacklistSourceFilter, setBlacklistSourceFilter] = useState<"all" | "plex" | "trakt" | "letterboxd" | "mdblist">("all");
+    const [blacklistSourceFilter, setBlacklistSourceFilter] = useState<"all" | "plex" | "trakt" | "letterboxd" | "mdblist" | "anilist">("all");
     const [blacklistPage, setBlacklistPage] = useState(1);
     const [collectionSources, setCollectionSources] = useState<CollectionSource[]>([]);
     const blacklistItemsPerPage = 20;
@@ -245,6 +260,7 @@ export default function SettingsPage() {
                     ...(data.trakt || []),
                     ...(data.letterboxd || []),
                     ...(data.mdblist || []),
+                    ...(data.anilist || []),
                 ];
                 setCollectionSources(combined);
             })
@@ -1099,7 +1115,7 @@ export default function SettingsPage() {
                                 />
                             </div>
                             <div className="flex gap-2 flex-wrap">
-                                {(["all", "plex", "trakt", "letterboxd", "mdblist"] as const).map((filter) => (
+                                {(["all", "plex", "trakt", "letterboxd", "mdblist", "anilist"] as const).map((filter) => (
                                     <button
                                         key={filter}
                                         type="button"
@@ -1121,12 +1137,14 @@ export default function SettingsPage() {
                                                               ? "#8b2e82"
                                                               : filter === "letterboxd"
                                                               ? "#00a63d"
+                                                              : filter === "anilist"
+                                                              ? "#2b7de9"
                                                               : "#4284c9",
                                                   }
                                                 : undefined
                                         }
                                     >
-                                        {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                        {filter === "anilist" ? "AniList" : filter.charAt(0).toUpperCase() + filter.slice(1)}
                                     </button>
                                 ))}
                             </div>

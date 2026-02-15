@@ -156,6 +156,43 @@ class MDBListMissingItem(Base):
     times_seen: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
+class AniListMissingItem(Base):
+    __tablename__ = "anilist_missing_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # Which AniList source this came from
+    source_name: Mapped[str] = mapped_column(String, nullable=False)
+    source_url: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Where we expected to find it in Plex
+    plex_library: Mapped[str] = mapped_column(String, nullable=False)
+    plex_collection: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Media identity
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    media_format: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # AniList / MAL IDs
+    anilist_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mal_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Mapped IDs (from anime-lists)
+    tmdb_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    imdb_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    tvdb_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Tracking
+    first_seen: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow
+    )
+    last_seen: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow
+    )
+    times_seen: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
 class CollectionAnalytics(Base):
     # Analytics snapshots for collection watch statistics from Tautulli
     __tablename__ = "collection_analytics"
@@ -199,6 +236,22 @@ class PinnedCollection(Base):
     visibility_home = Column(Boolean, nullable=False, default=True)
     visibility_shared = Column(Boolean, nullable=False, default=False)
     visibility_recommended = Column(Boolean, nullable=False, default=False)
+
+
+class SourceSyncRecord(Base):
+    # Tracks the latest sync result for each integration source
+    __tablename__ = "source_sync_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    integration_type = Column(String, nullable=False, index=True)  # trakt, letterboxd, mdblist, anilist
+    source_name = Column(String, nullable=False, index=True)
+    source_url = Column(String, nullable=False)
+
+    sync_status = Column(String, nullable=False, default="never_synced")  # success, error, never_synced
+    last_sync_time = Column(DateTime, nullable=True)
+    items_total = Column(Integer, nullable=False, default=0)
+    items_matched = Column(Integer, nullable=False, default=0)
+    error_message = Column(Text, nullable=True)
 
 
 class CollectionDisplayOrder(Base):
