@@ -100,7 +100,7 @@ Open http://localhost:8000 (or whichever port you specified in .env file) and th
 
 ### Windows Portable (Beta)
 
-**Note:** This is very much in beta and was solely created for a few users to simplify the Windows install process. Please feel free to report any issues. You can find the current version of the Windows Portablze .zip on the [Releases Page](https://github.com/trentferguson/homescreen-hero/releases/tag/v0.5.0-windows-beta)
+**Note:** This is very much in beta and was solely created for a few users to simplify the Windows install process. Please feel free to report any issues. You can download the homescreen-hero-portable.zip on the latest [Releases Page](https://github.com/trentferguson/homescreen-hero/releases/latest)
 
 You can find detailed instructions in the homescreen-hero docs. Visit the [Windows Portable (Beta)](https://docs.homescreenhero.com/docs/getting-started/installation#windows-portable-beta) section for an installation guide.
 
