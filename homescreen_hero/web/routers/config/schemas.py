@@ -418,3 +418,13 @@ class ConfigImportResponse(BaseModel):
 class BackupStatusResponse(BaseModel):
     exists: bool
     modified_at: Optional[str] = None
+
+
+class AuthSettingsResponse(BaseModel):
+    method: Literal["password", "plex", "both"]
+    auto_approve_users: bool
+
+
+class AuthSettingsSaveRequest(BaseModel):
+    method: Literal["password", "plex", "both"]
+    auto_approve_users: bool
