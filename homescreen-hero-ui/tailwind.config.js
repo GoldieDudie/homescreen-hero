@@ -10,6 +10,13 @@ export default {
         "background-dark": "#111621",
         "card-dark": "#1a1f2e",
         "card-hover": "#222838",
+        // User dashboard palette
+        "user-bg": "#080d1a",
+        "user-card": "#0f1528",
+        "user-card-border": "#1a2540",
+        "user-accent": "#e5a00d",
+        "user-accent-dim": "#b8860b",
+        "user-muted": "#8899b0",
       },
       fontFamily: {
         display: ["Inter", "sans-serif"],
@@ -29,10 +36,15 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "progress-fill": {
+          from: { width: "0%" },
+          to: { width: "100%" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "progress-fill": "progress-fill 8s linear forwards",
       },
     },
   },

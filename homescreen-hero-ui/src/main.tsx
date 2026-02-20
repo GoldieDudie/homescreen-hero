@@ -19,7 +19,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import CollectionDetailPage from "./pages/CollectionDetailPage";
 import CollectionsPage from "./pages/CollectionsPage";
 import ToolsPage from "./pages/ToolsPage";
-import UserLandingPage from "./pages/UserLandingPage";
+import UserLayout from "./layouts/UserLayout";
+import UserHomePage from "./pages/UserHomePage";
 
 
 const router = createBrowserRouter([
@@ -35,9 +36,13 @@ const router = createBrowserRouter([
     path: "/user",
     element: (
       <ProtectedRoute>
-        <UserLandingPage />
+        <UserLayout />
       </ProtectedRoute>
     ),
+    children: [
+      { index: true, element: <UserHomePage /> },
+      // Phase 2: { path: "movie-night", element: <MovieNightPage /> },
+    ],
   },
   {
     element: (

@@ -133,6 +133,23 @@ class TmdbClient:
         )
 
 
+    def get_movie_images(self, tmdb_id: int) -> Dict[str, Optional[str]]:
+        # Fetch poster_path and backdrop_path for a movie
+        data = self._request("GET", f"/movie/{tmdb_id}")
+        return {
+            "poster_path": data.get("poster_path"),
+            "backdrop_path": data.get("backdrop_path"),
+        }
+
+    def get_tv_images(self, tmdb_id: int) -> Dict[str, Optional[str]]:
+        # Fetch poster_path and backdrop_path for a TV show
+        data = self._request("GET", f"/tv/{tmdb_id}")
+        return {
+            "poster_path": data.get("poster_path"),
+            "backdrop_path": data.get("backdrop_path"),
+        }
+
+
 def get_tmdb_client(config: AppConfig) -> Optional[TmdbClient]:
     if config.tmdb is None:
         logger.info("TMDb not configured")

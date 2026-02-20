@@ -13,6 +13,7 @@ from .tools import router as tools_router
 from .seerr import router as seerr_router
 from .version import router as version_router
 from .vibes import router as vibes_router
+from .user import router as user_router
 
 __all__ = [
     "analytics_router",
@@ -26,6 +27,7 @@ __all__ = [
     "rotation_router",
     "seerr_router",
     "tools_router",
+    "user_router",
     "version_router",
     "vibes_router",
 ]
