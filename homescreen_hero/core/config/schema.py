@@ -308,6 +308,22 @@ class TautulliSettings(BaseModel):
     )
 
 
+class TmdbSettings(BaseModel):
+    # TMDb connection details (used for Movie Night vibe scoring).
+    enabled: bool = Field(
+        default=False,
+        description="Whether TMDb integration is enabled (used for Movie Night Vibes)",
+    )
+    api_key: Optional[str] = Field(
+        default=None,
+        description="TMDb API key (can be set via HSH_TMDB_API_KEY env var)",
+    )
+    base_url: str = Field(
+        "https://api.themoviedb.org/3",
+        description="Base URL for TMDb API v3",
+    )
+
+
 class SeerrSettings(BaseModel):
     # Seerr/Jellyseerr/Overseerr connection details.
     enabled: bool = Field(
@@ -344,6 +360,7 @@ class AppConfig(BaseModel):
     anilist: Optional[AniListSettings] = None
     mal: Optional[MALSettings] = None
     tautulli: Optional[TautulliSettings] = None
+    tmdb: Optional[TmdbSettings] = None
     seerr: Optional[SeerrSettings] = None
     logging: LoggingSettings = LoggingSettings()
     auth: Optional[AuthSettings] = None

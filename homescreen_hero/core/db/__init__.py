@@ -22,6 +22,7 @@ from .models import (
     CollectionAnalytics,
     CollectionDisplayOrder,
     CollectionUsage,
+    MovieVibe,
     PendingSimulation,
     PinnedCollection,
     RotationRecord,
@@ -40,6 +41,11 @@ from .tools import (
 from .sync_status import (
     get_sync_status,
     record_sync_result,
+)
+from .vibes import (
+    get_existing_rating_keys,
+    get_vibe_stats,
+    upsert_movie_vibe,
 )
 from .pinning import (
     get_display_order,
@@ -90,4 +96,8 @@ __all__ = (
     "pin_collection",
     "unpin_collection",
     "update_display_order",
+    "MovieVibe",
+    "get_existing_rating_keys",
+    "get_vibe_stats",
+    "upsert_movie_vibe",
 )

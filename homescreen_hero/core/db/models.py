@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     Integer,
     String,
     Text,
@@ -323,3 +324,39 @@ class CollectionDisplayOrder(Base):
     collection_name = Column(String, nullable=False, unique=True, index=True)
     display_order = Column(Integer, nullable=False, default=0, index=True)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class MovieVibe(Base):
+    # Pre-computed vibe scores for Movie Night picker
+    __tablename__ = "movie_vibes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # Plex identity
+    plex_rating_key: Mapped[int] = mapped_column(Integer, nullable=False, unique=True, index=True)
+    tmdb_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    plex_library: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Cached metadata for recomputation without re-fetching
+    genres: Mapped[str | None] = mapped_column(JSON, nullable=True)
+    tmdb_keywords: Mapped[str | None] = mapped_column(JSON, nullable=True)
+    tmdb_overview: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Vibe scores (0.0 to 1.0)
+    vibe_popcorn_night: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    vibe_nerve_wracking: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    vibe_mind_bending: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    vibe_hopeless_romantic: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    vibe_gut_punch: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    vibe_epic_adventure: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    vibe_cheap_laughs: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    vibe_dark_twisted: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    vibe_feel_good: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    vibe_kid_at_heart: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    vibe_true_story: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+
+    # Metadata
+    computed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    score_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

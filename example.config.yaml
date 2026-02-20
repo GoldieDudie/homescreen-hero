@@ -128,6 +128,13 @@ tautulli:
   collect_on_rotation: true  # Automatically collect analytics after each rotation
   collect_interval_hours: 24  # How often to collect analytics snapshots (in hours)
 
+# Optional: TMDb integration (used for Movie Night vibe scoring)
+# Enriches movies with keyword data for more accurate vibe matching
+tmdb:
+  enabled: false
+  # api_key: "YOUR_TMDB_API_KEY"  # RECOMMENDED: Use HSH_TMDB_API_KEY environment variable instead
+  # Get your API key from: https://www.themoviedb.org/settings/api (free)
+
 # Optional: Seerr/Jellyseerr/Overseerr integration
 seerr:
   enabled: false

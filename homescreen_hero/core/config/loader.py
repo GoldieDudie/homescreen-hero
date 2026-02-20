@@ -180,6 +180,18 @@ def _apply_env_overrides(config: AppConfig) -> AppConfig:
                 "Set it in config.yaml or via HSH_MAL_CLIENT_ID environment variable"
             )
 
+    # TMDb API key override (if TMDb is enabled)
+    if config.tmdb and config.tmdb.enabled:
+        tmdb_api_key = os.getenv("HSH_TMDB_API_KEY")
+        if tmdb_api_key:
+            logger.info("Using TMDb API key from HSH_TMDB_API_KEY environment variable")
+            config.tmdb.api_key = tmdb_api_key
+        elif not config.tmdb.api_key:
+            raise ValueError(
+                "TMDb API key is required when TMDb is enabled. "
+                "Set it in config.yaml or via HSH_TMDB_API_KEY environment variable"
+            )
+
     # Seerr API key override (if Seerr is enabled)
     if config.seerr and config.seerr.enabled:
         seerr_api_key = os.getenv("HSH_SEERR_API_KEY")

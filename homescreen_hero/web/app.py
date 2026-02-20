@@ -28,6 +28,7 @@ from homescreen_hero.web.routers import (
     tools_router,
     seerr_router,
     version_router,
+    vibes_router,
 )
 from homescreen_hero.web.routers.version import get_current_version
 from homescreen_hero.web.routers.collections import invalidate_collections_cache
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(tools_router, prefix="/api")
     app.include_router(seerr_router, prefix="/api")
     app.include_router(version_router, prefix="/api")
+    app.include_router(vibes_router, prefix="/api")
 
     # Frontend (serve only if build exists)
     logger.info(
