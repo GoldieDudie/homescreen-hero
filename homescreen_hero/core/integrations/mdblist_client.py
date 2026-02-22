@@ -163,15 +163,16 @@ class MDBListClient:
             }
 
             data = self._request("GET", api_path, params=params)
-            movies_data = data.get("movies", [])
+            items_data = data.get("movies", [])
+            if not items_data:
+                items_data = data.get("shows", [])
 
             # Convert to MDBListMovie objects
-            for movie in movies_data:
-                all_movies.append(self._parse_movie(movie))
+            for item in items_data:
+                all_movies.append(self._parse_movie(item))
 
             # Check if there are more items
-            # MDBList returns X-Has-More header, but we can also check if we got fewer than limit
-            if len(movies_data) < limit:
+            if len(items_data) < limit:
                 break
 
             offset += limit
