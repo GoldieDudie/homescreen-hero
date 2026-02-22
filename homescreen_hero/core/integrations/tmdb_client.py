@@ -43,6 +43,7 @@ class TmdbMovieData:
     genres: List[str]
     keywords: List[Dict[str, Any]]
     overview: Optional[str] = None
+    poster_path: Optional[str] = None
 
 
 class TmdbClient:
@@ -130,6 +131,7 @@ class TmdbClient:
             genres=genres,
             keywords=keywords_data,
             overview=data.get("overview"),
+            poster_path=data.get("poster_path"),
         )
 
 

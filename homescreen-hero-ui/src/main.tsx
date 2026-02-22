@@ -21,6 +21,7 @@ import CollectionsPage from "./pages/CollectionsPage";
 import ToolsPage from "./pages/ToolsPage";
 import UserLayout from "./layouts/UserLayout";
 import UserHomePage from "./pages/UserHomePage";
+import MovieNightPage from "./pages/MovieNightPage";
 
 
 const router = createBrowserRouter([
@@ -41,7 +42,7 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <UserHomePage /> },
-      // Phase 2: { path: "movie-night", element: <MovieNightPage /> },
+      { path: "movie-night", element: <MovieNightPage /> },
     ],
   },
   {

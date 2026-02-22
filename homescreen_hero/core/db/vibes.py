@@ -34,6 +34,7 @@ def upsert_movie_vibe(
     tmdb_keywords: list,
     scores: Dict[str, float],
     tmdb_overview: Optional[str] = None,
+    poster_path: Optional[str] = None,
 ) -> None:
     # Insert or update a MovieVibe row
     with session_scope() as db:
@@ -49,6 +50,7 @@ def upsert_movie_vibe(
             existing.genres = genres
             existing.tmdb_keywords = tmdb_keywords
             existing.tmdb_overview = tmdb_overview
+            existing.poster_path = poster_path
             existing.computed_at = datetime.utcnow()
             existing.score_version = SCORE_VERSION
             for vibe in VIBE_NAMES:
@@ -64,11 +66,35 @@ def upsert_movie_vibe(
                 genres=genres,
                 tmdb_keywords=tmdb_keywords,
                 tmdb_overview=tmdb_overview,
+                poster_path=poster_path,
                 computed_at=datetime.utcnow(),
                 score_version=SCORE_VERSION,
                 **vibe_kwargs,
             )
             db.add(row)
+
+
+def get_ranked_movies_by_vibes(
+    vibe_names: List[str],
+    limit: int = 10,
+) -> List[tuple]:
+    # Return movies ranked by max score across selected vibes.
+    # Uses SQLite's scalar max(a, b, ...) which returns the largest argument.
+    vibe_columns = [getattr(MovieVibe, f"vibe_{name}") for name in vibe_names]
+    match_score = func.max(*vibe_columns).label("match_score")
+
+    with session_scope() as db:
+        stmt = (
+            select(MovieVibe, match_score)
+            .where(MovieVibe.score_version == SCORE_VERSION)
+            .order_by(match_score.desc())
+            .limit(limit)
+        )
+        rows = db.execute(stmt).all()
+        # Detach ORM objects from session so they're usable outside
+        for row in rows:
+            db.expunge(row[0])
+        return [(row[0], row[1]) for row in rows]
 
 
 def get_vibe_stats() -> Dict:

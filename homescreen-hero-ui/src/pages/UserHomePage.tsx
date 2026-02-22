@@ -241,7 +241,7 @@ export default function UserHomePage() {
                     <h1 className="text-[1.7rem] font-extrabold tracking-tight leading-tight">
                         {getGreeting()},
                         <br />
-                        <span className="text-user-accent italic">{username}</span>
+                        <span className="text-user-accent italic">plexusername</span>
                     </h1>
                     <p className="text-user-muted text-sm mt-1">The library is open.</p>
                 </div>
@@ -288,7 +288,7 @@ export default function UserHomePage() {
                 />
                 <ToolCard
                     icon={<Calendar size={24} />}
-                    title="Watch Party"
+                    title="Content Schedule"
                     subtitle="Coming Soon"
                     comingSoon
                 />

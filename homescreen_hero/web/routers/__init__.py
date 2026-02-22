@@ -14,6 +14,7 @@ from .seerr import router as seerr_router
 from .version import router as version_router
 from .vibes import router as vibes_router
 from .user import router as user_router
+from .movie_night import router as movie_night_router
 
 __all__ = [
     "analytics_router",
@@ -24,6 +25,7 @@ __all__ = [
     "history_router",
     "integrations_router",
     "logs_router",
+    "movie_night_router",
     "rotation_router",
     "seerr_router",
     "tools_router",

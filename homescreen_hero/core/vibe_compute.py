@@ -102,12 +102,14 @@ def compute_vibes_for_library(
             scoring_genres = genres
 
             overview: Optional[str] = None
+            poster_path: Optional[str] = None
 
             if tmdb_id and tmdb_client:
                 try:
                     tmdb_data = tmdb_client.get_movie_with_keywords(tmdb_id)
                     keywords = tmdb_data.keywords
                     overview = tmdb_data.overview
+                    poster_path = tmdb_data.poster_path
                     # Prefer TMDb genres (more standardized), fall back to Plex
                     if tmdb_data.genres:
                         scoring_genres = tmdb_data.genres
@@ -133,6 +135,7 @@ def compute_vibes_for_library(
                 genres=scoring_genres,
                 tmdb_keywords=keywords,
                 tmdb_overview=overview,
+                poster_path=poster_path,
                 scores=scores,
             )
             stats["scored"] += 1
