@@ -15,6 +15,7 @@ from homescreen_hero.core.service import run_rotation_once
 logger = logging.getLogger(__name__)
 
 JOB_ID = "rotation-job"
+CLEANUP_JOB_ID = "session-cleanup-job"
 _scheduler: Optional[BackgroundScheduler] = None
 _post_rotation_callbacks: list[Callable[[], None]] = []
 
@@ -162,3 +163,74 @@ def stop_rotation_scheduler() -> None:
     logger.info("Stopping rotation scheduler")
     _scheduler.shutdown(wait=False)
     _scheduler = None
+
+
+# --- Movie Night session cleanup ---
+
+def _cleanup_expired_sessions() -> None:
+    # Mark active sessions past their expiry as expired, delete sessions older than 24h.
+    from homescreen_hero.core.db.base import session_scope
+    from homescreen_hero.core.db.models import MovieNightSession, SessionPlayer
+
+    try:
+        now = datetime.now()
+        cutoff = now - timedelta(hours=24)
+
+        with session_scope() as db:
+            # Mark expired
+            expired = db.query(MovieNightSession).filter(
+                MovieNightSession.state.in_({"waiting", "vibes_submitted", "voting"}),
+                MovieNightSession.expires_at < now,
+            ).all()
+            for s in expired:
+                s.state = "expired"
+                s.updated_at = now
+            if expired:
+                logger.info("Marked %d movie night sessions as expired", len(expired))
+
+            # Delete old sessions + their players
+            old_sessions = db.query(MovieNightSession).filter(
+                MovieNightSession.created_at < cutoff,
+            ).all()
+            old_ids = [s.id for s in old_sessions]
+            if old_ids:
+                db.query(SessionPlayer).filter(
+                    SessionPlayer.session_id.in_(old_ids),
+                ).delete(synchronize_session="fetch")
+                db.query(MovieNightSession).filter(
+                    MovieNightSession.id.in_(old_ids),
+                ).delete(synchronize_session="fetch")
+                logger.info("Deleted %d old movie night sessions", len(old_ids))
+    except Exception:
+        logger.exception("Session cleanup failed")
+
+
+_cleanup_scheduler: Optional[BackgroundScheduler] = None
+
+
+def start_session_cleanup() -> None:
+    # Start a lightweight scheduler for movie night session cleanup (every 5 min).
+    global _cleanup_scheduler
+    if _cleanup_scheduler and _cleanup_scheduler.running:
+        return
+
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(
+        _cleanup_expired_sessions,
+        trigger=IntervalTrigger(minutes=5),
+        id=CLEANUP_JOB_ID,
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.start()
+    _cleanup_scheduler = scheduler
+    logger.info("Movie night session cleanup started (every 5 min)")
+
+
+def stop_session_cleanup() -> None:
+    global _cleanup_scheduler
+    if _cleanup_scheduler is None:
+        return
+    _cleanup_scheduler.shutdown(wait=False)
+    _cleanup_scheduler = None

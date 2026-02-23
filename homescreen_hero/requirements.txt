@@ -14,3 +14,4 @@ python-dotenv
 cachetools
 beautifulsoup4
 lxml
+slowapi

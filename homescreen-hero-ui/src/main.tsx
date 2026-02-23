@@ -22,6 +22,7 @@ import ToolsPage from "./pages/ToolsPage";
 import UserLayout from "./layouts/UserLayout";
 import UserHomePage from "./pages/UserHomePage";
 import MovieNightPage from "./pages/MovieNightPage";
+import JoinRoomPage from "./pages/JoinRoomPage";
 
 
 const router = createBrowserRouter([
@@ -32,6 +33,10 @@ const router = createBrowserRouter([
   {
     path: "/quick-start",
     element: <QuickStartPage />,
+  },
+  {
+    path: "/join/:roomCode?",
+    element: <JoinRoomPage />,
   },
   {
     path: "/user",

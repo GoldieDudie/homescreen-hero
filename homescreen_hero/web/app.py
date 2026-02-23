@@ -5,7 +5,11 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from starlette.responses import FileResponse, Response
+
+from homescreen_hero.web.rate_limit import limiter
 
 from homescreen_hero.core.config.loader import load_config
 from homescreen_hero.core.db.history import init_db
@@ -14,6 +18,8 @@ from homescreen_hero.core.scheduler import (
     start_rotation_scheduler,
     stop_rotation_scheduler,
     register_post_rotation_callback,
+    start_session_cleanup,
+    stop_session_cleanup,
 )
 from homescreen_hero.web.routers import (
     config_router,
@@ -31,6 +37,7 @@ from homescreen_hero.web.routers import (
     vibes_router,
     user_router,
     movie_night_router,
+    room_router,
 )
 from homescreen_hero.web.routers.version import get_current_version
 from homescreen_hero.web.routers.collections import invalidate_collections_cache
@@ -54,6 +61,9 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="homescreen-hero API", version=get_current_version())
 
+    # Rate limiting
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     app.include_router(health_router, prefix="/api")
     app.include_router(config_router, prefix="/api")
@@ -70,6 +80,7 @@ def create_app() -> FastAPI:
     app.include_router(vibes_router, prefix="/api")
     app.include_router(user_router, prefix="/api")
     app.include_router(movie_night_router, prefix="/api")
+    app.include_router(room_router, prefix="/api")
 
     # Frontend (serve only if build exists)
     logger.info(
@@ -117,10 +128,12 @@ def create_app() -> FastAPI:
             start_rotation_scheduler()
         except Exception as exc:  # pragma: no cover
             logger.exception("Failed to start rotation scheduler: %s", exc)
+        start_session_cleanup()
 
     @app.on_event("shutdown")
     async def _stop_scheduler() -> None:  # pragma: no cover
         stop_rotation_scheduler()
+        stop_session_cleanup()
 
     return app
 

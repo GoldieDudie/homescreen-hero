@@ -362,3 +362,48 @@ class MovieVibe(Base):
     # Metadata
     computed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     score_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
+class MovieNightSession(Base):
+    # Room-code session for remote multiplayer Movie Night
+    __tablename__ = "movie_night_sessions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    room_code = Column(String(9), nullable=False, unique=True, index=True)
+    state = Column(String, nullable=False, default="waiting")
+
+    # Host identity
+    host_user_id = Column(Integer, nullable=False)
+    host_username = Column(String, nullable=False)
+
+    # Host-set filters (guests only pick vibes)
+    duration_filter = Column(String, nullable=True)
+    rewatch_mode = Column(String, nullable=False, default="new")
+    max_players = Column(Integer, nullable=False, default=4)
+
+    # Computed match results (JSON list of movie dicts, stored after matching)
+    match_results = Column(JSON, nullable=True)
+    current_movie_index = Column(Integer, nullable=False, default=0)
+    filters_applied = Column(JSON, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+
+
+class SessionPlayer(Base):
+    # A player in a Movie Night room-code session
+    __tablename__ = "session_players"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Integer, nullable=False, index=True)
+
+    player_name = Column(String, nullable=False)
+    is_host = Column(Boolean, nullable=False, default=False)
+    player_token = Column(String(32), nullable=False, unique=True, index=True)
+
+    vibes = Column(JSON, nullable=True)
+    current_vote = Column(Boolean, nullable=True)
+
+    joined_at = Column(DateTime, nullable=False, default=datetime.utcnow)
