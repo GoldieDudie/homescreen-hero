@@ -24,6 +24,7 @@ def init_db() -> None:
     _migrate_collection_analytics(engine)
     _migrate_pinned_collections_visibility(engine)
     _migrate_users_status(engine)
+    _migrate_movie_vibes_duration(engine)
 
 
 def _migrate_collection_analytics(engine) -> None:
@@ -95,6 +96,25 @@ def _migrate_users_status(engine) -> None:
     logger.info("Migrating users: adding status column")
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE users ADD COLUMN status VARCHAR NOT NULL DEFAULT 'approved'"))
+        conn.commit()
+
+
+def _migrate_movie_vibes_duration(engine) -> None:
+    # Add duration_minutes column to movie_vibes if it doesn't exist
+    from sqlalchemy import text, inspect
+
+    inspector = inspect(engine)
+
+    if "movie_vibes" not in inspector.get_table_names():
+        return
+
+    columns = [col["name"] for col in inspector.get_columns("movie_vibes")]
+    if "duration_minutes" in columns:
+        return
+
+    logger.info("Migrating movie_vibes: adding duration_minutes column")
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE movie_vibes ADD COLUMN duration_minutes INTEGER"))
         conn.commit()
 
 

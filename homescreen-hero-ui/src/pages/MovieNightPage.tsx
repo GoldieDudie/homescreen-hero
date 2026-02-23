@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../utils/auth";
 import {
-    ArrowLeft,
+    Home,
     Popcorn,
     Skull,
     Brain,
@@ -16,6 +17,13 @@ import {
     RotateCcw,
     Shuffle,
     Loader2,
+    ArrowLeft,
+    ArrowRight,
+    Timer,
+    Clock,
+    Hourglass,
+    Sparkles,
+    type LucideIcon,
 } from "lucide-react";
 import { fetchWithAuth } from "../utils/api";
 
@@ -33,6 +41,19 @@ const VIBES = [
     { key: "true_story", label: "True Story", desc: "Biopics & documentaries", icon: BookOpen },
 ] as const;
 
+const DURATION_OPTIONS: { key: string | null; label: string; desc: string; icon: LucideIcon | null }[] = [
+    { key: null, label: "Any Length", desc: "No preference", icon: null },
+    { key: "quick", label: "Quick Watch", desc: "Under 100 min", icon: Timer },
+    { key: "standard", label: "Standard", desc: "100–150 min", icon: Clock },
+    { key: "long", label: "I'm Committed", desc: "Over 150 min", icon: Hourglass },
+];
+
+const REWATCH_OPTIONS: { key: string; label: string; desc: string; icon: LucideIcon }[] = [
+    { key: "new", label: "Something New", desc: "Haven't seen it yet", icon: Sparkles },
+    { key: "rewatch", label: "Rewatch a Fave", desc: "Something I've loved", icon: RotateCcw },
+    { key: "any", label: "Don't Care", desc: "Surprise me", icon: Shuffle },
+];
+
 interface MovieResult {
     plex_rating_key: number;
     title: string;
@@ -40,19 +61,24 @@ interface MovieResult {
     poster_url: string | null;
     overview: string | null;
     genres: string[] | null;
+    duration_minutes: number | null;
     match_score: number;
     vibe_scores: Record<string, number>;
 }
 
-type Phase = "selecting" | "loading" | "revealing";
+type Phase = "selecting" | "filtering" | "loading" | "revealing";
 
 export default function MovieNightPage() {
     const navigate = useNavigate();
+    const { username, thumb } = useAuth();
     const [phase, setPhase] = useState<Phase>("selecting");
     const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
+    const [durationFilter, setDurationFilter] = useState<string | null>(null);
+    const [rewatchMode, setRewatchMode] = useState<string>("new");
     const [movies, setMovies] = useState<MovieResult[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [error, setError] = useState<string | null>(null);
+    const [filtersApplied, setFiltersApplied] = useState<Record<string, string> | null>(null);
 
     const toggleVibe = (key: string) => {
         setSelectedVibes((prev) => {
@@ -62,6 +88,9 @@ export default function MovieNightPage() {
         });
     };
 
+    const goToFilters = () => setPhase("filtering");
+    const goBackToVibes = () => setPhase("selecting");
+
     const findMovie = async () => {
         setPhase("loading");
         setError(null);
@@ -69,13 +98,18 @@ export default function MovieNightPage() {
             const res = await fetchWithAuth("/api/movie-night/pick", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ vibes: selectedVibes }),
+                body: JSON.stringify({
+                    vibes: selectedVibes,
+                    duration: durationFilter,
+                    rewatch_mode: rewatchMode,
+                }),
             });
             if (!res.ok) throw new Error("Failed to fetch movies");
             const data = await res.json();
+            setFiltersApplied(data.filters_applied ?? null);
             if (data.movies.length === 0) {
-                setError("No movies match these vibes. Try different ones!");
-                setPhase("selecting");
+                setError("No movies match these vibes and filters. Try adjusting!");
+                setPhase("filtering");
                 return;
             }
             setMovies(data.movies);
@@ -83,7 +117,7 @@ export default function MovieNightPage() {
             setPhase("revealing");
         } catch {
             setError("Something went wrong. Please try again.");
-            setPhase("selecting");
+            setPhase("filtering");
         }
     };
 
@@ -95,10 +129,13 @@ export default function MovieNightPage() {
 
     const startOver = () => {
         setSelectedVibes([]);
+        setDurationFilter(null);
+        setRewatchMode("new");
         setMovies([]);
         setCurrentIndex(0);
         setPhase("selecting");
         setError(null);
+        setFiltersApplied(null);
     };
 
     const movie = movies[currentIndex];
@@ -112,23 +149,39 @@ export default function MovieNightPage() {
     return (
         <div className="max-w-lg mx-auto">
             {/* Header */}
-            <div className="flex items-center gap-3 mb-6">
-                <button
-                    onClick={() => navigate("/user")}
-                    className="p-2 -ml-2 rounded-xl text-user-muted hover:text-white transition-colors"
-                >
-                    <ArrowLeft size={20} />
-                </button>
+            <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="text-xl font-bold tracking-tight">Movie Night</h1>
                     <p className="text-xs text-user-muted uppercase tracking-wider">
                         Vibe Picker
                     </p>
                 </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => navigate("/user")}
+                        className="p-2 rounded-xl text-user-muted hover:text-white transition-colors"
+                        title="Home"
+                    >
+                        <Home size={20} />
+                    </button>
+                    {thumb ? (
+                        <img
+                            src={thumb}
+                            alt={username ?? "User"}
+                            className="h-9 w-9 rounded-full object-cover ring-2 ring-user-card-border"
+                        />
+                    ) : (
+                        <div className="h-9 w-9 rounded-full bg-user-card flex items-center justify-center ring-2 ring-user-card-border">
+                            <span className="text-sm font-semibold text-user-muted">
+                                {username?.charAt(0).toUpperCase() ?? "?"}
+                            </span>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* SELECTING PHASE */}
-            {(phase === "selecting" || phase === "loading") && (
+            {phase === "selecting" && (
                 <div>
                     <p className="text-user-muted text-sm mb-4">
                         Pick 2–3 vibes you're in the mood for
@@ -144,9 +197,7 @@ export default function MovieNightPage() {
                     <div className="grid grid-cols-2 gap-3">
                         {VIBES.map(({ key, label, desc, icon: Icon }, index) => {
                             const isSelected = selectedVibes.includes(key);
-                            const isDisabled =
-                                (!isSelected && selectedVibes.length >= 3) ||
-                                phase === "loading";
+                            const isDisabled = !isSelected && selectedVibes.length >= 3;
                             return (
                                 <button
                                     key={key}
@@ -185,27 +236,25 @@ export default function MovieNightPage() {
                         })}
                     </div>
 
-                    {/* Find button */}
+                    {/* Next button */}
                     <button
-                        onClick={findMovie}
-                        disabled={selectedVibes.length < 2 || phase === "loading"}
+                        onClick={goToFilters}
+                        disabled={selectedVibes.length < 2}
                         className={`
                             w-full mt-6 py-3.5 rounded-2xl font-semibold text-sm
-                            transition-all duration-200
+                            transition-all duration-200 flex items-center justify-center gap-2
                             ${
-                                selectedVibes.length >= 2 && phase !== "loading"
+                                selectedVibes.length >= 2
                                     ? "bg-user-accent text-black hover:bg-user-accent-dim active:scale-[0.98]"
                                     : "bg-user-card text-user-muted border border-user-card-border cursor-not-allowed"
                             }
                         `}
                     >
-                        {phase === "loading" ? (
-                            <span className="flex items-center justify-center gap-2">
-                                <Loader2 size={18} className="animate-spin" />
-                                Finding your movie…
-                            </span>
-                        ) : selectedVibes.length >= 2 ? (
-                            `Find My Movie (${selectedVibes.length}/3)`
+                        {selectedVibes.length >= 2 ? (
+                            <>
+                                Next
+                                <ArrowRight size={16} />
+                            </>
                         ) : (
                             "Pick at least 2 vibes"
                         )}
@@ -213,9 +262,124 @@ export default function MovieNightPage() {
                 </div>
             )}
 
+            {/* FILTERING PHASE */}
+            {phase === "filtering" && (
+                <div className="animate-fade-in">
+                    <p className="text-user-muted text-sm mb-5">
+                        Refine your pick
+                    </p>
+
+                    {error && (
+                        <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    {/* Duration picker */}
+                    <h3 className="text-xs uppercase tracking-wider text-user-muted mb-2 font-semibold">
+                        How long?
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2 mb-5">
+                        {DURATION_OPTIONS.map(({ key, label, desc, icon: Icon }) => {
+                            const isSelected = durationFilter === key;
+                            return (
+                                <button
+                                    key={key ?? "any"}
+                                    onClick={() => setDurationFilter(key)}
+                                    className={`
+                                        rounded-xl border p-3 text-left transition-all duration-200
+                                        ${
+                                            isSelected
+                                                ? "border-user-accent bg-user-accent/10"
+                                                : "border-user-card-border bg-user-card hover:border-user-accent/30"
+                                        }
+                                    `}
+                                >
+                                    {Icon && (
+                                        <Icon
+                                            size={18}
+                                            className={`mb-1 ${isSelected ? "text-user-accent" : "text-user-muted"}`}
+                                        />
+                                    )}
+                                    <p className={`text-sm font-semibold ${isSelected ? "text-white" : "text-slate-300"}`}>
+                                        {label}
+                                    </p>
+                                    <p className="text-xs text-user-muted">{desc}</p>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Rewatch mode */}
+                    <h3 className="text-xs uppercase tracking-wider text-user-muted mb-2 font-semibold">
+                        Seen it before?
+                    </h3>
+                    <div className="grid grid-cols-3 gap-2 mb-6">
+                        {REWATCH_OPTIONS.map(({ key, label, desc, icon: Icon }) => {
+                            const isSelected = rewatchMode === key;
+                            return (
+                                <button
+                                    key={key}
+                                    onClick={() => setRewatchMode(key)}
+                                    className={`
+                                        rounded-xl border p-3 text-left transition-all duration-200
+                                        ${
+                                            isSelected
+                                                ? "border-user-accent bg-user-accent/10"
+                                                : "border-user-card-border bg-user-card hover:border-user-accent/30"
+                                        }
+                                    `}
+                                >
+                                    <Icon
+                                        size={18}
+                                        className={`mb-1 ${isSelected ? "text-user-accent" : "text-user-muted"}`}
+                                    />
+                                    <p className={`text-xs font-semibold mt-1 ${isSelected ? "text-white" : "text-slate-300"}`}>
+                                        {label}
+                                    </p>
+                                    <p className="text-[10px] text-user-muted leading-tight mt-0.5">{desc}</p>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Navigation buttons */}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={goBackToVibes}
+                            className="flex-1 py-3 rounded-2xl border border-user-card-border bg-user-card text-sm font-semibold text-user-muted hover:text-white hover:border-user-accent/30 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
+                        >
+                            <ArrowLeft size={16} />
+                            Back
+                        </button>
+                        <button
+                            onClick={findMovie}
+                            className="flex-1 py-3 rounded-2xl bg-user-accent text-black font-semibold text-sm hover:bg-user-accent-dim active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2"
+                        >
+                            Find My Movie
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* LOADING PHASE */}
+            {phase === "loading" && (
+                <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
+                    <Loader2 size={32} className="animate-spin text-user-accent mb-4" />
+                    <p className="text-user-muted text-sm">Finding your movie…</p>
+                </div>
+            )}
+
             {/* REVEALING PHASE */}
             {phase === "revealing" && movie && (
                 <div key={currentIndex} className="animate-fade-in">
+                    {/* Tautulli/Plex fallback notice */}
+                    {filtersApplied?.rewatch_fallback && (
+                        <p className="text-center text-xs text-amber-400/70 mb-3">
+                            Watch history unavailable — showing all movies
+                        </p>
+                    )}
+
                     {/* Poster */}
                     <div className="flex justify-center mb-5">
                         {movie.poster_url ? (
@@ -231,14 +395,17 @@ export default function MovieNightPage() {
                         )}
                     </div>
 
-                    {/* Title + Year */}
+                    {/* Title + Year + Duration */}
                     <div className="text-center mb-4">
                         <h2 className="text-2xl font-bold tracking-tight">
                             {movie.title}
                         </h2>
-                        {movie.year && (
-                            <p className="text-user-muted text-sm mt-1">{movie.year}</p>
-                        )}
+                        <p className="text-user-muted text-sm mt-1">
+                            {[
+                                movie.year,
+                                movie.duration_minutes ? `${movie.duration_minutes} min` : null,
+                            ].filter(Boolean).join(" · ")}
+                        </p>
                     </div>
 
                     {/* Genre pills */}

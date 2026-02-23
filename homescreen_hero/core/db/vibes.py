@@ -35,6 +35,7 @@ def upsert_movie_vibe(
     scores: Dict[str, float],
     tmdb_overview: Optional[str] = None,
     poster_path: Optional[str] = None,
+    duration_minutes: Optional[int] = None,
 ) -> None:
     # Insert or update a MovieVibe row
     with session_scope() as db:
@@ -51,6 +52,7 @@ def upsert_movie_vibe(
             existing.tmdb_keywords = tmdb_keywords
             existing.tmdb_overview = tmdb_overview
             existing.poster_path = poster_path
+            existing.duration_minutes = duration_minutes
             existing.computed_at = datetime.utcnow()
             existing.score_version = SCORE_VERSION
             for vibe in VIBE_NAMES:
@@ -67,6 +69,7 @@ def upsert_movie_vibe(
                 tmdb_keywords=tmdb_keywords,
                 tmdb_overview=tmdb_overview,
                 poster_path=poster_path,
+                duration_minutes=duration_minutes,
                 computed_at=datetime.utcnow(),
                 score_version=SCORE_VERSION,
                 **vibe_kwargs,
@@ -74,12 +77,23 @@ def upsert_movie_vibe(
             db.add(row)
 
 
+DURATION_RANGES = {
+    "quick": (None, 100),
+    "standard": (100, 150),
+    "long": (150, None),
+}
+
+
 def get_ranked_movies_by_vibes(
     vibe_names: List[str],
     limit: int = 10,
+    duration_bucket: Optional[str] = None,
+    exclude_rating_keys: Optional[Set[int]] = None,
+    only_rating_keys: Optional[Set[int]] = None,
 ) -> List[tuple]:
     # Return movies ranked by max score across selected vibes.
     # Uses SQLite's scalar max(a, b, ...) which returns the largest argument.
+    # Optional filters: duration bucket, exclude/include specific rating keys.
     vibe_columns = [getattr(MovieVibe, f"vibe_{name}") for name in vibe_names]
     match_score = func.max(*vibe_columns).label("match_score")
 
@@ -87,9 +101,27 @@ def get_ranked_movies_by_vibes(
         stmt = (
             select(MovieVibe, match_score)
             .where(MovieVibe.score_version == SCORE_VERSION)
-            .order_by(match_score.desc())
-            .limit(limit)
         )
+
+        # Duration filter
+        if duration_bucket and duration_bucket in DURATION_RANGES:
+            low, high = DURATION_RANGES[duration_bucket]
+            stmt = stmt.where(MovieVibe.duration_minutes.isnot(None))
+            if low is not None:
+                stmt = stmt.where(MovieVibe.duration_minutes >= low)
+            if high is not None:
+                stmt = stmt.where(MovieVibe.duration_minutes < high)
+
+        # Rewatch filter: exclude watched movies ("something new")
+        if exclude_rating_keys:
+            stmt = stmt.where(MovieVibe.plex_rating_key.notin_(exclude_rating_keys))
+
+        # Rewatch filter: only include watched movies ("rewatch")
+        if only_rating_keys is not None:
+            stmt = stmt.where(MovieVibe.plex_rating_key.in_(only_rating_keys))
+
+        stmt = stmt.order_by(match_score.desc()).limit(limit)
+
         rows = db.execute(stmt).all()
         # Detach ORM objects from session so they're usable outside
         for row in rows:

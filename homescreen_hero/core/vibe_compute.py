@@ -98,6 +98,9 @@ def compute_vibes_for_library(
             genres = extract_genres(item)
             tmdb_id = extract_tmdb_id(item)
             content_rating = extract_content_rating(item)
+            # Plex stores duration in milliseconds
+            raw_duration = getattr(item, "duration", None)
+            duration_minutes = round(raw_duration / 60000) if raw_duration else None
             keywords: list = []
             scoring_genres = genres
 
@@ -136,6 +139,7 @@ def compute_vibes_for_library(
                 tmdb_keywords=keywords,
                 tmdb_overview=overview,
                 poster_path=poster_path,
+                duration_minutes=duration_minutes,
                 scores=scores,
             )
             stats["scored"] += 1

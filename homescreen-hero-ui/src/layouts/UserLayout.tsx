@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Outlet, NavLink } from "react-router-dom";
+import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { Home, Compass, Download, User } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -11,7 +11,13 @@ const NAV_ITEMS = [
 
 const USER_BG = "#080d1a";
 
+// Routes that hide the bottom nav for a focused experience
+const HIDE_NAV_ROUTES = ["/user/movie-night"];
+
 export default function UserLayout() {
+    const location = useLocation();
+    const hideNav = HIDE_NAV_ROUTES.some((r) => location.pathname.startsWith(r));
+
     // Set html/body bg to match so iOS overscroll doesn't flash white
     useEffect(() => {
         const prevHtml = document.documentElement.style.backgroundColor;
@@ -27,12 +33,12 @@ export default function UserLayout() {
     return (
         <div className="min-h-screen bg-user-bg text-white flex flex-col">
             {/* Main content — scrollable, padded for bottom nav */}
-            <main className="flex-1 overflow-y-auto px-5 pt-6 pb-20">
+            <main className={`flex-1 overflow-y-auto px-5 pt-6 ${hideNav ? "pb-6" : "pb-20"}`}>
                 <Outlet />
             </main>
 
-            {/* Bottom navigation — fixed pill */}
-            <nav className="fixed bottom-4 left-4 right-4 z-50">
+            {/* Bottom navigation — fixed pill (hidden on focused pages) */}
+            <nav className={`fixed bottom-4 left-4 right-4 z-50 ${hideNav ? "hidden" : ""}`}>
                 <div className="max-w-lg mx-auto flex items-center justify-around bg-user-card/95 backdrop-blur-xl border border-user-card-border rounded-2xl py-2 px-1">
                     {NAV_ITEMS.map(({ to, icon: Icon, label, end }) => (
                         <NavLink

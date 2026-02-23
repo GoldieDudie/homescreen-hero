@@ -344,6 +344,7 @@ class MovieVibe(Base):
     tmdb_keywords: Mapped[str | None] = mapped_column(JSON, nullable=True)
     tmdb_overview: Mapped[str | None] = mapped_column(Text, nullable=True)
     poster_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Vibe scores (0.0 to 1.0)
     vibe_popcorn_night: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
