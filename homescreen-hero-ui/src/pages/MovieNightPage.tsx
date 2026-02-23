@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { useAuth } from "../utils/auth";
+import type { LayoutContext } from "../layouts/UserLayout";
 import {
     Home,
     RotateCcw,
@@ -51,9 +52,16 @@ type Phase = "mode_select" | "selecting" | "filtering" | "handoff" | "loading" |
 export default function MovieNightPage() {
     const navigate = useNavigate();
     const { username, thumb } = useAuth();
+    const { setHideNav } = useOutletContext<LayoutContext>();
 
     // Flow state
     const [phase, setPhase] = useState<Phase>("mode_select");
+
+    // Show bottom nav on mode_select, hide during the flow
+    useEffect(() => {
+        setHideNav(phase !== "mode_select");
+        return () => setHideNav(false);
+    }, [phase, setHideNav]);
     const [mode, setMode] = useState<"solo" | "group" | "remote" | null>(null);
     const [currentPlayer, setCurrentPlayer] = useState(1);
     const playerCount = 2;
@@ -184,8 +192,8 @@ export default function MovieNightPage() {
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-xl font-bold tracking-tight">Movie Night</h1>
-                    <p className="text-xs text-user-muted uppercase tracking-wider">
+                    <h1 className="text-3xl font-bold tracking-tight">Movie Night</h1>
+                    <p className="text-sm text-user-accent uppercase tracking-wider font-semibold">
                         Vibe Picker
                     </p>
                 </div>

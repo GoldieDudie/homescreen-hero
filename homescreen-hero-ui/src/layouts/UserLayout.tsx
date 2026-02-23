@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { Home, Compass, Download, User } from "lucide-react";
 
@@ -11,12 +11,13 @@ const NAV_ITEMS = [
 
 const USER_BG = "#080d1a";
 
-// Routes that hide the bottom nav for a focused experience
-const HIDE_NAV_ROUTES = ["/user/movie-night"];
+export interface LayoutContext {
+    setHideNav: (hide: boolean) => void;
+}
 
 export default function UserLayout() {
     const location = useLocation();
-    const hideNav = HIDE_NAV_ROUTES.some((r) => location.pathname.startsWith(r));
+    const [hideNav, setHideNav] = useState(false);
 
     // Set html/body bg to match so iOS overscroll doesn't flash white
     useEffect(() => {
@@ -34,7 +35,7 @@ export default function UserLayout() {
         <div className="min-h-screen bg-user-bg text-white flex flex-col">
             {/* Main content — scrollable, padded for bottom nav */}
             <main className={`flex-1 overflow-y-auto px-5 pt-6 ${hideNav ? "pb-6" : "pb-20"}`}>
-                <Outlet />
+                <Outlet context={{ setHideNav } satisfies LayoutContext} />
             </main>
 
             {/* Bottom navigation — fixed pill (hidden on focused pages) */}

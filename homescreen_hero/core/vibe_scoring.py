@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, FrozenSet, List, Optional
 
 # Bump this when the scoring algorithm changes to trigger recompute
-SCORE_VERSION = 3
+SCORE_VERSION = 4
 
 VIBE_NAMES = [
     "popcorn_night",
@@ -42,7 +42,7 @@ VIBE_DISPLAY_NAMES = {
 GENRE_VIBE_MAP: Dict[str, Dict[str, float]] = {
     "Action": {
         "popcorn_night": 0.5,
-        "epic_adventure": 0.4,
+        "epic_adventure": 0.15,
         "nerve_wracking": 0.15,
     },
     "Adventure": {
@@ -145,6 +145,7 @@ GENRE_COMBO_MODIFIERS: Dict[FrozenSet[str], Dict[str, float]] = {
         "nerve_wracking": 0.75,
         "cheap_laughs": 1.2,
         "popcorn_night": 1.15,
+        "epic_adventure": 0.5,
     },
     frozenset({"Romance", "Comedy"}): {
         "hopeless_romantic": 0.85,
