@@ -23,6 +23,8 @@ import {
     Clock,
     Hourglass,
     Sparkles,
+    User,
+    Users,
     type LucideIcon,
 } from "lucide-react";
 import { fetchWithAuth } from "../utils/api";
@@ -66,24 +68,45 @@ interface MovieResult {
     vibe_scores: Record<string, number>;
 }
 
-type Phase = "selecting" | "filtering" | "loading" | "revealing";
+type Phase = "mode_select" | "selecting" | "filtering" | "handoff" | "loading" | "revealing";
 
 export default function MovieNightPage() {
     const navigate = useNavigate();
     const { username, thumb } = useAuth();
-    const [phase, setPhase] = useState<Phase>("selecting");
+
+    // Flow state
+    const [phase, setPhase] = useState<Phase>("mode_select");
+    const [mode, setMode] = useState<"solo" | "group" | null>(null);
+    const [currentPlayer, setCurrentPlayer] = useState(1);
+    const playerCount = 2;
+
+    // Player 1 picks
     const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
     const [durationFilter, setDurationFilter] = useState<string | null>(null);
     const [rewatchMode, setRewatchMode] = useState<string>("new");
+
+    // Player 2 picks
+    const [selectedVibesP2, setSelectedVibesP2] = useState<string[]>([]);
+    const [durationFilterP2, setDurationFilterP2] = useState<string | null>(null);
+    const [rewatchModeP2, setRewatchModeP2] = useState<string>("any");
+
+    // Results
     const [movies, setMovies] = useState<MovieResult[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [filtersApplied, setFiltersApplied] = useState<Record<string, string> | null>(null);
 
+    // Route state to current player's picks
+    const currentVibes = currentPlayer === 2 ? selectedVibesP2 : selectedVibes;
+    const setCurrentVibes = currentPlayer === 2 ? setSelectedVibesP2 : setSelectedVibes;
+    const currentDuration = currentPlayer === 2 ? durationFilterP2 : durationFilter;
+    const setCurrentDuration = currentPlayer === 2 ? setDurationFilterP2 : setDurationFilter;
+    const currentRewatch = currentPlayer === 2 ? rewatchModeP2 : rewatchMode;
+    const setCurrentRewatch = currentPlayer === 2 ? setRewatchModeP2 : setRewatchMode;
+
     const toggleVibe = (key: string) => {
-        setSelectedVibes((prev) => {
+        setCurrentVibes((prev) => {
             if (prev.includes(key)) return prev.filter((v) => v !== key);
-            if (prev.length >= 3) return prev;
             return [...prev, key];
         });
     };
@@ -91,19 +114,43 @@ export default function MovieNightPage() {
     const goToFilters = () => setPhase("filtering");
     const goBackToVibes = () => setPhase("selecting");
 
+    const handleFilterNext = () => {
+        if (mode === "group" && currentPlayer === 1) {
+            setPhase("handoff");
+        } else {
+            findMovie();
+        }
+    };
+
     const findMovie = async () => {
         setPhase("loading");
         setError(null);
         try {
-            const res = await fetchWithAuth("/api/movie-night/pick", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    vibes: selectedVibes,
-                    duration: durationFilter,
-                    rewatch_mode: rewatchMode,
-                }),
-            });
+            let res: Response;
+
+            if (mode === "group") {
+                res = await fetchWithAuth("/api/movie-night/pick-group", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        players: [
+                            { vibes: selectedVibes, duration: durationFilter, rewatch_mode: rewatchMode },
+                            { vibes: selectedVibesP2, duration: durationFilterP2, rewatch_mode: rewatchModeP2 },
+                        ],
+                    }),
+                });
+            } else {
+                res = await fetchWithAuth("/api/movie-night/pick", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        vibes: selectedVibes,
+                        duration: durationFilter,
+                        rewatch_mode: rewatchMode,
+                    }),
+                });
+            }
+
             if (!res.ok) throw new Error("Failed to fetch movies");
             const data = await res.json();
             setFiltersApplied(data.filters_applied ?? null);
@@ -128,12 +175,17 @@ export default function MovieNightPage() {
     };
 
     const startOver = () => {
+        setMode(null);
+        setCurrentPlayer(1);
         setSelectedVibes([]);
         setDurationFilter(null);
         setRewatchMode("new");
+        setSelectedVibesP2([]);
+        setDurationFilterP2(null);
+        setRewatchModeP2("any");
         setMovies([]);
         setCurrentIndex(0);
-        setPhase("selecting");
+        setPhase("mode_select");
         setError(null);
         setFiltersApplied(null);
     };
@@ -141,9 +193,12 @@ export default function MovieNightPage() {
     const movie = movies[currentIndex];
     const isLastMovie = currentIndex >= movies.length - 1;
 
-    // Vibes the user picked that this movie actually scores well on
+    // Vibes from all players that this movie actually scores well on
+    const allSelectedVibes = mode === "group"
+        ? [...new Set([...selectedVibes, ...selectedVibesP2])]
+        : selectedVibes;
     const matchedVibes = movie
-        ? selectedVibes.filter((v) => movie.vibe_scores[v] >= 0.2)
+        ? allSelectedVibes.filter((v) => movie.vibe_scores[v] >= 0.2)
         : [];
 
     return (
@@ -180,11 +235,47 @@ export default function MovieNightPage() {
                 </div>
             </div>
 
+            {/* MODE SELECT PHASE */}
+            {phase === "mode_select" && (
+                <div className="animate-fade-in">
+                    <p className="text-user-muted text-sm mb-4">
+                        How are you watching tonight?
+                    </p>
+                    <div className="grid grid-cols-1 gap-3">
+                        <button
+                            onClick={() => { setMode("solo"); setPhase("selecting"); }}
+                            className="rounded-2xl border border-user-card-border bg-user-card hover:border-user-accent/30 p-5 text-left transition-all duration-200 active:scale-[0.98]"
+                        >
+                            <User size={24} className="mb-2 text-user-accent" />
+                            <p className="text-lg font-semibold">Solo</p>
+                            <p className="text-xs text-user-muted mt-1">Just me tonight</p>
+                        </button>
+                        <button
+                            onClick={() => { setMode("group"); setPhase("selecting"); }}
+                            className="rounded-2xl border border-user-card-border bg-user-card hover:border-user-accent/30 p-5 text-left transition-all duration-200 active:scale-[0.98]"
+                        >
+                            <Users size={24} className="mb-2 text-user-accent" />
+                            <p className="text-lg font-semibold">Group</p>
+                            <p className="text-xs text-user-muted mt-1">Pass-the-phone with friends</p>
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* SELECTING PHASE */}
             {phase === "selecting" && (
                 <div>
+                    {/* Player indicator for group mode */}
+                    {mode === "group" && (
+                        <div className="text-center mb-3">
+                            <span className="inline-block px-3 py-1 rounded-full bg-user-accent/10 border border-user-accent/30 text-xs font-semibold text-user-accent">
+                                Player {currentPlayer} of {playerCount}
+                            </span>
+                        </div>
+                    )}
+
                     <p className="text-user-muted text-sm mb-4">
-                        Pick 2–3 vibes you're in the mood for
+                        Pick the vibes you're in the mood for
                     </p>
 
                     {error && (
@@ -196,22 +287,19 @@ export default function MovieNightPage() {
                     {/* Vibe grid */}
                     <div className="grid grid-cols-2 gap-3">
                         {VIBES.map(({ key, label, desc, icon: Icon }, index) => {
-                            const isSelected = selectedVibes.includes(key);
-                            const isDisabled = !isSelected && selectedVibes.length >= 3;
+                            const isSelected = currentVibes.includes(key);
                             return (
                                 <button
                                     key={key}
                                     onClick={() => toggleVibe(key)}
-                                    disabled={isDisabled}
                                     className={`
                                         animate-fade-in group rounded-2xl border p-4 text-left
-                                        transition-all duration-200
+                                        transition-all duration-200 active:scale-[0.97]
                                         ${
                                             isSelected
                                                 ? "border-user-accent bg-user-accent/10 shadow-lg shadow-user-accent/10"
                                                 : "border-user-card-border bg-user-card hover:border-user-accent/30"
                                         }
-                                        ${isDisabled ? "opacity-40 cursor-not-allowed" : "active:scale-[0.97]"}
                                     `}
                                     style={{ animationDelay: `${index * 0.04}s` }}
                                 >
@@ -239,24 +327,24 @@ export default function MovieNightPage() {
                     {/* Next button */}
                     <button
                         onClick={goToFilters}
-                        disabled={selectedVibes.length < 2}
+                        disabled={currentVibes.length < 1}
                         className={`
                             w-full mt-6 py-3.5 rounded-2xl font-semibold text-sm
                             transition-all duration-200 flex items-center justify-center gap-2
                             ${
-                                selectedVibes.length >= 2
+                                currentVibes.length >= 1
                                     ? "bg-user-accent text-black hover:bg-user-accent-dim active:scale-[0.98]"
                                     : "bg-user-card text-user-muted border border-user-card-border cursor-not-allowed"
                             }
                         `}
                     >
-                        {selectedVibes.length >= 2 ? (
+                        {currentVibes.length >= 1 ? (
                             <>
                                 Next
                                 <ArrowRight size={16} />
                             </>
                         ) : (
-                            "Pick at least 2 vibes"
+                            "Pick at least 1 vibe"
                         )}
                     </button>
                 </div>
@@ -265,6 +353,15 @@ export default function MovieNightPage() {
             {/* FILTERING PHASE */}
             {phase === "filtering" && (
                 <div className="animate-fade-in">
+                    {/* Player indicator for group mode */}
+                    {mode === "group" && (
+                        <div className="text-center mb-3">
+                            <span className="inline-block px-3 py-1 rounded-full bg-user-accent/10 border border-user-accent/30 text-xs font-semibold text-user-accent">
+                                Player {currentPlayer} of {playerCount}
+                            </span>
+                        </div>
+                    )}
+
                     <p className="text-user-muted text-sm mb-5">
                         Refine your pick
                     </p>
@@ -281,11 +378,11 @@ export default function MovieNightPage() {
                     </h3>
                     <div className="grid grid-cols-2 gap-2 mb-5">
                         {DURATION_OPTIONS.map(({ key, label, desc, icon: Icon }) => {
-                            const isSelected = durationFilter === key;
+                            const isSelected = currentDuration === key;
                             return (
                                 <button
                                     key={key ?? "any"}
-                                    onClick={() => setDurationFilter(key)}
+                                    onClick={() => setCurrentDuration(key)}
                                     className={`
                                         rounded-xl border p-3 text-left transition-all duration-200
                                         ${
@@ -316,11 +413,11 @@ export default function MovieNightPage() {
                     </h3>
                     <div className="grid grid-cols-3 gap-2 mb-6">
                         {REWATCH_OPTIONS.map(({ key, label, desc, icon: Icon }) => {
-                            const isSelected = rewatchMode === key;
+                            const isSelected = currentRewatch === key;
                             return (
                                 <button
                                     key={key}
-                                    onClick={() => setRewatchMode(key)}
+                                    onClick={() => setCurrentRewatch(key)}
                                     className={`
                                         rounded-xl border p-3 text-left transition-all duration-200
                                         ${
@@ -353,12 +450,41 @@ export default function MovieNightPage() {
                             Back
                         </button>
                         <button
-                            onClick={findMovie}
+                            onClick={handleFilterNext}
                             className="flex-1 py-3 rounded-2xl bg-user-accent text-black font-semibold text-sm hover:bg-user-accent-dim active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2"
                         >
-                            Find My Movie
+                            {mode === "group" && currentPlayer === 1 ? (
+                                <>
+                                    Next
+                                    <ArrowRight size={16} />
+                                </>
+                            ) : mode === "group" ? (
+                                "Find Our Movie"
+                            ) : (
+                                "Find My Movie"
+                            )}
                         </button>
                     </div>
+                </div>
+            )}
+
+            {/* HANDOFF PHASE */}
+            {phase === "handoff" && (
+                <div className="flex flex-col items-center justify-center py-16 animate-fade-in">
+                    <div className="w-16 h-16 rounded-full bg-user-accent/10 border border-user-accent/30 flex items-center justify-center mb-5">
+                        <Users size={32} className="text-user-accent" />
+                    </div>
+                    <h2 className="text-xl font-bold tracking-tight mb-2">Pass the Phone</h2>
+                    <p className="text-user-muted text-sm text-center mb-8">
+                        Hand your phone to the next person —<br />
+                        it's their turn to pick vibes
+                    </p>
+                    <button
+                        onClick={() => { setCurrentPlayer(2); setPhase("selecting"); }}
+                        className="px-8 py-3 rounded-2xl bg-user-accent text-black font-semibold text-sm hover:bg-user-accent-dim active:scale-[0.98] transition-all duration-200"
+                    >
+                        I'm Ready
+                    </button>
                 </div>
             )}
 
@@ -366,17 +492,26 @@ export default function MovieNightPage() {
             {phase === "loading" && (
                 <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
                     <Loader2 size={32} className="animate-spin text-user-accent mb-4" />
-                    <p className="text-user-muted text-sm">Finding your movie…</p>
+                    <p className="text-user-muted text-sm">
+                        {mode === "group" ? "Finding your movie…" : "Finding your movie…"}
+                    </p>
                 </div>
             )}
 
             {/* REVEALING PHASE */}
             {phase === "revealing" && movie && (
                 <div key={currentIndex} className="animate-fade-in">
-                    {/* Tautulli/Plex fallback notice */}
+                    {/* Plex fallback notice */}
                     {filtersApplied?.rewatch_fallback && (
                         <p className="text-center text-xs text-amber-400/70 mb-3">
                             Watch history unavailable — showing all movies
+                        </p>
+                    )}
+
+                    {/* Duration fallback notice */}
+                    {filtersApplied?.duration_fallback && (
+                        <p className="text-center text-xs text-amber-400/70 mb-3">
+                            Couldn't agree on length — showing all durations
                         </p>
                     )}
 

@@ -1,4 +1,4 @@
-# Movie Night picker API — Phase 2B (single-player vibe picker with filters)
+# Movie Night picker API — Phase 3A (single-player + pass-the-phone multiplayer)
 
 import logging
 from typing import Any, Dict, List, Optional, Set
@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, field_validator
 
 from homescreen_hero.core.auth import CurrentUser, get_current_user
-from homescreen_hero.core.db.vibes import get_ranked_movies_by_vibes
+from homescreen_hero.core.db.vibes import get_ranked_movies_by_vibes, get_ranked_movies_by_vibes_group
 from homescreen_hero.core.vibe_scoring import VIBE_NAMES, VIBE_DISPLAY_NAMES
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,8 @@ class MovieNightPickRequest(BaseModel):
     @field_validator("vibes")
     @classmethod
     def validate_vibes(cls, v: List[str]) -> List[str]:
-        if len(v) < 2 or len(v) > 3:
-            raise ValueError("Must select 2-3 vibes")
+        if len(v) < 1:
+            raise ValueError("Must select at least 1 vibe")
         for vibe in v:
             if vibe not in VIBE_NAMES:
                 raise ValueError(f"Unknown vibe: {vibe}")
@@ -154,6 +154,94 @@ def pick_movies(
         only_rating_keys=only_keys,
     )
 
+    return MovieNightPickResponse(
+        movies=_build_movie_response(ranked),
+        vibe_names=VIBE_DISPLAY_NAMES,
+        filters_applied=filters_applied,
+    )
+
+
+# --- Group (pass-the-phone) multiplayer ---
+
+
+class PlayerSelection(BaseModel):
+    vibes: List[str]
+    duration: Optional[str] = None
+    rewatch_mode: Optional[str] = "any"
+
+    @field_validator("vibes")
+    @classmethod
+    def validate_vibes(cls, v: List[str]) -> List[str]:
+        if len(v) < 1:
+            raise ValueError("Must select at least 1 vibe")
+        for vibe in v:
+            if vibe not in VIBE_NAMES:
+                raise ValueError(f"Unknown vibe: {vibe}")
+        return v
+
+    @field_validator("duration")
+    @classmethod
+    def validate_duration(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_DURATIONS:
+            raise ValueError(f"Invalid duration: {v}")
+        return v
+
+    @field_validator("rewatch_mode")
+    @classmethod
+    def validate_rewatch_mode(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_REWATCH_MODES:
+            raise ValueError(f"Invalid rewatch_mode: {v}")
+        return v
+
+
+class MovieNightGroupPickRequest(BaseModel):
+    players: List[PlayerSelection]
+
+    @field_validator("players")
+    @classmethod
+    def validate_players(cls, v: List[PlayerSelection]) -> List[PlayerSelection]:
+        if len(v) < 2:
+            raise ValueError("Group mode requires at least 2 players")
+        return v
+
+
+def _merge_duration_filters(players: List[PlayerSelection]) -> Optional[str]:
+    # Same pick → use it. One "Any" → use other's. Conflict → drop filter.
+    actual = [p.duration for p in players if p.duration is not None]
+    if not actual:
+        return None
+    if len(set(actual)) == 1:
+        return actual[0]
+    # Players disagree — drop the filter
+    return None
+
+
+def _merge_rewatch_modes(
+    players: List[PlayerSelection],
+    username: str,
+) -> tuple:
+    # Returns (effective_mode, exclude_keys, only_keys, fallback_reason)
+    # "New" is strongest — if anyone picks it, exclude watched.
+    # "Rewatch" only if nobody objects. "Don't Care"/"any" defers.
+    modes = [p.rewatch_mode or "any" for p in players]
+
+    if "new" in modes:
+        watched_keys = _get_user_watched_keys(username)
+        if watched_keys is not None:
+            return ("new", watched_keys, None, None)
+        return ("any", None, None, "plex_unavailable")
+
+    if "rewatch" in modes and all(m in ("rewatch", "any") for m in modes):
+        watched_keys = _get_user_watched_keys(username)
+        if watched_keys is not None:
+            return ("rewatch", None, watched_keys, None)
+        return ("any", None, None, "plex_unavailable")
+
+    return ("any", None, None, None)
+
+
+def _build_movie_response(ranked: List[tuple]) -> List[MovieNightMovie]:
+    # Shared response builder for single-player and group endpoints.
     movies = []
     for movie_vibe, match_score in ranked:
         poster_url = None
@@ -177,9 +265,54 @@ def pick_movies(
                 vibe_scores=vibe_scores,
             )
         )
+    return movies
+
+
+@router.post("/pick-group", response_model=MovieNightPickResponse)
+def pick_movies_group(
+    request: MovieNightGroupPickRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> MovieNightPickResponse:
+    filters_applied: Dict[str, str] = {}
+
+    # Merge duration filters across players
+    merged_duration = _merge_duration_filters(request.players)
+    if merged_duration:
+        filters_applied["duration"] = merged_duration
+
+    # Merge rewatch modes across players
+    effective_mode, exclude_keys, only_keys, fallback = _merge_rewatch_modes(
+        request.players, current_user.username
+    )
+    filters_applied["rewatch_mode"] = effective_mode
+    if fallback:
+        filters_applied["rewatch_fallback"] = fallback
+
+    # Collect each player's vibes for group scoring
+    player_vibes = [p.vibes for p in request.players]
+
+    ranked = get_ranked_movies_by_vibes_group(
+        player_vibes,
+        limit=10,
+        duration_bucket=merged_duration,
+        exclude_rating_keys=exclude_keys,
+        only_rating_keys=only_keys,
+    )
+
+    # Fallback: if too few results and duration was applied, retry without it
+    if len(ranked) < 10 and merged_duration:
+        ranked = get_ranked_movies_by_vibes_group(
+            player_vibes,
+            limit=10,
+            duration_bucket=None,
+            exclude_rating_keys=exclude_keys,
+            only_rating_keys=only_keys,
+        )
+        filters_applied.pop("duration", None)
+        filters_applied["duration_fallback"] = "dropped"
 
     return MovieNightPickResponse(
-        movies=movies,
+        movies=_build_movie_response(ranked),
         vibe_names=VIBE_DISPLAY_NAMES,
         filters_applied=filters_applied,
     )

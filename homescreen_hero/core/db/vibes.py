@@ -129,6 +129,54 @@ def get_ranked_movies_by_vibes(
         return [(row[0], row[1]) for row in rows]
 
 
+def get_ranked_movies_by_vibes_group(
+    player_vibes: List[List[str]],
+    limit: int = 10,
+    duration_bucket: Optional[str] = None,
+    exclude_rating_keys: Optional[Set[int]] = None,
+    only_rating_keys: Optional[Set[int]] = None,
+) -> List[tuple]:
+    # Return movies ranked by group score: MIN of each player's best vibe match.
+    # Each player's score = MAX of their selected vibe columns (same as single-player).
+    # Group score = MIN across all players — ensures everyone is happy with the pick.
+    player_max_exprs = []
+    for vibes in player_vibes:
+        vibe_columns = [getattr(MovieVibe, f"vibe_{name}") for name in vibes]
+        player_max_exprs.append(func.max(*vibe_columns))
+
+    group_score = func.min(*player_max_exprs).label("group_score")
+
+    with session_scope() as db:
+        stmt = (
+            select(MovieVibe, group_score)
+            .where(MovieVibe.score_version == SCORE_VERSION)
+        )
+
+        # Duration filter
+        if duration_bucket and duration_bucket in DURATION_RANGES:
+            low, high = DURATION_RANGES[duration_bucket]
+            stmt = stmt.where(MovieVibe.duration_minutes.isnot(None))
+            if low is not None:
+                stmt = stmt.where(MovieVibe.duration_minutes >= low)
+            if high is not None:
+                stmt = stmt.where(MovieVibe.duration_minutes < high)
+
+        # Rewatch filter: exclude watched movies ("something new")
+        if exclude_rating_keys:
+            stmt = stmt.where(MovieVibe.plex_rating_key.notin_(exclude_rating_keys))
+
+        # Rewatch filter: only include watched movies ("rewatch")
+        if only_rating_keys is not None:
+            stmt = stmt.where(MovieVibe.plex_rating_key.in_(only_rating_keys))
+
+        stmt = stmt.order_by(group_score.desc()).limit(limit)
+
+        rows = db.execute(stmt).all()
+        for row in rows:
+            db.expunge(row[0])
+        return [(row[0], row[1]) for row in rows]
+
+
 def get_vibe_stats() -> Dict:
     # Get summary statistics about vibe computation status
     with session_scope() as db:
