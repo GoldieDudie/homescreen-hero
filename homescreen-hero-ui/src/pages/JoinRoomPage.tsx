@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import {
     Loader2,
@@ -6,6 +6,7 @@ import {
     ThumbsUp,
     ThumbsDown,
     RotateCcw,
+    Clapperboard,
 } from "lucide-react";
 import VibeGrid from "../components/movie-night/VibeGrid";
 import useRoomPoll from "../hooks/useRoomPoll";
@@ -30,7 +31,9 @@ export default function JoinRoomPage() {
     }, []);
 
     const [phase, setPhase] = useState<GuestPhase>("join");
-    const [roomCodeInput, setRoomCodeInput] = useState(urlCode?.toUpperCase() ?? "");
+    const [roomCodeInput, setRoomCodeInput] = useState(
+        (urlCode?.toUpperCase() ?? "").replace("HERO-", ""),
+    );
     const [playerName, setPlayerName] = useState("");
     const [playerToken, setPlayerToken] = useState<string | null>(
         () => sessionStorage.getItem("room_player_token"),
@@ -38,6 +41,8 @@ export default function JoinRoomPage() {
     const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [votingDisabled, setVotingDisabled] = useState(false);
+    const [codeFocused, setCodeFocused] = useState(false);
+    const codeInputRef = useRef<HTMLInputElement>(null);
 
     const { data: room, error: pollError } = useRoomPoll(playerToken);
 
@@ -95,10 +100,11 @@ export default function JoinRoomPage() {
         }
 
         try {
+            const fullCode = `HERO-${code}`;
             const res = await fetch("/api/movie-night/room/join", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ room_code: code, player_name: name }),
+                body: JSON.stringify({ room_code: fullCode, player_name: name }),
             });
             if (res.status === 404) { setError("Room not found"); return; }
             if (res.status === 409) { setError("Room is full"); return; }
@@ -156,46 +162,85 @@ export default function JoinRoomPage() {
     const hasVoted = myVote !== undefined && myVote !== null;
 
     return (
-        <div className="min-h-screen bg-user-bg text-white">
-            <div className="max-w-lg mx-auto px-5 pt-6 pb-10">
-                {/* Header */}
-                <div className="mb-6">
-                    <h1 className="text-xl font-bold tracking-tight">Movie Night</h1>
-                    <p className="text-xs text-user-muted uppercase tracking-wider">
-                        {room?.room_code ?? "Join a Room"}
-                    </p>
-                </div>
+        <div className="min-h-screen bg-user-bg text-white relative overflow-hidden">
+            {/* Background glow — only visible on join phase */}
+            {phase === "join" && (
+                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-user-accent/5 blur-[120px] pointer-events-none" />
+            )}
 
+            <div className="max-w-lg mx-auto px-5 pb-10 relative z-10">
                 {/* ERROR BANNER */}
                 {error && (
-                    <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                        {error}
+                    <div className="mb-4 pt-6 px-0">
+                        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                            {error}
+                        </div>
                     </div>
                 )}
 
                 {/* JOIN PHASE */}
                 {phase === "join" && (
-                    <div className="animate-fade-in">
-                        <p className="text-user-muted text-sm mb-5">
-                            Enter the room code and your name to join
+                    <div className="animate-fade-in flex flex-col items-center justify-center min-h-screen -mt-10">
+                        {/* Icon */}
+                        <div className="mb-5 p-4 rounded-2xl bg-user-accent/10 border border-user-accent/20">
+                            <Clapperboard size={40} className="text-user-accent" />
+                        </div>
+
+                        <h1 className="text-3xl font-bold tracking-tight mb-1">Movie Night</h1>
+                        <p className="text-sm text-user-accent uppercase tracking-wider font-semibold mb-6">
+                            Join a Room
                         </p>
 
-                        <div className="space-y-3 mb-6">
+                        <div className="space-y-3 mb-6 w-full">
+                            {/* Split-flap code input */}
+                            <div
+                                className="flex items-center justify-center gap-1.5 mb-2 cursor-text"
+                                onClick={() => codeInputRef.current?.focus()}
+                            >
+                                {"HERO".split("").map((char, i) => (
+                                    <span
+                                        key={`prefix-${i}`}
+                                        className="inline-flex items-center justify-center w-10 h-12 rounded-lg bg-user-card-border/40 border border-user-card-border text-2xl font-mono font-bold text-white shadow-md shadow-black/20"
+                                    >
+                                        {char}
+                                    </span>
+                                ))}
+                                <span className="text-2xl font-mono font-bold text-user-muted/50 mx-0.5">-</span>
+                                {Array.from({ length: 4 }).map((_, i) => {
+                                    const isCursor = codeFocused && i === roomCodeInput.length && roomCodeInput.length < 4;
+                                    return (
+                                        <span
+                                            key={`input-${i}`}
+                                            className={`inline-flex items-center justify-center w-10 h-12 rounded-lg text-2xl font-mono font-bold shadow-md shadow-black/20 transition-all duration-200 ${
+                                                roomCodeInput[i]
+                                                    ? "border-2 border-solid border-user-accent/50 bg-user-card-border/60 text-white"
+                                                    : isCursor
+                                                        ? "border-2 border-solid border-user-accent/70 bg-user-card-border/30"
+                                                        : "border-2 border-dashed border-user-card-border/80 bg-user-card-border/20 text-user-muted/30"
+                                            }`}
+                                        >
+                                            {roomCodeInput[i] || (isCursor ? <span className="text-user-accent animate-blink">|</span> : "_")}
+                                        </span>
+                                    );
+                                })}
+                            </div>
                             <input
+                                ref={codeInputRef}
                                 type="text"
-                                placeholder="Room code (e.g. HERO-A2B3)"
                                 value={roomCodeInput}
-                                onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
-                                className="w-full px-4 py-3 rounded-xl bg-user-card border border-user-card-border text-white placeholder-user-muted text-sm focus:outline-none focus:border-user-accent/50 tracking-widest text-center font-mono text-lg"
-                                maxLength={9}
+                                onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                                onFocus={() => setCodeFocused(true)}
+                                onBlur={() => setCodeFocused(false)}
+                                className="sr-only"
+                                maxLength={4}
                                 autoFocus
                             />
                             <input
                                 type="text"
-                                placeholder="Your name"
+                                placeholder="Display Name"
                                 value={playerName}
                                 onChange={(e) => setPlayerName(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl bg-user-card border border-user-card-border text-white placeholder-user-muted text-base focus:outline-none focus:border-user-accent/50"
+                                className="w-full px-4 py-3 rounded-xl bg-user-card-border/40 border border-user-card-border text-white text-center placeholder-white/30 text-base focus:outline-none focus:border-user-accent/50 transition-colors duration-200"
                                 maxLength={20}
                             />
                         </div>
@@ -205,17 +250,27 @@ export default function JoinRoomPage() {
                             disabled={!roomCodeInput.trim() || !playerName.trim()}
                             className={`
                                 w-full py-3.5 rounded-2xl font-semibold text-sm
-                                transition-all duration-200 flex items-center justify-center gap-2
+                                transition-all duration-300 flex items-center justify-center gap-2
                                 ${
                                     roomCodeInput.trim() && playerName.trim()
-                                        ? "bg-user-accent text-black hover:bg-user-accent-dim active:scale-[0.98]"
-                                        : "bg-user-card text-user-muted border border-user-card-border cursor-not-allowed"
+                                        ? "bg-user-accent text-black hover:bg-user-accent-dim active:scale-[0.98] shadow-lg shadow-user-accent/25"
+                                        : "bg-user-card-border/40 text-user-muted/50 border border-user-card-border cursor-not-allowed"
                                 }
                             `}
                         >
                             Join Room
                             <ArrowRight size={16} />
                         </button>
+                    </div>
+                )}
+
+                {/* Header for non-join phases */}
+                {phase !== "join" && (
+                    <div className="mb-6 pt-6">
+                        <h1 className="text-3xl font-bold tracking-tight">Movie Night</h1>
+                        <p className="text-sm text-user-accent uppercase tracking-wider font-semibold">
+                            {room?.room_code ?? ""}
+                        </p>
                     </div>
                 )}
 

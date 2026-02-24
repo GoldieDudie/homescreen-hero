@@ -134,11 +134,27 @@ function FeaturedCard() {
         }
     };
 
-    // Loading skeleton
+    // Loading skeleton — mirrors the card layout so the transition feels seamless
     if (loading) {
         return (
-            <div className="relative rounded-2xl overflow-hidden border border-user-card-border bg-user-card h-56 animate-pulse">
-                <div className="absolute inset-0 bg-gradient-to-br from-user-card-border/30 to-user-bg" />
+            <div className="relative rounded-2xl overflow-hidden border border-user-card-border bg-user-card h-56">
+                <div className="absolute inset-0 bg-gradient-to-br from-user-card-border/30 to-user-bg animate-pulse" />
+                <div className="absolute inset-0 bg-gradient-to-t from-user-bg via-user-bg/60 to-transparent z-10" />
+                <div className="absolute bottom-0 left-0 right-0 p-5 z-20 space-y-2">
+                    <div className="flex items-center gap-2">
+                        <div className="h-4 w-24 rounded bg-user-card-border/60 animate-pulse" />
+                        <div className="h-3 w-14 rounded bg-user-card-border/40 animate-pulse" />
+                    </div>
+                    <div className="h-5 w-48 rounded bg-user-card-border/60 animate-pulse" />
+                    <div className="h-3 w-64 rounded bg-user-card-border/40 animate-pulse" />
+                    <div className="flex items-center gap-1.5 pt-1">
+                        {Array.from({ length: CAROUSEL_COUNT }).map((_, i) => (
+                            <div key={i} className={`rounded-full animate-pulse ${
+                                i === 0 ? "w-5 h-1.5 bg-user-card-border/50" : "w-1.5 h-1.5 bg-user-card-border/30"
+                            }`} />
+                        ))}
+                    </div>
+                </div>
             </div>
         );
     }
@@ -146,7 +162,7 @@ function FeaturedCard() {
     // No data
     if (items.length === 0) {
         return (
-            <div className="relative rounded-2xl overflow-hidden border border-user-card-border bg-user-card h-56">
+            <div className="relative rounded-2xl overflow-hidden border border-user-card-border bg-user-card h-56 animate-fade-in">
                 <div className="absolute inset-0 bg-gradient-to-br from-user-accent/8 via-user-card to-user-bg" />
                 <div className="absolute inset-0 bg-gradient-to-t from-user-bg via-user-bg/70 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-5 z-20">
@@ -163,7 +179,7 @@ function FeaturedCard() {
 
     return (
         <div
-            className="relative rounded-2xl overflow-hidden border border-user-card-border bg-user-card h-56 touch-pan-y"
+            className="relative rounded-2xl overflow-hidden border border-user-card-border bg-user-card h-56 touch-pan-y animate-fade-in"
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
         >
@@ -243,7 +259,7 @@ export default function UserHomePage() {
                         <br />
                         <span className="text-user-accent italic">plexusername</span>
                     </h1>
-                    <p className="text-user-muted text-sm mt-1">The library is open.</p>
+                    <p className="text-user-muted text-sm mt-1">The theater is open.</p>
                 </div>
                 <div className="flex items-center gap-2 pt-1">
                     <button

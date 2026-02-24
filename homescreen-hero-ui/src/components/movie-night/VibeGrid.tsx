@@ -41,15 +41,14 @@ export default function VibeGrid({ selectedVibes, onToggle }: VibeGridProps) {
                         key={key}
                         onClick={() => onToggle(key)}
                         className={`
-                            animate-fade-in group rounded-2xl border p-4 text-left
+                            group rounded-2xl border p-4 text-left
                             transition-all duration-200 active:scale-[0.97]
                             ${
                                 isSelected
-                                    ? "border-user-accent bg-user-accent/10 shadow-lg shadow-user-accent/10"
+                                    ? "scale-[1.03] border-user-accent bg-user-accent/10 shadow-lg shadow-user-accent/20"
                                     : "border-user-card-border bg-user-card hover:border-user-accent/30"
                             }
                         `}
-                        style={{ animationDelay: `${index * 0.04}s` }}
                     >
                         <Icon
                             size={22}

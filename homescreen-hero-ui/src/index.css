@@ -165,6 +165,39 @@ select option {
     opacity: 0;
 }
 
+/* ===== Step slide transitions ===== */
+@keyframes slide-in-right {
+    from {
+        opacity: 0;
+        transform: translateX(60px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slide-in-left {
+    from {
+        opacity: 0;
+        transform: translateX(-60px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.animate-slide-right {
+    animation: slide-in-right 0.3s ease-out forwards;
+    opacity: 0;
+}
+
+.animate-slide-left {
+    animation: slide-in-left 0.3s ease-out forwards;
+    opacity: 0;
+}
+
 /* ===== React DatePicker Dark Theme ===== */
 .hsh-datepicker {
     background-color: #1e293b !important;

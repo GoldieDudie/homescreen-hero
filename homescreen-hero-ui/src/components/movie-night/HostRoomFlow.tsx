@@ -15,6 +15,7 @@ import {
     ThumbsDown,
     type LucideIcon,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { fetchWithAuth } from "../../utils/api";
 import VibeGrid from "./VibeGrid";
 import useRoomPoll from "../../hooks/useRoomPoll";
@@ -32,14 +33,14 @@ const REWATCH_OPTIONS: { key: string; label: string; desc: string; icon: LucideI
     { key: "any", label: "Don't Care", desc: "Surprise me", icon: Shuffle },
 ];
 
-type HostPhase = "vibes" | "filters" | "creating" | "waiting" | "voting" | "approved" | "exhausted";
+type HostPhase = "setup" | "vibes" | "filters" | "creating" | "waiting" | "voting" | "approved" | "exhausted";
 
 interface HostRoomFlowProps {
     onBack: () => void;
 }
 
 export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
-    const [phase, setPhase] = useState<HostPhase>("vibes");
+    const [phase, setPhase] = useState<HostPhase>("setup");
     const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
     const [durationFilter, setDurationFilter] = useState<string | null>(null);
     const [rewatchMode, setRewatchMode] = useState<string>("new");
@@ -98,7 +99,7 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
             setPhase("waiting");
         } catch {
             setError("Failed to create room. Please try again.");
-            setPhase("filters");
+            setPhase("vibes");
         }
     };
 
@@ -187,14 +188,14 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
 
                     <div className="flex gap-3 mt-6">
                         <button
-                            onClick={onBack}
+                            onClick={() => setPhase("filters")}
                             className="flex-1 py-3 rounded-2xl border border-user-card-border bg-user-card text-sm font-semibold text-user-muted hover:text-white hover:border-user-accent/30 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
                         >
                             <ArrowLeft size={16} />
                             Back
                         </button>
                         <button
-                            onClick={() => setPhase("filters")}
+                            onClick={handleCreateRoom}
                             disabled={selectedVibes.length < 1}
                             className={`
                                 flex-1 py-3 rounded-2xl font-semibold text-sm
@@ -207,7 +208,7 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
                             `}
                         >
                             {selectedVibes.length >= 1 ? (
-                                <>Next <ArrowRight size={16} /></>
+                                <>Create Room <ArrowRight size={16} /></>
                             ) : "Pick at least 1 vibe"}
                         </button>
                     </div>
@@ -218,7 +219,7 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
             {effectivePhase === "filters" && (
                 <>
                     <p className="text-user-muted text-sm mb-5">
-                        Set filters for the room
+                        Set the ground rules
                     </p>
 
                     {/* Duration picker */}
@@ -277,42 +278,20 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
                         })}
                     </div>
 
-                    {/* Max players */}
-                    <h3 className="text-xs uppercase tracking-wider text-user-muted mb-2 font-semibold">
-                        Max players
-                    </h3>
-                    <div className="flex gap-2 mb-6">
-                        {[2, 3, 4, 5, 6].map((n) => (
-                            <button
-                                key={n}
-                                onClick={() => setMaxPlayers(n)}
-                                className={`
-                                    w-10 h-10 rounded-xl border text-sm font-semibold transition-all duration-200
-                                    ${maxPlayers === n
-                                        ? "border-user-accent bg-user-accent/10 text-white"
-                                        : "border-user-card-border bg-user-card text-user-muted hover:border-user-accent/30"
-                                    }
-                                `}
-                            >
-                                {n}
-                            </button>
-                        ))}
-                    </div>
-
                     {/* Navigation */}
                     <div className="flex gap-3">
                         <button
-                            onClick={() => setPhase("vibes")}
+                            onClick={() => setPhase("setup")}
                             className="flex-1 py-3 rounded-2xl border border-user-card-border bg-user-card text-sm font-semibold text-user-muted hover:text-white hover:border-user-accent/30 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
                         >
                             <ArrowLeft size={16} />
                             Back
                         </button>
                         <button
-                            onClick={handleCreateRoom}
+                            onClick={() => setPhase("vibes")}
                             className="flex-1 py-3 rounded-2xl bg-user-accent text-black font-semibold text-sm hover:bg-user-accent-dim active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2"
                         >
-                            Create Room
+                            Next
                             <ArrowRight size={16} />
                         </button>
                     </div>
@@ -332,21 +311,41 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
                 <div className="text-center">
                     <p className="text-user-muted text-sm mb-4">Share this code with your group</p>
 
-                    {/* Big room code */}
-                    <div className="mb-4">
-                        <p className="text-4xl font-mono font-bold tracking-[0.3em] text-white">
-                            {roomCode}
-                        </p>
+                    {/* Big room code — split-flap style */}
+                    <div className="flex items-center justify-center gap-1.5 mb-4">
+                        {roomCode.split("").map((char, i) => (
+                            char === "-" ? (
+                                <span key={i} className="text-2xl font-mono font-bold text-user-muted mx-0.5">-</span>
+                            ) : (
+                                <span
+                                    key={i}
+                                    className="inline-flex items-center justify-center w-10 h-12 rounded-lg bg-user-card border border-user-card-border text-2xl font-mono font-bold text-white shadow-md shadow-black/20"
+                                >
+                                    {char}
+                                </span>
+                            )
+                        ))}
+                    </div>
+
+                    {/* QR code */}
+                    <div className="inline-block p-3 rounded-2xl bg-white mb-4">
+                        <QRCodeSVG
+                            value={`${window.location.origin}/join/${roomCode.replace("HERO-", "")}`}
+                            size={160}
+                            level="M"
+                        />
                     </div>
 
                     {/* Copy link button */}
-                    <button
-                        onClick={handleCopyCode}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-user-card-border bg-user-card text-sm text-user-muted hover:text-white hover:border-user-accent/30 transition-all duration-200 mb-6"
-                    >
-                        {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-                        {copied ? "Copied!" : "Copy invite link"}
-                    </button>
+                    <div className="mb-6">
+                        <button
+                            onClick={handleCopyCode}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-user-card-border bg-user-card text-sm text-user-muted hover:text-white hover:border-user-accent/30 transition-all duration-200"
+                        >
+                            {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
+                            {copied ? "Copied!" : "Copy invite link"}
+                        </button>
+                    </div>
 
                     {/* Player list */}
                     <div className="mb-6">
@@ -557,6 +556,49 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
                     >
                         Try Different Vibes
                     </button>
+                </div>
+            )}
+
+            {/* SETUP PHASE — max players */}
+            {effectivePhase === "setup" && (
+                <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
+                    <h2 className="text-lg font-bold tracking-tight mb-1">How many can join?</h2>
+                    <p className="text-xs text-user-muted mb-6">You can always start with fewer</p>
+
+                    <div className="flex gap-2 w-full mb-8">
+                        {[2, 3, 4, 5, 6].map((n) => (
+                            <button
+                                key={n}
+                                onClick={() => setMaxPlayers(n)}
+                                className={`
+                                    flex-1 py-3 rounded-xl border text-sm font-semibold transition-all duration-200
+                                    ${maxPlayers === n
+                                        ? "border-user-accent bg-user-accent/10 text-white"
+                                        : "border-user-card-border bg-user-card text-user-muted hover:border-user-accent/30"
+                                    }
+                                `}
+                            >
+                                {n}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex gap-3 w-full">
+                        <button
+                            onClick={onBack}
+                            className="flex-1 py-3 rounded-2xl border border-user-card-border bg-user-card text-sm font-semibold text-user-muted hover:text-white hover:border-user-accent/30 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
+                        >
+                            <ArrowLeft size={16} />
+                            Back
+                        </button>
+                        <button
+                            onClick={() => setPhase("filters")}
+                            className="flex-1 py-3 rounded-2xl bg-user-accent text-black font-semibold text-sm hover:bg-user-accent-dim active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2"
+                        >
+                            Next
+                            <ArrowRight size={16} />
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
