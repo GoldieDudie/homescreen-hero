@@ -9,6 +9,7 @@ import {
     Loader2,
     ArrowLeft,
     ArrowRight,
+    ChevronRight,
     Timer,
     Clock,
     Hourglass,
@@ -97,10 +98,10 @@ export default function MovieNightPage() {
         });
     };
 
-    const goToFilters = () => setPhase("filtering");
-    const goBackToVibes = () => setPhase("selecting");
+    const handleFilterNext = () => setPhase("selecting");
+    const goBackToFilters = () => setPhase("filtering");
 
-    const handleFilterNext = () => {
+    const handleVibeNext = () => {
         if (mode === "group" && currentPlayer === 1) {
             setPhase("handoff");
         } else {
@@ -142,7 +143,7 @@ export default function MovieNightPage() {
             setFiltersApplied(data.filters_applied ?? null);
             if (data.movies.length === 0) {
                 setError("No movies match these vibes and filters. Try adjusting!");
-                setPhase("filtering");
+                setPhase("selecting");
                 return;
             }
             setMovies(data.movies);
@@ -150,7 +151,7 @@ export default function MovieNightPage() {
             setPhase("revealing");
         } catch {
             setError("Something went wrong. Please try again.");
-            setPhase("filtering");
+            setPhase("selecting");
         }
     };
 
@@ -224,34 +225,29 @@ export default function MovieNightPage() {
             {/* MODE SELECT PHASE */}
             {phase === "mode_select" && (
                 <div className="animate-fade-in">
-                    <p className="text-user-muted text-sm mb-4">
-                        How are you watching tonight?
-                    </p>
-                    <div className="grid grid-cols-1 gap-3">
-                        <button
-                            onClick={() => { setMode("solo"); setPhase("selecting"); }}
-                            className="rounded-2xl border border-user-card-border bg-user-card hover:border-user-accent/30 p-5 text-left transition-all duration-200 active:scale-[0.98]"
-                        >
-                            <User size={24} className="mb-2 text-user-accent" />
-                            <p className="text-lg font-semibold">Solo</p>
-                            <p className="text-xs text-user-muted mt-1">Just me tonight</p>
-                        </button>
-                        <button
-                            onClick={() => { setMode("group"); setPhase("selecting"); }}
-                            className="rounded-2xl border border-user-card-border bg-user-card hover:border-user-accent/30 p-5 text-left transition-all duration-200 active:scale-[0.98]"
-                        >
-                            <Users size={24} className="mb-2 text-user-accent" />
-                            <p className="text-lg font-semibold">Group</p>
-                            <p className="text-xs text-user-muted mt-1">Pass-the-phone with friends</p>
-                        </button>
-                        <button
-                            onClick={() => { setMode("remote"); setPhase("remote"); }}
-                            className="rounded-2xl border border-user-card-border bg-user-card hover:border-user-accent/30 p-5 text-left transition-all duration-200 active:scale-[0.98]"
-                        >
-                            <Wifi size={24} className="mb-2 text-user-accent" />
-                            <p className="text-lg font-semibold">Remote</p>
-                            <p className="text-xs text-user-muted mt-1">Share a room code</p>
-                        </button>
+                    <div className="text-center mb-6">
+                        <h2 className="text-xl font-bold tracking-tight">How are you watching tonight?</h2>
+                        <p className="text-user-muted text-sm mt-1">Pick a mode to find the perfect film.</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                        {([
+                            { key: "solo" as const, icon: User, label: "Solo", desc: "Just me, myself, and the screen", phase: "filtering" as Phase },
+                            { key: "group" as const, icon: Users, label: "Group", desc: "Pass-the-phone with friends", phase: "filtering" as Phase },
+                            { key: "remote" as const, icon: Wifi, label: "Remote", desc: "Share a room code and watch together", phase: "remote" as Phase },
+                        ]).map(({ key, icon: Icon, label, desc, phase: nextPhase }) => (
+                            <button
+                                key={key}
+                                onClick={() => { setMode(key); setPhase(nextPhase); }}
+                                className="relative rounded-2xl border border-user-card-border bg-user-card hover:border-user-accent/30 px-5 py-6 text-center transition-all duration-200 active:scale-[0.98]"
+                            >
+                                <ChevronRight size={16} className="absolute top-4 right-4 text-user-muted/40" />
+                                <div className="w-12 h-12 rounded-full bg-user-accent/15 flex items-center justify-center mx-auto mb-3">
+                                    <Icon size={24} className="text-user-accent" />
+                                </div>
+                                <p className="text-lg font-bold">{label}</p>
+                                <p className="text-xs text-user-muted mt-1">{desc}</p>
+                            </button>
+                        ))}
                     </div>
                 </div>
             )}
@@ -281,46 +277,53 @@ export default function MovieNightPage() {
                     {/* Vibe grid */}
                     <VibeGrid selectedVibes={currentVibes} onToggle={toggleVibe} />
 
-                    {/* Next button */}
-                    <button
-                        onClick={goToFilters}
-                        disabled={currentVibes.length < 1}
-                        className={`
-                            w-full mt-6 py-3.5 rounded-2xl font-semibold text-sm
-                            transition-all duration-200 flex items-center justify-center gap-2
-                            ${
-                                currentVibes.length >= 1
-                                    ? "bg-user-accent text-black hover:bg-user-accent-dim active:scale-[0.98]"
-                                    : "bg-user-card text-user-muted border border-user-card-border cursor-not-allowed"
-                            }
-                        `}
-                    >
-                        {currentVibes.length >= 1 ? (
-                            <>
-                                Next
-                                <ArrowRight size={16} />
-                            </>
-                        ) : (
-                            "Pick at least 1 vibe"
+                    {/* Navigation buttons */}
+                    <div className="flex gap-3 mt-6">
+                        {/* Back button — solo and host go back to filters, P2 has no back */}
+                        {!(mode === "group" && currentPlayer === 2) && (
+                            <button
+                                onClick={goBackToFilters}
+                                className="flex-1 py-3.5 rounded-2xl border border-user-card-border bg-user-card text-sm font-semibold text-user-muted hover:text-white hover:border-user-accent/30 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
+                            >
+                                <ArrowLeft size={16} />
+                                Back
+                            </button>
                         )}
-                    </button>
+                        <button
+                            onClick={handleVibeNext}
+                            disabled={currentVibes.length < 1}
+                            className={`
+                                flex-1 py-3.5 rounded-2xl font-semibold text-sm
+                                transition-all duration-200 flex items-center justify-center gap-2
+                                ${
+                                    currentVibes.length >= 1
+                                        ? "bg-user-accent text-black hover:bg-user-accent-dim active:scale-[0.98]"
+                                        : "bg-user-card text-user-muted border border-user-card-border cursor-not-allowed"
+                                }
+                            `}
+                        >
+                            {currentVibes.length < 1 ? (
+                                "Pick at least 1 vibe"
+                            ) : mode === "group" && currentPlayer === 1 ? (
+                                <>
+                                    Next
+                                    <ArrowRight size={16} />
+                                </>
+                            ) : mode === "group" ? (
+                                "Find Our Movie"
+                            ) : (
+                                "Find My Movie"
+                            )}
+                        </button>
+                    </div>
                 </div>
             )}
 
             {/* FILTERING PHASE */}
             {phase === "filtering" && (
                 <div className="animate-fade-in">
-                    {/* Player indicator for group mode */}
-                    {mode === "group" && (
-                        <div className="text-center mb-3">
-                            <span className="inline-block px-3 py-1 rounded-full bg-user-accent/10 border border-user-accent/30 text-xs font-semibold text-user-accent">
-                                Player {currentPlayer} of {playerCount}
-                            </span>
-                        </div>
-                    )}
-
                     <p className="text-user-muted text-sm mb-5">
-                        Refine your pick
+                        Set the ground rules
                     </p>
 
                     {error && (
@@ -400,7 +403,7 @@ export default function MovieNightPage() {
                     {/* Navigation buttons */}
                     <div className="flex gap-3">
                         <button
-                            onClick={goBackToVibes}
+                            onClick={() => { setMode(null); setPhase("mode_select"); }}
                             className="flex-1 py-3 rounded-2xl border border-user-card-border bg-user-card text-sm font-semibold text-user-muted hover:text-white hover:border-user-accent/30 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
                         >
                             <ArrowLeft size={16} />
@@ -410,16 +413,8 @@ export default function MovieNightPage() {
                             onClick={handleFilterNext}
                             className="flex-1 py-3 rounded-2xl bg-user-accent text-black font-semibold text-sm hover:bg-user-accent-dim active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2"
                         >
-                            {mode === "group" && currentPlayer === 1 ? (
-                                <>
-                                    Next
-                                    <ArrowRight size={16} />
-                                </>
-                            ) : mode === "group" ? (
-                                "Find Our Movie"
-                            ) : (
-                                "Find My Movie"
-                            )}
+                            Next
+                            <ArrowRight size={16} />
                         </button>
                     </div>
                 </div>
