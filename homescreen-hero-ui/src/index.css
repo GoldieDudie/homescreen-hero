@@ -322,6 +322,16 @@ select option {
     padding-left: 0.75rem !important;
 }
 
+/* ===== Subtle float for revealed poster ===== */
+@keyframes subtle-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
+
+.animate-subtle-float {
+    animation: subtle-float 3s ease-in-out infinite;
+}
+
 /* ===== Dashboard Edit Mode Wiggle Animation ===== */
 @keyframes wiggle {
     0%, 100% { transform: rotate(0deg); }

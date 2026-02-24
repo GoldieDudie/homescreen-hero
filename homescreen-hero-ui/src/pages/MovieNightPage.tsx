@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
+import { LazyMotion, domAnimation, AnimatePresence } from "motion/react";
 import { useAuth } from "../utils/auth";
 import type { LayoutContext } from "../layouts/UserLayout";
 import {
     Home,
     RotateCcw,
     Shuffle,
-    Loader2,
     ArrowLeft,
     ArrowRight,
     ChevronRight,
@@ -20,8 +20,11 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { fetchWithAuth } from "../utils/api";
-import VibeGrid, { VIBES } from "../components/movie-night/VibeGrid";
+import VibeGrid from "../components/movie-night/VibeGrid";
 import HostRoomFlow from "../components/movie-night/HostRoomFlow";
+import CinematicLoader from "../components/movie-night/CinematicLoader";
+import MovieRevealCard from "../components/movie-night/MovieRevealCard";
+import type { MovieResult } from "../components/movie-night/types";
 
 const DURATION_OPTIONS: { key: string | null; label: string; desc: string; icon: LucideIcon | null }[] = [
     { key: null, label: "Any Length", desc: "No preference", icon: null },
@@ -35,18 +38,6 @@ const REWATCH_OPTIONS: { key: string; label: string; desc: string; icon: LucideI
     { key: "rewatch", label: "Rewatch a Fave", desc: "Something I've loved", icon: RotateCcw },
     { key: "any", label: "Don't Care", desc: "Surprise me", icon: Shuffle },
 ];
-
-interface MovieResult {
-    plex_rating_key: number;
-    title: string;
-    year: number | null;
-    poster_url: string | null;
-    overview: string | null;
-    genres: string[] | null;
-    duration_minutes: number | null;
-    match_score: number;
-    vibe_scores: Record<string, number>;
-}
 
 type Phase = "mode_select" | "setup" | "selecting" | "filtering" | "handoff" | "loading" | "revealing" | "remote";
 
@@ -190,6 +181,7 @@ export default function MovieNightPage() {
         : [];
 
     return (
+        <LazyMotion features={domAnimation}>
         <div className="max-w-lg mx-auto overflow-x-hidden px-1">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
@@ -496,148 +488,32 @@ export default function MovieNightPage() {
                 </div>
             )}
 
-            {/* LOADING PHASE */}
-            {phase === "loading" && (
-                <div className={`flex flex-col items-center justify-center py-20 ${slideClass}`}>
-                    <Loader2 size={32} className="animate-spin text-user-accent mb-4" />
-                    <p className="text-user-muted text-sm">
-                        {mode === "group" ? "Finding your movie…" : "Finding your movie…"}
-                    </p>
-                </div>
-            )}
-
-            {/* REVEALING PHASE */}
-            {phase === "revealing" && movie && (
-                <div key={currentIndex} className={slideClass}>
-                    {/* Plex fallback notice */}
-                    {filtersApplied?.rewatch_fallback && (
-                        <p className="text-center text-xs text-amber-400/70 mb-3">
-                            Watch history unavailable — showing all movies
-                        </p>
-                    )}
-
-                    {/* Duration fallback notice */}
-                    {filtersApplied?.duration_fallback && (
-                        <p className="text-center text-xs text-amber-400/70 mb-3">
-                            Couldn't agree on length — showing all durations
-                        </p>
-                    )}
-
-                    {/* Poster */}
-                    <div className="flex justify-center mb-5">
-                        {movie.poster_url ? (
-                            <img
-                                src={movie.poster_url}
-                                alt={movie.title}
-                                className="w-52 aspect-[2/3] object-cover rounded-2xl shadow-2xl shadow-black/50"
-                            />
-                        ) : (
-                            <div className="w-52 aspect-[2/3] rounded-2xl bg-user-card border border-user-card-border flex items-center justify-center">
-                                <p className="text-user-muted text-sm">No poster</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Title + Year + Duration */}
-                    <div className="text-center mb-4">
-                        <h2 className="text-2xl font-bold tracking-tight">
-                            {movie.title}
-                        </h2>
-                        <p className="text-user-muted text-sm mt-1">
-                            {[
-                                movie.year,
-                                movie.duration_minutes ? `${movie.duration_minutes} min` : null,
-                            ].filter(Boolean).join(" · ")}
-                        </p>
-                    </div>
-
-                    {/* Genre pills */}
-                    {movie.genres && movie.genres.length > 0 && (
-                        <div className="flex flex-wrap justify-center gap-2 mb-3">
-                            {movie.genres.map((genre) => (
-                                <span
-                                    key={genre}
-                                    className="px-2.5 py-1 rounded-full bg-user-card border border-user-card-border text-xs text-user-muted"
-                                >
-                                    {genre}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Matched vibe pills */}
-                    {matchedVibes.length > 0 && (
-                        <div className="flex flex-wrap justify-center gap-2 mb-4">
-                            {matchedVibes.map((v) => {
-                                const vibe = VIBES.find((vb) => vb.key === v);
-                                if (!vibe) return null;
-                                const VibeIcon = vibe.icon;
-                                return (
-                                    <span
-                                        key={v}
-                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-user-accent/10 border border-user-accent/30 text-xs text-user-accent"
-                                    >
-                                        <VibeIcon size={12} />
-                                        {vibe.label}
-                                    </span>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {/* Overview */}
-                    {movie.overview && (
-                        <p className="text-sm text-user-muted leading-relaxed text-center mb-6">
-                            {movie.overview.length > 200
-                                ? movie.overview.slice(0, 200) + "…"
-                                : movie.overview}
-                        </p>
-                    )}
-
-                    {/* Pick counter */}
-                    <p className="text-center text-xs text-user-muted mb-3">
-                        Pick {currentIndex + 1} of {movies.length}
-                    </p>
-
-                    {/* Action buttons */}
-                    <div className="flex gap-3">
-                        <button
-                            onClick={startOver}
-                            className="flex-1 py-3 rounded-2xl border border-user-card-border bg-user-card text-sm font-semibold text-user-muted hover:text-white hover:border-user-accent/30 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
-                        >
-                            <RotateCcw size={16} />
-                            Start Over
-                        </button>
-                        <button
-                            onClick={tryAgain}
-                            disabled={isLastMovie}
-                            className={`
-                                flex-1 py-3 rounded-2xl text-sm font-semibold transition-all duration-200
-                                flex items-center justify-center gap-2
-                                ${
-                                    isLastMovie
-                                        ? "bg-user-card border border-user-card-border text-user-muted cursor-not-allowed opacity-50"
-                                        : "bg-user-accent text-black hover:bg-user-accent-dim active:scale-[0.98]"
-                                }
-                            `}
-                        >
-                            <Shuffle size={16} />
-                            Try Again
-                        </button>
-                    </div>
-
-                    {isLastMovie && (
-                        <p className="text-center text-xs text-user-muted mt-3">
-                            That's all for these vibes!
-                        </p>
-                    )}
-                </div>
-            )}
+            {/* LOADING + REVEALING PHASES (animated transitions) */}
+            <AnimatePresence mode="wait">
+                {phase === "loading" && (
+                    <CinematicLoader key="loader" />
+                )}
+                {phase === "revealing" && movie && (
+                    <MovieRevealCard
+                        key={`reveal-${currentIndex}`}
+                        movie={movie}
+                        matchedVibes={matchedVibes}
+                        pickNumber={currentIndex + 1}
+                        totalPicks={movies.length}
+                        isLastMovie={isLastMovie}
+                        isFirstReveal={currentIndex === 0}
+                        filtersApplied={filtersApplied}
+                        onTryAgain={tryAgain}
+                        onStartOver={startOver}
+                    />
+                )}
+            </AnimatePresence>
 
             {/* REMOTE PHASE — delegates to HostRoomFlow */}
             {phase === "remote" && (
                 <HostRoomFlow onBack={startOver} />
             )}
         </div>
+        </LazyMotion>
     );
 }

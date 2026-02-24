@@ -8,6 +8,7 @@ import {
     RotateCcw,
     Clapperboard,
 } from "lucide-react";
+import confetti from "canvas-confetti";
 import VibeGrid from "../components/movie-night/VibeGrid";
 import useRoomPoll from "../hooks/useRoomPoll";
 
@@ -324,19 +325,22 @@ export default function JoinRoomPage() {
                 {/* VOTING PHASE */}
                 {phase === "voting" && currentMovie && (
                     <div className="animate-fade-in">
-                        {/* Poster */}
+                        {/* Poster with gold glow */}
                         <div className="flex justify-center mb-5">
-                            {currentMovie.poster_url ? (
-                                <img
-                                    src={currentMovie.poster_url}
-                                    alt={currentMovie.title}
-                                    className="w-52 aspect-[2/3] object-cover rounded-2xl shadow-2xl shadow-black/50"
-                                />
-                            ) : (
-                                <div className="w-52 aspect-[2/3] rounded-2xl bg-user-card border border-user-card-border flex items-center justify-center">
-                                    <p className="text-user-muted text-sm">No poster</p>
-                                </div>
-                            )}
+                            <div className="relative">
+                                <div className="absolute inset-0 rounded-2xl bg-user-accent/20 blur-2xl scale-105" />
+                                {currentMovie.poster_url ? (
+                                    <img
+                                        src={currentMovie.poster_url}
+                                        alt={currentMovie.title}
+                                        className="relative w-56 aspect-[2/3] object-cover rounded-2xl shadow-2xl shadow-black/50 animate-subtle-float"
+                                    />
+                                ) : (
+                                    <div className="relative w-56 aspect-[2/3] rounded-2xl bg-user-card border border-user-card-border flex items-center justify-center">
+                                        <p className="text-user-muted text-sm">No poster</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Title + meta */}
@@ -412,33 +416,7 @@ export default function JoinRoomPage() {
 
                 {/* APPROVED PHASE */}
                 {phase === "approved" && approvedMovie && (
-                    <div className="animate-fade-in text-center">
-                        <div className="flex justify-center mb-5">
-                            {approvedMovie.poster_url ? (
-                                <img
-                                    src={approvedMovie.poster_url}
-                                    alt={approvedMovie.title}
-                                    className="w-52 aspect-[2/3] object-cover rounded-2xl shadow-2xl shadow-black/50"
-                                />
-                            ) : (
-                                <div className="w-52 aspect-[2/3] rounded-2xl bg-user-card border border-user-card-border flex items-center justify-center">
-                                    <p className="text-user-muted text-sm">No poster</p>
-                                </div>
-                            )}
-                        </div>
-                        <h2 className="text-2xl font-bold tracking-tight mb-1">
-                            {approvedMovie.title}
-                        </h2>
-                        <p className="text-user-muted text-sm mb-4">
-                            {[
-                                approvedMovie.year,
-                                approvedMovie.duration_minutes ? `${approvedMovie.duration_minutes} min` : null,
-                            ].filter(Boolean).join(" · ")}
-                        </p>
-                        <div className="inline-block px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 text-sm font-semibold">
-                            Everyone agreed — enjoy the movie!
-                        </div>
-                    </div>
+                    <GuestApprovedReveal movie={approvedMovie} />
                 )}
 
                 {/* EXHAUSTED PHASE */}
@@ -459,6 +437,51 @@ export default function JoinRoomPage() {
                         <p className="text-user-muted text-sm">This session has expired.</p>
                     </div>
                 )}
+            </div>
+        </div>
+    );
+}
+
+function GuestApprovedReveal({ movie }: { movie: { poster_url: string | null; title: string; year: number | null; duration_minutes: number | null } }) {
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            confetti({
+                particleCount: 80,
+                spread: 70,
+                origin: { y: 0.4 },
+                colors: ["#e5a00d", "#f5c842", "#ffffff", "#ffd700"],
+            });
+        }, 300);
+        return () => clearTimeout(timer);
+    }, []);
+
+    return (
+        <div className="animate-fade-in text-center">
+            <div className="flex justify-center mb-5">
+                <div className="relative">
+                    <div className="absolute inset-0 rounded-2xl bg-user-accent/20 blur-2xl scale-105" />
+                    {movie.poster_url ? (
+                        <img
+                            src={movie.poster_url}
+                            alt={movie.title}
+                            className="relative w-56 aspect-[2/3] object-cover rounded-2xl shadow-2xl shadow-black/50 animate-subtle-float"
+                        />
+                    ) : (
+                        <div className="relative w-56 aspect-[2/3] rounded-2xl bg-user-card border border-user-card-border flex items-center justify-center">
+                            <p className="text-user-muted text-sm">No poster</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight mb-1">{movie.title}</h2>
+            <p className="text-user-muted text-sm mb-4">
+                {[
+                    movie.year,
+                    movie.duration_minutes ? `${movie.duration_minutes} min` : null,
+                ].filter(Boolean).join(" · ")}
+            </p>
+            <div className="inline-block px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 text-sm font-semibold">
+                Everyone agreed, enjoy the movie!
             </div>
         </div>
     );

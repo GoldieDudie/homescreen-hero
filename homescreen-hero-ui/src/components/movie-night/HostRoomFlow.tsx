@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     ArrowLeft,
     ArrowRight,
@@ -16,6 +16,7 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import confetti from "canvas-confetti";
 import { fetchWithAuth } from "../../utils/api";
 import VibeGrid from "./VibeGrid";
 import useRoomPoll from "../../hooks/useRoomPoll";
@@ -53,6 +54,7 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
     const [matchingInProgress, setMatchingInProgress] = useState(false);
 
     const { data: room } = useRoomPoll(playerToken);
+    const confettiFiredRef = useRef(false);
 
     // Sync phase from poll state
     const effectivePhase = (() => {
@@ -63,6 +65,22 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
         if (room.state === "expired") { onBack(); return phase; }
         return phase;
     })();
+
+    // Fire confetti on first movie reveal
+    useEffect(() => {
+        if (effectivePhase === "voting" && room?.current_movie_index === 0 && !confettiFiredRef.current) {
+            confettiFiredRef.current = true;
+            const timer = setTimeout(() => {
+                confetti({
+                    particleCount: 80,
+                    spread: 70,
+                    origin: { y: 0.4 },
+                    colors: ["#e5a00d", "#f5c842", "#ffffff", "#ffd700"],
+                });
+            }, 400);
+            return () => clearTimeout(timer);
+        }
+    }, [effectivePhase, room?.current_movie_index]);
 
     const toggleVibe = (key: string) => {
         setSelectedVibes((prev) =>
@@ -406,19 +424,22 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
             {/* VOTING PHASE */}
             {effectivePhase === "voting" && currentMovie && (
                 <>
-                    {/* Poster */}
+                    {/* Poster with gold glow */}
                     <div className="flex justify-center mb-5">
-                        {currentMovie.poster_url ? (
-                            <img
-                                src={currentMovie.poster_url}
-                                alt={currentMovie.title}
-                                className="w-52 aspect-[2/3] object-cover rounded-2xl shadow-2xl shadow-black/50"
-                            />
-                        ) : (
-                            <div className="w-52 aspect-[2/3] rounded-2xl bg-user-card border border-user-card-border flex items-center justify-center">
-                                <p className="text-user-muted text-sm">No poster</p>
-                            </div>
-                        )}
+                        <div className="relative">
+                            <div className="absolute inset-0 rounded-2xl bg-user-accent/20 blur-2xl scale-105" />
+                            {currentMovie.poster_url ? (
+                                <img
+                                    src={currentMovie.poster_url}
+                                    alt={currentMovie.title}
+                                    className="relative w-56 aspect-[2/3] object-cover rounded-2xl shadow-2xl shadow-black/50 animate-subtle-float"
+                                />
+                            ) : (
+                                <div className="relative w-56 aspect-[2/3] rounded-2xl bg-user-card border border-user-card-border flex items-center justify-center">
+                                    <p className="text-user-muted text-sm">No poster</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Title + meta */}
@@ -507,39 +528,7 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
 
             {/* APPROVED PHASE */}
             {effectivePhase === "approved" && approvedMovie && (
-                <div className="text-center">
-                    <div className="flex justify-center mb-5">
-                        {approvedMovie.poster_url ? (
-                            <img
-                                src={approvedMovie.poster_url}
-                                alt={approvedMovie.title}
-                                className="w-52 aspect-[2/3] object-cover rounded-2xl shadow-2xl shadow-black/50"
-                            />
-                        ) : (
-                            <div className="w-52 aspect-[2/3] rounded-2xl bg-user-card border border-user-card-border flex items-center justify-center">
-                                <p className="text-user-muted text-sm">No poster</p>
-                            </div>
-                        )}
-                    </div>
-                    <h2 className="text-2xl font-bold tracking-tight mb-1">{approvedMovie.title}</h2>
-                    <p className="text-user-muted text-sm mb-4">
-                        {[
-                            approvedMovie.year,
-                            approvedMovie.duration_minutes ? `${approvedMovie.duration_minutes} min` : null,
-                        ].filter(Boolean).join(" \u00b7 ")}
-                    </p>
-                    <div className="inline-block px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 text-sm font-semibold mb-6">
-                        Everyone agreed — enjoy the movie!
-                    </div>
-                    <div>
-                        <button
-                            onClick={onBack}
-                            className="px-6 py-2.5 rounded-2xl border border-user-card-border bg-user-card text-sm font-semibold text-user-muted hover:text-white hover:border-user-accent/30 transition-all duration-200"
-                        >
-                            Start Over
-                        </button>
-                    </div>
-                </div>
+                <ApprovedReveal movie={approvedMovie} onBack={onBack} />
             )}
 
             {/* EXHAUSTED PHASE */}
@@ -601,6 +590,60 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+// Extracted so confetti fires on mount via useEffect
+function ApprovedReveal({ movie, onBack }: { movie: { poster_url: string | null; title: string; year: number | null; duration_minutes: number | null }; onBack: () => void }) {
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            confetti({
+                particleCount: 80,
+                spread: 70,
+                origin: { y: 0.4 },
+                colors: ["#e5a00d", "#f5c842", "#ffffff", "#ffd700"],
+            });
+        }, 300);
+        return () => clearTimeout(timer);
+    }, []);
+
+    return (
+        <div className="text-center animate-fade-in">
+            <div className="flex justify-center mb-5">
+                <div className="relative">
+                    <div className="absolute inset-0 rounded-2xl bg-user-accent/20 blur-2xl scale-105" />
+                    {movie.poster_url ? (
+                        <img
+                            src={movie.poster_url}
+                            alt={movie.title}
+                            className="relative w-56 aspect-[2/3] object-cover rounded-2xl shadow-2xl shadow-black/50 animate-subtle-float"
+                        />
+                    ) : (
+                        <div className="relative w-56 aspect-[2/3] rounded-2xl bg-user-card border border-user-card-border flex items-center justify-center">
+                            <p className="text-user-muted text-sm">No poster</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight mb-1">{movie.title}</h2>
+            <p className="text-user-muted text-sm mb-4">
+                {[
+                    movie.year,
+                    movie.duration_minutes ? `${movie.duration_minutes} min` : null,
+                ].filter(Boolean).join(" \u00b7 ")}
+            </p>
+            <div className="inline-block px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 text-sm font-semibold mb-6">
+                Everyone agreed — enjoy the movie!
+            </div>
+            <div>
+                <button
+                    onClick={onBack}
+                    className="px-6 py-2.5 rounded-2xl border border-user-card-border bg-user-card text-sm font-semibold text-user-muted hover:text-white hover:border-user-accent/30 transition-all duration-200"
+                >
+                    Start Over
+                </button>
+            </div>
         </div>
     );
 }
