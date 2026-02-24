@@ -162,7 +162,7 @@ function FeaturedCard() {
     // No data
     if (items.length === 0) {
         return (
-            <div className="relative rounded-2xl overflow-hidden border border-user-card-border bg-user-card h-56 animate-fade-in">
+            <div className="relative rounded-2xl overflow-hidden border border-user-card-border bg-user-card h-56">
                 <div className="absolute inset-0 bg-gradient-to-br from-user-accent/8 via-user-card to-user-bg" />
                 <div className="absolute inset-0 bg-gradient-to-t from-user-bg via-user-bg/70 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-5 z-20">
@@ -257,7 +257,7 @@ export default function UserHomePage() {
                     <h1 className="text-[1.7rem] font-extrabold tracking-tight leading-tight">
                         {getGreeting()},
                         <br />
-                        <span className="text-user-accent italic">plexusername</span>
+                        <span className="text-user-accent italic">{username}</span>
                     </h1>
                     <p className="text-user-muted text-sm mt-1">The theater is open.</p>
                 </div>

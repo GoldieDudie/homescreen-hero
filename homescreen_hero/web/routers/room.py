@@ -428,6 +428,9 @@ def start_matching(
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 
+        if session.host_user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the host can start matching")
+
         if session.state not in ("waiting", "vibes_submitted"):
             raise HTTPException(
                 status_code=409,
