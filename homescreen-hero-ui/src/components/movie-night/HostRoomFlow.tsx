@@ -183,7 +183,7 @@ export default function HostRoomFlow({ onBack }: HostRoomFlowProps) {
     const approvedMovie = room?.approved_movie;
 
     // Check if host already voted
-    const myName = room?.players.find((p) => p.is_host)?.player_name;
+    const myName = room?.your_player_name;
     const myVote = room?.votes && myName ? room.votes[myName] : undefined;
     const hasVoted = myVote !== undefined && myVote !== null;
 

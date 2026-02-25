@@ -179,7 +179,7 @@ def _cleanup_expired_sessions() -> None:
         with session_scope() as db:
             # Mark expired
             expired = db.query(MovieNightSession).filter(
-                MovieNightSession.state.in_({"waiting", "vibes_submitted", "voting"}),
+                MovieNightSession.state.in_({"waiting", "voting"}),
                 MovieNightSession.expires_at < now,
             ).all()
             for s in expired:

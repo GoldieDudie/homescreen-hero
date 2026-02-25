@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/movie-night/room", tags=["movie-night-room"])
 
 SESSION_DURATION_MINUTES = 60
-ACTIVE_STATES = {"waiting", "vibes_submitted", "voting"}
+ACTIVE_STATES = {"waiting", "voting"}
 
 
 # --- Request / Response models ---
@@ -126,6 +126,7 @@ class RoomPollResponse(BaseModel):
     state: str
     players: List[PlayerInfo]
     host_name: str
+    your_player_name: str
     vibes_submitted_count: int
     current_movie: Optional[GuestMovieInfo] = None
     current_movie_index: int = 0
@@ -170,7 +171,9 @@ def _get_session_and_player(token: str):
     return session, player, players
 
 
-def _build_poll_response(session: MovieNightSession, players: list) -> RoomPollResponse:
+def _build_poll_response(
+    session: MovieNightSession, players: list, current_player: SessionPlayer | None = None,
+) -> RoomPollResponse:
     host = next((p for p in players if p.is_host), None)
     player_infos = [
         PlayerInfo(
@@ -200,11 +203,14 @@ def _build_poll_response(session: MovieNightSession, players: list) -> RoomPollR
         if idx < len(session.match_results):
             approved_movie = GuestMovieInfo(**session.match_results[idx])
 
+    your_name = current_player.player_name if current_player else (host.player_name if host else "Unknown")
+
     return RoomPollResponse(
         room_code=session.room_code,
         state=session.state,
         players=player_infos,
         host_name=host.player_name if host else "Unknown",
+        your_player_name=your_name,
         vibes_submitted_count=sum(1 for p in players if p.vibes is not None),
         current_movie=current_movie,
         current_movie_index=session.current_movie_index,
@@ -363,7 +369,7 @@ def poll_room(
     token: str = Query(...),
 ) -> RoomPollResponse:
     session, player, players = _get_session_and_player(token)
-    return _build_poll_response(session, players)
+    return _build_poll_response(session, players, current_player=player)
 
 
 @router.post("/vibes")
@@ -405,7 +411,8 @@ def submit_vibes(
             db.expunge(p)
         db.expunge(session)
 
-    return _build_poll_response(session, all_players)
+    current_player = next((p for p in all_players if p.player_token == token), None)
+    return _build_poll_response(session, all_players, current_player=current_player)
 
 
 @router.post("/start-matching", response_model=RoomPollResponse)
@@ -431,7 +438,7 @@ def start_matching(
         if session.host_user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Only the host can start matching")
 
-        if session.state not in ("waiting", "vibes_submitted"):
+        if session.state != "waiting":
             raise HTTPException(
                 status_code=409,
                 detail=f"Cannot start matching in state '{session.state}'"
@@ -522,7 +529,8 @@ def start_matching(
             db.expunge(p)
         db.expunge(session)
 
-    return _build_poll_response(session, all_players)
+    current_player = next((p for p in all_players if p.player_token == token), None)
+    return _build_poll_response(session, all_players, current_player=current_player)
 
 
 @router.post("/vote", response_model=RoomPollResponse)
@@ -581,7 +589,8 @@ def vote_on_movie(
             db.expunge(p)
         db.expunge(session)
 
-    return _build_poll_response(session, all_players)
+    current_player = next((p for p in all_players if p.player_token == token), None)
+    return _build_poll_response(session, all_players, current_player=current_player)
 
 
 @router.delete("/{room_code}", status_code=204)

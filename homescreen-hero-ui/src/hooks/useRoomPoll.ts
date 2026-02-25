@@ -21,6 +21,7 @@ export interface RoomPollResponse {
     state: string;
     players: PlayerInfo[];
     host_name: string;
+    your_player_name: string;
     vibes_submitted_count: number;
     current_movie: GuestMovieInfo | null;
     current_movie_index: number;

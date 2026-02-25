@@ -238,7 +238,7 @@ class TestSubmitVibes:
             json={"vibes": ["mind_bending"]},
         )
         assert res.status_code == 200
-        assert res.json()["state"] == "vibes_submitted"
+        assert res.json()["state"] == "waiting"
 
     def test_submit_invalid_vibes(self, client, create_test_room):
         _, host_token = create_test_room()
@@ -248,24 +248,18 @@ class TestSubmitVibes:
         )
         assert res.status_code == 422
 
-    def test_submit_vibes_wrong_state(self, client, create_test_room):
-        room_code, host_token = create_test_room()
-        join_res = client.post(
-            "/api/movie-night/room/join",
-            json={"room_code": room_code, "player_name": "Alice"},
-        )
-        guest_token = join_res.json()["player_token"]
+    def test_resubmit_vibes_allowed_during_waiting(self, client, create_test_room):
+        _, host_token = create_test_room()
 
-        # Both submit vibes → state becomes vibes_submitted
+        # First submission
         client.post(f"/api/movie-night/room/vibes?token={host_token}", json={"vibes": ["popcorn_night"]})
-        client.post(f"/api/movie-night/room/vibes?token={guest_token}", json={"vibes": ["mind_bending"]})
 
-        # Now try to submit again — wrong state
+        # Re-submitting during waiting is fine (lets players change their mind)
         res = client.post(
             f"/api/movie-night/room/vibes?token={host_token}",
             json={"vibes": ["feel_good"]},
         )
-        assert res.status_code == 409
+        assert res.status_code == 200
 
 
 class TestCancelRoom:

@@ -7,7 +7,7 @@ from homescreen_hero.core.db.models import MovieNightSession
 ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 CODE_LENGTH = 4  # 31^4 = ~923,000 possible codes
 
-ACTIVE_STATES = {"waiting", "vibes_submitted", "voting"}
+ACTIVE_STATES = {"waiting", "voting"}
 
 
 def generate_room_code(max_attempts: int = 10) -> str:

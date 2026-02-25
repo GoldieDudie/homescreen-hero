@@ -51,17 +51,14 @@ export default function JoinRoomPage() {
     useEffect(() => {
         if (!room) return;
         switch (room.state) {
-            case "waiting":
-            case "vibes_submitted":
-                // If we already submitted vibes, show waiting
-                if (playerToken) {
-                    const me = room.players.find(
-                        (p) => p.has_submitted_vibes && !p.is_host,
-                    );
-                    // Rough check — if any non-host submitted vibes, assume it's us
-                    if (me) setPhase("waiting");
-                }
+            case "waiting": {
+                // Check if *this* player already submitted vibes
+                const me = room.players.find(
+                    (p) => p.player_name === room.your_player_name,
+                );
+                if (me?.has_submitted_vibes) setPhase("waiting");
                 break;
+            }
             case "voting":
                 setPhase("voting");
                 setVotingDisabled(false);
@@ -158,7 +155,7 @@ export default function JoinRoomPage() {
     const approvedMovie = room?.approved_movie;
 
     // Check if we already voted on the current movie
-    const myName = room?.players.find((p) => !p.is_host)?.player_name;
+    const myName = room?.your_player_name;
     const myVote = room?.votes && myName ? room.votes[myName] : undefined;
     const hasVoted = myVote !== undefined && myVote !== null;
 
