@@ -1,0 +1,166 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches:
+      - develop
+      - 'feature-*'
+      - 'feature/*'
+      - 'feat-*'
+      - 'feat/*'
+      - 'fix-*'
+      - 'fix/*'
+
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Detect which parts of the codebase changed
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'homescreen_hero/**'
+              - 'pytest.ini'
+              - 'homescreen_hero/requirements*.txt'
+            frontend:
+              - 'homescreen-hero-ui/**'
+            docker:
+              - 'Dockerfile'
+              - 'homescreen_hero/requirements.txt'
+              - 'homescreen-hero-ui/package-lock.json'
+
+  backend-tests:
+    name: Backend Tests
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: homescreen_hero/requirements*.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r homescreen_hero/requirements.txt
+          pip install -r homescreen_hero/requirements-dev.txt
+
+      - name: Run tests with coverage
+        run: pytest --cov=homescreen_hero --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage.xml
+
+  frontend-tests:
+    name: Frontend Tests
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: homescreen-hero-ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: homescreen-hero-ui/package-lock.json
+
+      - run: npm ci
+
+      - name: Run tests
+        run: npm run test:run
+
+  frontend-lint:
+    name: Frontend Lint
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: homescreen-hero-ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: homescreen-hero-ui/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+
+  frontend-build:
+    name: Frontend Build Check
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: homescreen-hero-ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: homescreen-hero-ui/package-lock.json
+
+      - run: npm ci
+      - name: TypeScript + Vite build
+        run: npm run build
+
+  docker-build:
+    name: Docker Build (dry run)
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Write placeholder VERSION
+        run: echo "ci-${{ github.sha }}" > VERSION
+
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: homescreen-hero:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
