@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchWithAuth } from "../utils/api";
-import { SlidersHorizontal, Check, ChevronDown, FileText, Copy, Download, Pause, Play, RefreshCw, Search, Server, CalendarSync, Ban, Archive, Upload, HardDriveDownload, HardDriveUpload, Undo2, Shield, Users } from "lucide-react";
+import { SlidersHorizontal, Check, ChevronDown, FileText, Copy, Download, Pause, Play, RefreshCw, Search, Server, CalendarSync, Ban, Archive, Upload, HardDriveDownload, HardDriveUpload, Undo2, Shield, Users, FlaskConical, Clapperboard } from "lucide-react";
 import { Switch, Listbox } from "@headlessui/react";
 import FieldRow from "../components/FieldRow";
 import CollapsibleFormSection from "../components/CollapsibleFormSection";
@@ -14,6 +14,7 @@ const tabs = [
     { id: "general", label: "General", icon: SlidersHorizontal },
     { id: "logs", label: "Logs", icon: FileText },
     { id: "backup", label: "Backup", icon: Archive },
+    { id: "beta", label: "Beta", icon: FlaskConical },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -226,6 +227,8 @@ export default function SettingsPage() {
                 return "View and search application logs in real-time.";
             case "backup":
                 return "Export or import your configuration file.";
+            case "beta":
+                return "Experimental features that are still in development.";
             default:
                 return "";
         }
@@ -1831,6 +1834,10 @@ export default function SettingsPage() {
                 </div>
             ) : null}
 
+            {activeTab === "beta" ? (
+                <BetaTab />
+            ) : null}
+
             {backupToast && (
                 <Toast
                     message={backupToast.message}
@@ -1838,6 +1845,179 @@ export default function SettingsPage() {
                     onClose={() => setBackupToast(null)}
                 />
             )}
+        </div>
+    );
+}
+
+// --- Beta Tab ---
+
+type VibeStatus = {
+    total_movies_scored: number;
+    current_version_count: number;
+    outdated_version_count: number;
+    score_version: number;
+    libraries: Record<string, number>;
+    last_computed: string | null;
+};
+
+function BetaTab() {
+    const [vibeStatus, setVibeStatus] = useState<VibeStatus | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [computing, setComputing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
+
+    const fetchStatus = useCallback(async () => {
+        try {
+            const res = await fetchWithAuth("/api/vibes/status");
+            if (!res.ok) throw new Error(await res.text());
+            setVibeStatus(await res.json());
+            setError(null);
+        } catch (e) {
+            setError(String(e));
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchStatus();
+    }, [fetchStatus]);
+
+    const handleCompute = async (force: boolean) => {
+        setComputing(true);
+        setError(null);
+        setSuccess(null);
+        try {
+            const url = `/api/vibes/compute-sync${force ? "?force=true" : ""}`;
+            const res = await fetchWithAuth(url, { method: "POST" });
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                throw new Error(data?.detail ?? `HTTP ${res.status}`);
+            }
+            const data = await res.json();
+            const results = data.results;
+            if (results) {
+                const scored = results.scored ?? 0;
+                const skipped = results.skipped ?? 0;
+                setSuccess(`Done — ${scored} movies scored, ${skipped} skipped.`);
+            } else {
+                setSuccess("Computation completed.");
+            }
+            fetchStatus();
+        } catch (e) {
+            setError(String(e));
+        } finally {
+            setComputing(false);
+        }
+    };
+
+    const libraryEntries = vibeStatus ? Object.entries(vibeStatus.libraries) : [];
+
+    return (
+        <div className="flex flex-col gap-6">
+            <CollapsibleFormSection
+                title="Movie Night — Vibe Scores"
+                description="Compute vibe scores for your Plex library so Movie Night can match movies to moods."
+                icon={Clapperboard}
+                defaultExpanded
+            >
+                {loading ? (
+                    <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
+                        <span className="h-4 w-4 border-2 border-slate-500/30 border-t-slate-400 rounded-full animate-spin" />
+                        Loading status...
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-4">
+                        {/* Stats */}
+                        {vibeStatus && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
+                                    <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Scored</p>
+                                    <p className="text-lg font-bold text-white">{vibeStatus.total_movies_scored}</p>
+                                </div>
+                                <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
+                                    <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Current Version</p>
+                                    <p className="text-lg font-bold text-white">v{vibeStatus.score_version}</p>
+                                </div>
+                                {vibeStatus.outdated_version_count > 0 && (
+                                    <div className="rounded-xl border border-amber-800/40 bg-amber-900/10 p-3">
+                                        <p className="text-xs text-amber-500 uppercase tracking-wider font-semibold">Outdated</p>
+                                        <p className="text-lg font-bold text-amber-400">{vibeStatus.outdated_version_count}</p>
+                                    </div>
+                                )}
+                                {vibeStatus.last_computed && (
+                                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3 col-span-2 sm:col-span-1">
+                                        <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Last Run</p>
+                                        <p className="text-sm font-semibold text-white">{new Date(vibeStatus.last_computed).toLocaleString()}</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Per-library breakdown */}
+                        {libraryEntries.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {libraryEntries.map(([lib, count]) => (
+                                    <span
+                                        key={lib}
+                                        className="px-2.5 py-1 rounded-full border border-slate-800/60 bg-slate-900/40 text-xs text-slate-300"
+                                    >
+                                        {lib}: {count}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Error / success messages */}
+                        {error && (
+                            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                                {error}
+                            </div>
+                        )}
+                        {success && (
+                            <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
+                                {success}
+                            </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => handleCompute(false)}
+                                disabled={computing}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {computing ? (
+                                    <>
+                                        <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Computing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw className="h-4 w-4" />
+                                        Compute Vibes
+                                    </>
+                                )}
+                            </button>
+                            {vibeStatus && vibeStatus.total_movies_scored > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleCompute(true)}
+                                    disabled={computing}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 text-slate-300 text-sm font-semibold transition hover:border-slate-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Force Recompute All
+                                </button>
+                            )}
+                        </div>
+                        <p className="text-xs text-slate-500">
+                            Requires TMDb integration to be configured. New movies are scored incrementally — use "Force Recompute" after algorithm updates.
+                        </p>
+                    </div>
+                )}
+            </CollapsibleFormSection>
         </div>
     );
 }
