@@ -86,7 +86,13 @@ def get_ranked_movies_by_vibes(
     # Uses SQLite's scalar max(a, b, ...) which returns the largest argument.
     # Optional filters: duration bucket, exclude/include specific rating keys.
     vibe_columns = [getattr(MovieVibe, f"vibe_{name}") for name in vibe_names]
-    match_score = func.max(*vibe_columns).label("match_score")
+    # With 1 column, func.max(col) is an aggregate (collapses to 1 row).
+    # With 2+ columns, func.max(a, b) is a scalar (per-row max). Use column
+    # directly when there's only one vibe to avoid the aggregate trap.
+    if len(vibe_columns) == 1:
+        match_score = vibe_columns[0].label("match_score")
+    else:
+        match_score = func.max(*vibe_columns).label("match_score")
 
     with session_scope() as db:
         stmt = (
@@ -133,9 +139,15 @@ def get_ranked_movies_by_vibes_group(
     player_max_exprs = []
     for vibes in player_vibes:
         vibe_columns = [getattr(MovieVibe, f"vibe_{name}") for name in vibes]
-        player_max_exprs.append(func.max(*vibe_columns))
+        if len(vibe_columns) == 1:
+            player_max_exprs.append(vibe_columns[0])
+        else:
+            player_max_exprs.append(func.max(*vibe_columns))
 
-    group_score = func.min(*player_max_exprs).label("group_score")
+    if len(player_max_exprs) == 1:
+        group_score = player_max_exprs[0].label("group_score")
+    else:
+        group_score = func.min(*player_max_exprs).label("group_score")
 
     with session_scope() as db:
         stmt = (
