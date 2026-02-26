@@ -26,7 +26,7 @@ This app is very much a **WORK IN PROGRESS!** This started as a simple Python sc
 - **Web Dashboard:** Manage your Plex Server, curate your homescreen(s), and get useful analytics & insights all in one place!
 - **Automated Collection Rotation:** Schedule collections to rotate on your Plex home screen to constantly keep things fresh for all your users.
 - **First-Time Setup Wizard:** Get started in minutes without touching config files
-- **3rd Party List Integrations:** Grow your library with curated lists from your favorite websites! Create/Sync collections from Trakt, Letterboxd, and MDBLists
+- **3rd Party List Integrations:** Grow your library with curated lists from your favorite websites! Create/Sync collections from Trakt, Letterboxd, MDBLists, AniList, and MyAnimeList (MAL)
 - **Widgets for your favorite apps:** Add widgets to your dashboard from popular self-hosted apps (Tautulli, Seerr, more to come!)
 - **Useful Tools (WIP):** Collection of tools, scripts and utilites for managing your Plex server (checkout the Tools section below)
 
@@ -39,7 +39,6 @@ This app is very much a **WORK IN PROGRESS!** This started as a simple Python sc
 <summary><strong>Quick video demo of the homescreen-hero dashboard and widgets system</strong></summary>
 
 <video src="https://github.com/user-attachments/assets/74216471-acb2-4a67-812e-c2c640bede66" autoplay muted loop playsinline width="100%"></video>
-
 
 </details>
 
@@ -70,7 +69,7 @@ This app is very much a **WORK IN PROGRESS!** This started as a simple Python sc
   </tr>
   <tr>
     <td align="center"><img width="600" alt="Collections Page" src="https://github.com/user-attachments/assets/50eb68ee-d24b-4591-9191-e8d49c36bc1a" /></td>
-    <td aligh="center"><img width="600" alt="Integrations Page" src="https://github.com/user-attachments/assets/f44fb950-c8f0-4654-bd23-85e86db2d5ef" /></td>
+    <td aligh="center"><img width="600" alt="Integrations Page" src="https://github.com/user-attachments/assets/b9b7fc31-9e5b-4c76-9264-6288b2bb9f0f" /></td>
   </tr>
    <tr>
     <td align="center" colspan="2"><strong>Tools Page</strong></td>
