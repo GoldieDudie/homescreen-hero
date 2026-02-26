@@ -70,10 +70,23 @@ class MovieNightPickResponse(BaseModel):
 def _is_home_user(config: Any, username: str) -> bool:
     # Check if the user is the server admin or a Plex Home member.
     # Friends/shared users can't be impersonated via switchHomeUser.
+    # Uses case-insensitive matching because Plex title/username may differ
+    # in casing from the HSH login username.
     try:
-        from homescreen_hero.core.integrations.plex_client import get_home_users
+        from homescreen_hero.core.integrations.plex_client import get_plex_account, get_home_users
+
+        # Direct admin check — Plex account has both .username and .title
+        account = get_plex_account(config)
+        lower = username.lower()
+        if lower in (
+            (account.username or "").lower(),
+            (account.title or "").lower(),
+        ):
+            return True
+
+        # Check home/managed users
         home_users = get_home_users(config)
-        return any(u["username"] == username for u in home_users)
+        return any(u["username"].lower() == lower for u in home_users)
     except Exception:
         return False
 

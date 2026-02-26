@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -16,6 +17,9 @@ from ...core.vibe_scoring import VIBE_DISPLAY_NAMES
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/vibes", tags=["vibes"])
+
+# Guard against concurrent vibe computations
+_compute_lock = threading.Lock()
 
 
 class VibeStatusResponse(BaseModel):
@@ -45,6 +49,14 @@ def get_status(
     )
 
 
+def _guarded_compute(config, force: bool) -> None:
+    # Wrapper that holds the lock so concurrent triggers are rejected
+    try:
+        compute_all_vibes(config, force)
+    finally:
+        _compute_lock.release()
+
+
 @router.post("/compute", response_model=VibeComputeResponse)
 def trigger_compute(
     background_tasks: BackgroundTasks,
@@ -60,7 +72,13 @@ def trigger_compute(
             detail="TMDb integration is not configured. Add tmdb settings to config.yaml.",
         )
 
-    background_tasks.add_task(compute_all_vibes, config, force)
+    if not _compute_lock.acquire(blocking=False):
+        raise HTTPException(
+            status_code=409,
+            detail="Vibe computation is already running.",
+        )
+
+    background_tasks.add_task(_guarded_compute, config, force)
 
     return VibeComputeResponse(status="started")
 
@@ -79,6 +97,15 @@ def trigger_compute_sync(
             detail="TMDb integration is not configured. Add tmdb settings to config.yaml.",
         )
 
-    results = compute_all_vibes(config, force)
+    if not _compute_lock.acquire(blocking=False):
+        raise HTTPException(
+            status_code=409,
+            detail="Vibe computation is already running.",
+        )
+
+    try:
+        results = compute_all_vibes(config, force)
+    finally:
+        _compute_lock.release()
 
     return VibeComputeResponse(status="completed", results=results)

@@ -499,7 +499,8 @@ def get_server_for_user(config: AppConfig, username: str) -> PlexServer:
     account = get_plex_account(config)
 
     # If it's the admin account, just return normal server
-    if username == account.username or username == account.title:
+    lower = username.lower()
+    if lower in ((account.username or "").lower(), (account.title or "").lower()):
         return get_plex_server(config)
 
     # Switch to the home user's context

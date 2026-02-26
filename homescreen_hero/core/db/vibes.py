@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Set
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from .base import session_scope
 from .models import MovieVibe
@@ -37,44 +38,34 @@ def upsert_movie_vibe(
     poster_path: Optional[str] = None,
     duration_minutes: Optional[int] = None,
 ) -> None:
-    # Insert or update a MovieVibe row
-    with session_scope() as db:
-        existing = db.execute(
-            select(MovieVibe).where(MovieVibe.plex_rating_key == plex_rating_key)
-        ).scalar_one_or_none()
+    # Atomic INSERT ... ON CONFLICT DO UPDATE — safe against concurrent writes
+    vibe_kwargs = {f"vibe_{vibe}": scores[vibe] for vibe in VIBE_NAMES}
+    values = dict(
+        plex_rating_key=plex_rating_key,
+        tmdb_id=tmdb_id,
+        title=title,
+        year=year,
+        plex_library=plex_library,
+        genres=genres,
+        tmdb_keywords=tmdb_keywords,
+        tmdb_overview=tmdb_overview,
+        poster_path=poster_path,
+        duration_minutes=duration_minutes,
+        computed_at=datetime.utcnow(),
+        score_version=SCORE_VERSION,
+        **vibe_kwargs,
+    )
 
-        if existing:
-            existing.tmdb_id = tmdb_id
-            existing.title = title
-            existing.year = year
-            existing.plex_library = plex_library
-            existing.genres = genres
-            existing.tmdb_keywords = tmdb_keywords
-            existing.tmdb_overview = tmdb_overview
-            existing.poster_path = poster_path
-            existing.duration_minutes = duration_minutes
-            existing.computed_at = datetime.utcnow()
-            existing.score_version = SCORE_VERSION
-            for vibe in VIBE_NAMES:
-                setattr(existing, f"vibe_{vibe}", scores[vibe])
-        else:
-            vibe_kwargs = {f"vibe_{vibe}": scores[vibe] for vibe in VIBE_NAMES}
-            row = MovieVibe(
-                plex_rating_key=plex_rating_key,
-                tmdb_id=tmdb_id,
-                title=title,
-                year=year,
-                plex_library=plex_library,
-                genres=genres,
-                tmdb_keywords=tmdb_keywords,
-                tmdb_overview=tmdb_overview,
-                poster_path=poster_path,
-                duration_minutes=duration_minutes,
-                computed_at=datetime.utcnow(),
-                score_version=SCORE_VERSION,
-                **vibe_kwargs,
-            )
-            db.add(row)
+    stmt = sqlite_insert(MovieVibe).values(**values)
+    # On conflict with existing plex_rating_key, update all fields
+    update_cols = {k: v for k, v in values.items() if k != "plex_rating_key"}
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["plex_rating_key"],
+        set_=update_cols,
+    )
+
+    with session_scope() as db:
+        db.execute(stmt)
 
 
 DURATION_RANGES = {
