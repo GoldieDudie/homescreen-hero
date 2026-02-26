@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Outlet, NavLink } from "react-router-dom";
-import { Home, Compass, Download, User } from "lucide-react";
+import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Home, Compass, Download, User, ArrowLeft } from "lucide-react";
+import { useAuth } from "../utils/auth";
 
 const NAV_ITEMS = [
     { to: "/user", icon: Home, label: "Home", end: true },
@@ -17,6 +18,9 @@ export interface LayoutContext {
 
 export default function UserLayout() {
     const [hideNav, setHideNav] = useState(false);
+    const { role } = useAuth();
+    const navigate = useNavigate();
+    const isAdmin = role === "admin";
 
     // Set html/body bg to match so iOS overscroll doesn't flash white
     useEffect(() => {
@@ -32,6 +36,20 @@ export default function UserLayout() {
 
     return (
         <div className="min-h-screen bg-user-bg text-white flex flex-col">
+            {/* Admin preview banner */}
+            {isAdmin && (
+                <div className="flex items-center justify-between px-4 py-2 bg-user-accent/10 border-b border-user-accent/20">
+                    <span className="text-xs font-medium text-user-accent">Viewing as User</span>
+                    <button
+                        onClick={() => navigate("/")}
+                        className="flex items-center gap-1.5 text-xs font-medium text-user-accent hover:text-white transition-colors"
+                    >
+                        <ArrowLeft size={14} />
+                        Back to Admin
+                    </button>
+                </div>
+            )}
+
             {/* Main content — scrollable, padded for bottom nav */}
             <main className={`flex-1 overflow-y-auto px-5 pt-6 ${hideNav ? "pb-6" : "pb-20"}`}>
                 <Outlet context={{ setHideNav } satisfies LayoutContext} />

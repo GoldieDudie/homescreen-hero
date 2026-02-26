@@ -1,7 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { User, LogOut, Settings } from "lucide-react";
+import { User, LogOut, Settings, Eye } from "lucide-react";
 import IconButton from "./IconButton";
 import VersionBadge from "./VersionBadge";
+import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
 import { useAuth } from "../utils/auth";
 
 function NavItem({ to, label }: { to: string; label: string }) {
@@ -61,23 +62,50 @@ export default function TopNav() {
                         <Settings size={20} />
                     </IconButton>
 
-                    <div className="text-slate-400" title={username ?? "User"}>
-                        {thumb ? (
-                            <img
-                                src={thumb}
-                                alt={username ?? "User"}
-                                className="h-5 w-5 rounded-full object-cover"
-                            />
-                        ) : (
-                            <User size={20} />
-                        )}
-                    </div>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button
+                                className="text-slate-400 hover:text-white transition-colors rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                                aria-label="User menu"
+                            >
+                                {thumb ? (
+                                    <img
+                                        src={thumb}
+                                        alt={username ?? "User"}
+                                        className="h-6 w-6 rounded-full object-cover"
+                                    />
+                                ) : (
+                                    <User size={20} />
+                                )}
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" sideOffset={8} className="w-48 p-1.5">
+                            {/* Username */}
+                            <div className="px-3 py-2 text-xs font-medium text-slate-400 truncate">
+                                {username ?? "User"}
+                            </div>
 
-                    {authEnabled && (
-                        <IconButton label="Logout" onClick={handleLogout}>
-                            <LogOut size={20} />
-                        </IconButton>
-                    )}
+                            {/* Switch to User View */}
+                            <button
+                                onClick={() => navigate("/user")}
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
+                            >
+                                <Eye size={16} className="text-slate-400" />
+                                User View
+                            </button>
+
+                            {/* Logout */}
+                            {authEnabled && (
+                                <button
+                                    onClick={handleLogout}
+                                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
+                                >
+                                    <LogOut size={16} className="text-slate-400" />
+                                    Sign Out
+                                </button>
+                            )}
+                        </PopoverContent>
+                    </Popover>
                 </div>
             </div>
         </header>
