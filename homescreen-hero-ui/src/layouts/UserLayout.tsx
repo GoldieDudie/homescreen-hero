@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { Outlet, NavLink } from "react-router-dom";
 import { Home, Compass, Download, User } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -16,7 +16,6 @@ export interface LayoutContext {
 }
 
 export default function UserLayout() {
-    const location = useLocation();
     const [hideNav, setHideNav] = useState(false);
 
     // Set html/body bg to match so iOS overscroll doesn't flash white

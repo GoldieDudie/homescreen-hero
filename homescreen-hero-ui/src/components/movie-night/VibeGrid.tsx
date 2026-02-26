@@ -34,7 +34,7 @@ interface VibeGridProps {
 export default function VibeGrid({ selectedVibes, onToggle }: VibeGridProps) {
     return (
         <div className="grid grid-cols-2 gap-3">
-            {VIBES.map(({ key, label, desc, icon: Icon }, index) => {
+            {VIBES.map(({ key, label, desc, icon: Icon }) => {
                 const isSelected = selectedVibes.includes(key);
                 return (
                     <button
