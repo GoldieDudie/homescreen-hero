@@ -71,8 +71,8 @@ export default function SeerrNewRequestModal({
     onRequestCreated,
     seerrBaseUrl,
 }: Props) {
-    const [_mediaDetail, setMediaDetail] = useState<MediaDetail | null>(null);
-    const [_services, setServices] = useState<ServicesResponse | null>(null);
+    const [, setMediaDetail] = useState<MediaDetail | null>(null);
+    const [, setServices] = useState<ServicesResponse | null>(null);
     const [seasons, setSeasons] = useState<SeasonInfo[]>([]);
     const [selectedSeasons, setSelectedSeasons] = useState<number[]>([]);
     const [selectedService, setSelectedService] = useState<ServiceInfo | null>(null);
@@ -105,7 +105,7 @@ export default function SeerrNewRequestModal({
 
         try {
             // Load media details, services, and seasons (for TV) in parallel
-            const promises: Promise<any>[] = [
+            const promises: Promise<unknown>[] = [
                 fetchWithAuth(`/api/admin/seerr/services`).then((r) => r.json()),
             ];
 
@@ -119,7 +119,7 @@ export default function SeerrNewRequestModal({
             }
 
             const results = await Promise.all(promises);
-            const servicesData: ServicesResponse = results[0];
+            const servicesData = results[0] as ServicesResponse;
             setServices(servicesData);
 
             // Set default service and profile
@@ -135,7 +135,7 @@ export default function SeerrNewRequestModal({
 
             // Handle seasons for TV
             if (result.mediaType === "tv" && results[1]) {
-                const seasonsData: SeasonInfo[] = results[1];
+                const seasonsData = results[1] as SeasonInfo[];
                 setSeasons(seasonsData);
                 // Pre-select all seasons
                 setSelectedSeasons(seasonsData.map((s) => s.seasonNumber));

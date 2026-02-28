@@ -44,6 +44,14 @@ import { CSS } from "@dnd-kit/utilities";
 import GroupCoverMosaic from "../components/GroupCoverMosaic";
 import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogCloseButton,
+} from "../components/ui/dialog";
+import {
     Sheet,
     SheetContent,
     SheetHeader,
@@ -53,6 +61,7 @@ import {
     SheetCloseButton,
 } from "../components/ui/sheet";
 import { getGroupStatus } from "../utils/dates";
+import { Sparkles } from "lucide-react";
 
 type DateRange = {
     start: string;
@@ -68,6 +77,8 @@ type CollectionGroup = {
     min_gap_rotations: number;
     display_order: number;
     date_range?: DateRange | null;
+    smart?: boolean;
+    rules?: unknown[];
     collections: string[];
 };
 
@@ -190,6 +201,13 @@ export default function GroupsPage() {
     const [libraries, setLibraries] = useState<PlexLibrary[]>([]);
     const [savingAutoRotate, setSavingAutoRotate] = useState(false);
     const [rotationSettings, setRotationSettings] = useState<RotationSettings | null>(null);
+
+    // Group type picker dialog
+    const [showTypePicker, setShowTypePicker] = useState(false);
+    const [newGroupType, setNewGroupType] = useState<"basic" | "smart" | null>(null);
+    const [newGroupName, setNewGroupName] = useState("");
+    const [creatingGroup, setCreatingGroup] = useState(false);
+    const [createError, setCreateError] = useState<string | null>(null);
 
     // Display settings state
     const [displaySettings, setDisplaySettings] = useState<DisplaySettings>({ group_display_mode: "grouped" });
@@ -453,6 +471,30 @@ export default function GroupsPage() {
             setError(String(e));
         } finally {
             setProcessingIndex(null);
+        }
+    };
+
+    const toggleEnabled = async (index: number) => {
+        const target = groups[index];
+        if (!target) return;
+
+        // Optimistic update — flip locally first to avoid full re-render flash
+        setGroups((prev) => prev.map((g, i) => i === index ? { ...g, enabled: !g.enabled } : g));
+
+        try {
+            const payload = { ...target, enabled: !target.enabled };
+            const r = await fetchWithAuth(`/api/admin/config/groups/${index}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!r.ok) {
+                // Revert on failure
+                setGroups((prev) => prev.map((g, i) => i === index ? { ...g, enabled: target.enabled } : g));
+                throw new Error(await r.text() || "Failed to update group");
+            }
+        } catch (e) {
+            setError(String(e));
         }
     };
 
@@ -765,17 +807,29 @@ export default function GroupsPage() {
                                                     </div>
                                                 ) : (
                                                     <div
-                                                        onClick={() => navigate(`/groups/${originalIndex}`)}
+                                                        onClick={() => navigate(group.smart ? `/groups/smart/${originalIndex}` : `/groups/${originalIndex}`)}
                                                         className="group flex flex-1 items-center gap-4 rounded-xl border border-slate-800/60 bg-slate-900/50 px-4 py-3 hover:border-slate-700 hover:bg-slate-900/80 transition-all duration-200 cursor-pointer"
                                                     >
-                                                        <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusStyles[status]}`}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); toggleEnabled(originalIndex); }}
+                                                            disabled={processingIndex === originalIndex}
+                                                            className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-all duration-200 hover:brightness-125 disabled:opacity-60 ${statusStyles[status]}`}
+                                                        >
                                                             {statusLabels[status]}
-                                                        </span>
+                                                        </button>
+                                                        {group.smart && (
+                                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary border border-primary/30">
+                                                                <Sparkles className="h-3 w-3" />
+                                                            </span>
+                                                        )}
 
                                                         <span className="text-sm font-semibold text-white truncate">
                                                             {group.name || "Untitled group"}
                                                         </span>
-                                                        <span className="text-xs text-slate-500 shrink-0">{group.collections.length} collections</span>
+                                                        <span className="text-xs text-slate-500 shrink-0">
+                                                            {group.smart ? `${group.rules?.length || 0} rules` : `${group.collections.length} collections`}
+                                                        </span>
 
                                                         {(group.date_range?.start || group.date_range?.end) && (
                                                             <span className="hidden sm:inline-flex rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-300 border border-slate-700/50 shrink-0">
@@ -811,7 +865,7 @@ export default function GroupsPage() {
                                     })}
                                     {!searchTerm && (
                                         <div
-                                            onClick={() => navigate('/groups/new')}
+                                            onClick={() => setShowTypePicker(true)}
                                             className="group flex items-center gap-3 rounded-xl border-2 border-dashed border-slate-700/50 hover:border-primary/40 hover:bg-slate-800/30 px-4 py-3 ml-8 transition-all duration-300 cursor-pointer"
                                         >
                                             <Plus className="h-4 w-4 text-slate-500 group-hover:text-primary transition-colors shrink-0" />
@@ -830,29 +884,41 @@ export default function GroupsPage() {
                                         return (
                                             <SortableGroupCard key={group.name} id={group.name} viewMode="cards">
                                                 <div
-                                                    onClick={() => navigate(`/groups/${originalIndex}`)}
+                                                    onClick={() => navigate(group.smart ? `/groups/smart/${originalIndex}` : `/groups/${originalIndex}`)}
                                                     className="group relative overflow-hidden rounded-2xl border border-slate-800/60 bg-slate-900/50 shadow-md hover:shadow-xl hover:border-slate-700 transition-all duration-300 cursor-pointer"
                                                 >
                                                     <div className="relative">
                                                         {renderCover(group, index)}
-                                                        {(() => {
-                                                            const status = getGroupStatus(group);
-                                                            const statusStyles = {
-                                                                active: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/20',
-                                                                scheduled: 'bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-lg shadow-amber-500/20',
-                                                                disabled: 'bg-slate-500/20 text-slate-400 border border-slate-500/30 shadow-lg shadow-slate-500/20',
-                                                            };
-                                                            const statusLabels = {
-                                                                active: 'Active',
-                                                                scheduled: 'Scheduled',
-                                                                disabled: 'Disabled',
-                                                            };
-                                                            return (
-                                                                <div className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-sm transition-all duration-200 ${statusStyles[status]}`}>
-                                                                    {statusLabels[status]}
+                                                        <div className="absolute left-3 top-3 flex items-center gap-1.5">
+                                                            {(() => {
+                                                                const status = getGroupStatus(group);
+                                                                const statusStyles = {
+                                                                    active: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/20',
+                                                                    scheduled: 'bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-lg shadow-amber-500/20',
+                                                                    disabled: 'bg-slate-500/20 text-slate-400 border border-slate-500/30 shadow-lg shadow-slate-500/20',
+                                                                };
+                                                                const statusLabels = {
+                                                                    active: 'Active',
+                                                                    scheduled: 'Scheduled',
+                                                                    disabled: 'Disabled',
+                                                                };
+                                                                return (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => { e.stopPropagation(); toggleEnabled(originalIndex); }}
+                                                                        disabled={processingIndex === originalIndex}
+                                                                        className={`rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:brightness-125 disabled:opacity-60 ${statusStyles[status]}`}
+                                                                    >
+                                                                        {statusLabels[status]}
+                                                                    </button>
+                                                                );
+                                                            })()}
+                                                            {group.smart && (
+                                                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary border border-primary/30 backdrop-blur-sm">
+                                                                    <Sparkles className="h-3 w-3" />
                                                                 </div>
-                                                            );
-                                                        })()}
+                                                            )}
+                                                        </div>
                                                         {(group.date_range?.start || group.date_range?.end) && (
                                                             <div className="absolute right-12 top-3 rounded-full bg-slate-900/80 backdrop-blur-sm px-3 py-1 text-xs font-semibold text-slate-100 border border-slate-700/50">
                                                                 {group.date_range?.start ? new Date(group.date_range.start).toLocaleDateString('en', { month: '2-digit', day: '2-digit' }) : '??/??'}
@@ -915,7 +981,7 @@ export default function GroupsPage() {
                                     })}
                                     {!searchTerm && (
                                         <div
-                                            onClick={() => navigate('/groups/new')}
+                                            onClick={() => setShowTypePicker(true)}
                                             className="group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-700/50 hover:border-primary/40 hover:bg-slate-800/30 transition-all duration-300 cursor-pointer"
                                             style={{ minHeight: '190px' }}
                                         >
@@ -935,7 +1001,7 @@ export default function GroupsPage() {
                 ) : !searchTerm ? (
                     viewMode === "list" ? (
                         <div
-                            onClick={() => navigate('/groups/new')}
+                            onClick={() => setShowTypePicker(true)}
                             className="group flex items-center gap-3 rounded-xl border-2 border-dashed border-slate-700/50 hover:border-primary/40 hover:bg-slate-800/30 px-4 py-3 ml-8 transition-all duration-300 cursor-pointer"
                         >
                             <Plus className="h-4 w-4 text-slate-500 group-hover:text-primary transition-colors shrink-0" />
@@ -947,7 +1013,7 @@ export default function GroupsPage() {
                     ) : (
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                             <div
-                                onClick={() => navigate('/groups/new')}
+                                onClick={() => setShowTypePicker(true)}
                                 className="group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-700/50 hover:border-primary/40 hover:bg-slate-800/30 transition-all duration-300 cursor-pointer"
                                 style={{ minHeight: '190px' }}
                             >
@@ -1232,6 +1298,126 @@ export default function GroupsPage() {
                     setConfirmDelete(null);
                 }}
             />
+
+            {/* Group type picker dialog */}
+            <Dialog open={showTypePicker} onOpenChange={(open) => {
+                setShowTypePicker(open);
+                if (!open) { setNewGroupType(null); setNewGroupName(""); setCreateError(null); }
+            }}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <div>
+                            <DialogTitle>{newGroupType ? "Name Your Group" : "Create New Group"}</DialogTitle>
+                            <DialogDescription>{newGroupType ? "Give your group a name to get started." : "Choose how this group will manage its collections."}</DialogDescription>
+                        </div>
+                        <DialogCloseButton />
+                    </DialogHeader>
+                    {!newGroupType ? (
+                        <div className="p-6 grid grid-cols-2 gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setNewGroupType("basic")}
+                                className="group flex flex-col items-center gap-3 rounded-xl border-2 border-slate-700/50 bg-slate-800/30 p-6 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 cursor-pointer"
+                            >
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 text-slate-400 group-hover:bg-primary/20 group-hover:text-primary transition-all duration-200">
+                                    <Layers className="h-6 w-6" />
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-sm font-semibold text-white">Basic Group</p>
+                                    <p className="text-xs text-slate-400 mt-1">Manually select which collections to include</p>
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setNewGroupType("smart")}
+                                className="group flex flex-col items-center gap-3 rounded-xl border-2 border-slate-700/50 bg-slate-800/30 p-6 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 cursor-pointer"
+                            >
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 text-slate-400 group-hover:bg-primary/20 group-hover:text-primary transition-all duration-200">
+                                    <Sparkles className="h-6 w-6" />
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-sm font-semibold text-white">Smart Group</p>
+                                    <p className="text-xs text-slate-400 mt-1">Automatically include collections matching your rules</p>
+                                </div>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="p-6 space-y-4">
+                            <div className="flex items-center gap-2 text-sm text-slate-400">
+                                {newGroupType === "smart" ? <Sparkles className="h-4 w-4 text-primary" /> : <Layers className="h-4 w-4 text-primary" />}
+                                <span className="capitalize">{newGroupType} Group</span>
+                                <button type="button" onClick={() => { setNewGroupType(null); setNewGroupName(""); setCreateError(null); }} className="ml-auto text-xs text-slate-500 hover:text-slate-300 transition-colors">Change</button>
+                            </div>
+                            <input
+                                autoFocus
+                                type="text"
+                                value={newGroupName}
+                                onChange={(e) => { setNewGroupName(e.target.value); setCreateError(null); }}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && newGroupName.trim() && !creatingGroup) {
+                                        e.preventDefault();
+                                        document.getElementById("create-group-btn")?.click();
+                                    }
+                                }}
+                                placeholder="e.g. Horror Collections, Trakt Lists..."
+                                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/70 text-sm"
+                            />
+                            {createError && (
+                                <p className="text-sm text-red-400">{createError}</p>
+                            )}
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowTypePicker(false); setNewGroupType(null); setNewGroupName(""); setCreateError(null); }}
+                                    className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    id="create-group-btn"
+                                    type="button"
+                                    disabled={!newGroupName.trim() || creatingGroup}
+                                    onClick={async () => {
+                                        try {
+                                            setCreatingGroup(true);
+                                            setCreateError(null);
+                                            const isSmart = newGroupType === "smart";
+                                            const payload = isSmart
+                                                ? { name: newGroupName.trim(), enabled: true, smart: true, rules: [{ field: "library", operator: "is", values: [] }], min_picks: 0, max_picks: 1, weight: 1, min_gap_rotations: 0, display_order: 0, visibility_home: true, visibility_shared: false, visibility_recommended: false, date_range: null, collections: [] }
+                                                : { name: newGroupName.trim(), enabled: true, min_picks: 0, max_picks: 1, weight: 1, min_gap_rotations: 0, display_order: 0, visibility_home: true, visibility_shared: false, visibility_recommended: false, date_range: null, collections: [] };
+                                            const r = await fetchWithAuth("/api/admin/config/groups", {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify(payload),
+                                            });
+                                            if (!r.ok) {
+                                                const text = await r.text();
+                                                throw new Error(text || "Failed to create group");
+                                            }
+                                            const nextGroups = await fetchWithAuth("/api/admin/config/groups").then((res) => res.json());
+                                            const targetIndex = nextGroups.length - 1;
+                                            setShowTypePicker(false);
+                                            setNewGroupType(null);
+                                            setNewGroupName("");
+                                            if (targetIndex >= 0) {
+                                                navigate(isSmart ? `/groups/smart/${targetIndex}` : `/groups/${targetIndex}`);
+                                            }
+                                        } catch (e) {
+                                            setCreateError(String(e));
+                                        } finally {
+                                            setCreatingGroup(false);
+                                        }
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-bold shadow-lg shadow-primary/30 hover:shadow-primary/40 transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {creatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                    Create Group
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
 
             {/* Success toast */}
             {message && (

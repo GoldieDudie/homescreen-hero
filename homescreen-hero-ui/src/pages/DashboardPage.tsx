@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { DndContext, rectIntersection, DragOverlay } from "@dnd-kit/core";
-import type { DragEndEvent, DragStartEvent, DragOverEvent } from "@dnd-kit/core";
+import type { DragStartEvent, DragOverEvent } from "@dnd-kit/core";
 import { Lock, Unlock, ChevronDown, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../utils/auth";
@@ -30,7 +30,7 @@ type RotationHistoryItem = {
     featured_collections: string[];
 };
 
-type HealthComponent = { ok: boolean; error?: string;[k: string]: any };
+type HealthComponent = { ok: boolean; error?: string;[k: string]: unknown };
 
 type RotationExecution = {
     rotation: {
@@ -159,16 +159,17 @@ export default function Dashboard() {
     };
 
     // Handle drag end - just clear the active state
-    const handleDragEnd = (_event: DragEndEvent) => {
+    const handleDragEnd = () => {
         setActiveId(null);
     };
 
     const plex = health.plex;
+    const plexDetails = plex?.details as { server_name?: string; libraries?: unknown[]; enabled_count?: number } | undefined;
 
-    const plexServerName = plex?.details?.server_name ?? plex?.server_name ?? "Plex";
-    const plexLibraries = plex?.details?.libraries;
+    const plexServerName = plexDetails?.server_name ?? "Plex";
+    const plexLibraries = plexDetails?.libraries;
     const plexLibraryInfo = plexLibraries
-        ? `${plex?.details?.enabled_count ?? plexLibraries.length} ${plexLibraries.length === 1 ? 'library' : 'libraries'}`
+        ? `${plexDetails?.enabled_count ?? plexLibraries.length} ${plexLibraries.length === 1 ? 'library' : 'libraries'}`
         : null;
     const plexDetail = [plexServerName, plexLibraryInfo]
         .filter((value): value is string => Boolean(value))
