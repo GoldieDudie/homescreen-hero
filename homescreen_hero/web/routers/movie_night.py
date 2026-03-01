@@ -78,16 +78,27 @@ def _is_home_user(config: Any, username: str) -> bool:
         # Direct admin check — Plex account has both .username and .title
         account = get_plex_account(config)
         lower = username.lower()
-        if lower in (
-            (account.username or "").lower(),
-            (account.title or "").lower(),
-        ):
+        admin_username = (account.username or "").lower()
+        admin_title = (account.title or "").lower()
+
+        if lower in (admin_username, admin_title):
+            logger.debug("User '%s' matched admin account (username='%s', title='%s')", username, account.username, account.title)
             return True
 
         # Check home/managed users
         home_users = get_home_users(config)
-        return any(u["username"].lower() == lower for u in home_users)
-    except Exception:
+        home_names = [u["username"] for u in home_users]
+        is_home = any(name.lower() == lower for name in home_names)
+
+        if not is_home:
+            logger.info(
+                "User '%s' is not a home member. Admin username='%s', title='%s'. Home users: %s",
+                username, account.username, account.title, home_names,
+            )
+
+        return is_home
+    except Exception as e:
+        logger.warning("Plex API error in _is_home_user for '%s': %s", username, e)
         return False
 
 
@@ -103,10 +114,10 @@ def _get_user_watched_keys(username: str) -> Optional[Set[int]]:
 
         # Only home users can be impersonated — bail early for friends
         if not _is_home_user(config, username):
-            logger.info("User '%s' is not a Plex Home member, skipping watch history", username)
             return None
 
         server = get_server_for_user(config, username)
+        logger.debug("Connected to Plex as '%s' for watch history", username)
 
         watched_keys: Set[int] = set()
         for lib_config in config.plex.libraries:
@@ -122,9 +133,10 @@ def _get_user_watched_keys(username: str) -> Optional[Set[int]]:
             except Exception as e:
                 logger.warning("Failed to get watched status for library '%s': %s", lib_config.name, e)
 
+        logger.debug("Found %d watched movies for '%s'", len(watched_keys), username)
         return watched_keys
     except Exception as e:
-        logger.warning("Failed to get watch history from Plex for '%s': %s", username, e)
+        logger.warning("Failed to get watch history from Plex for '%s': %s: %s", username, type(e).__name__, e)
         return None
 
 
