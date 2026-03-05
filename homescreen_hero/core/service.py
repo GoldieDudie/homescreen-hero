@@ -17,7 +17,7 @@ from .integrations import (
 from .integrations.plex_client import get_library_collections
 from .config.loader import load_config
 from .config.schema import AppConfig, RotationExecution, RotationResult
-from .rotation import run_rotation_with_history, run_auto_rotation_with_history, build_collection_visibility_map
+from .rotation import run_rotation_with_history, run_auto_rotation_with_history, build_collection_visibility_map, build_collection_sort_map
 from .smart_groups import build_collection_metadata, resolve_smart_rules
 from .db import (
     init_db,
@@ -115,7 +115,8 @@ def _run_auto_rotation(
     return run_auto_rotation_with_history(
         all_collection_names,
         max_collections=config.rotation.max_collections,
-        strategy=config.rotation.strategy,
+        # Auto-rotate has no groups, so collection selection is always random.
+        collection_selection="random",
         blacklisted_collections=config.rotation.blacklisted_collections,
         allow_repeats=config.rotation.allow_repeats,
         last_rotation_collections=last_rotation_collections,
@@ -341,6 +342,9 @@ def run_rotation_once(
     pinned_visibility = get_pinned_visibility_map()
     collection_visibility.update(pinned_visibility)
 
+    # Build sort map from group settings
+    collection_sort = build_collection_sort_map(config, smart_group_collections)
+
     # Apply the selection (or simulate if dry_run=True)
     applied = apply_home_screen_selection(
         server,
@@ -349,6 +353,7 @@ def run_rotation_once(
         collection_visibility,
         dry_run=dry_run,  # controls whether Plex is actually changed
         smart_group_collections=smart_group_collections,
+        collection_sort=collection_sort,
     )
 
     rotation_id = record_rotation(
