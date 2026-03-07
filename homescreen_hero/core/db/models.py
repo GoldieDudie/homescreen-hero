@@ -113,6 +113,9 @@ class LetterboxdMissingItem(Base):
     slug: Mapped[str] = mapped_column(String, nullable=False)
     letterboxd_url: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # TMDb ID resolved via Seerr search (for auto-request)
+    tmdb_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Tracking
     first_seen: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow
@@ -360,3 +363,29 @@ class CollectionDisplayOrder(Base):
     collection_name = Column(String, nullable=False, unique=True, index=True)
     display_order = Column(Integer, nullable=False, default=0, index=True)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class SeerrAutoRequest(Base):
+    # Tracks items automatically requested via Seerr to avoid duplicates
+    __tablename__ = "seerr_auto_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # What was requested
+    tmdb_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    media_type: Mapped[str] = mapped_column(String, nullable=False)  # "movie" or "tv"
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Which source first triggered this request
+    integration_type: Mapped[str] = mapped_column(String, nullable=False)  # "trakt", "mdblist", etc.
+    source_name: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Result
+    status: Mapped[str] = mapped_column(String, nullable=False)  # "requested", "already_exists", "failed", "downloaded"
+    error_message: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow
+    )
+    downloaded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

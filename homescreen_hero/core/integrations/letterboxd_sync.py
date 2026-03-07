@@ -197,8 +197,36 @@ def sync_single_letterboxd_source(
                 m.get("slug"),
             )
 
-    # Persist missing items in the database
-    record_missing_items_in_db(source, missing_items)
+    # Persist missing items in the database (skip on empty upstream to avoid
+    # wiping previously tracked items on transient API failures)
+    if movies:
+        record_missing_items_in_db(source, missing_items)
+
+    # Auto-request missing items via Seerr if enabled for this source
+    if source.auto_request and missing_items:
+        try:
+            from .seerr_resolve import resolve_letterboxd_tmdb_ids
+            resolve_count = resolve_letterboxd_tmdb_ids(config, source.name)
+            if resolve_count:
+                logger.info("Resolved %d TMDb IDs for '%s' via Seerr search", resolve_count, source.name)
+
+            from .seerr_auto_request import process_auto_requests_for_source
+            ar_result = process_auto_requests_for_source(
+                config=config,
+                integration_type="letterboxd",
+                source_name=source.name,
+                library_type=library.type,
+            )
+            logger.info(
+                "Seerr auto-request for '%s': %d requested, %d skipped, %d already exist, %d failed",
+                source.name,
+                ar_result.requested,
+                ar_result.skipped,
+                ar_result.already_exists,
+                ar_result.failed,
+            )
+        except Exception as e:
+            logger.error("Seerr auto-request failed for '%s': %s", source.name, e)
 
     return total, matched
 
@@ -310,5 +338,12 @@ def record_missing_items_in_db(
                     times_seen=1,
                 )
                 session.add(new_item)
+
+        # Remove items no longer missing (not seen in this sync)
+        session.query(LetterboxdMissingItem).filter(
+            LetterboxdMissingItem.source_name == source.name,
+            LetterboxdMissingItem.source_url == source.url,
+            LetterboxdMissingItem.last_seen < now,
+        ).delete()
 
         session.commit()

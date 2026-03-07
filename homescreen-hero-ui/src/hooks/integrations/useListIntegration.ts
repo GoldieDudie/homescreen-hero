@@ -58,6 +58,7 @@ export interface UseListIntegrationReturn<TSettings, TMissing> {
     newSource: Source;
     setNewSource: React.Dispatch<React.SetStateAction<Source>>;
     addSource: (sourceOverride?: Source) => Promise<boolean>;
+    updateSource: (index: number, source: Source) => Promise<void>;
     removeSource: (index: number) => Promise<void>;
     syncSource: (index: number) => Promise<void>;
     savingSource: boolean;
@@ -283,6 +284,31 @@ export function useListIntegration<TSettings, TMissing extends BaseMissingItem>(
         }
     }, [basePath, newSource]);
 
+    // Update source (e.g., toggle auto_request)
+    const updateSource = useCallback(
+        async (index: number, source: Source) => {
+            try {
+                const r = await fetchWithAuth(`${basePath}/sources/${index}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(source),
+                });
+
+                if (!r.ok) throw new Error(await extractError(r));
+
+                // Reload sources
+                const refreshR = await fetchWithAuth(`${basePath}/sources`);
+                if (refreshR.ok) {
+                    const refreshedSources: Source[] = await refreshR.json();
+                    setSources(refreshedSources || []);
+                }
+            } catch (e) {
+                setToast({ message: String(e), type: "error" });
+            }
+        },
+        [basePath]
+    );
+
     // Remove source
     const removeSource = useCallback(
         async (index: number) => {
@@ -359,24 +385,20 @@ export function useListIntegration<TSettings, TMissing extends BaseMissingItem>(
         [basePath]
     );
 
-    // Toggle missing items (load if needed, then expand/collapse)
+    // Toggle missing items (always re-fetch when expanding to avoid stale data)
     const toggleMissingItems = useCallback(
         async (index: number) => {
-            // If already loaded, just toggle visibility
-            if (missingItems.has(index)) {
+            // If expanded, just collapse
+            if (expandedMissing.has(index)) {
                 setExpandedMissing((prev) => {
                     const newSet = new Set(prev);
-                    if (newSet.has(index)) {
-                        newSet.delete(index);
-                    } else {
-                        newSet.add(index);
-                    }
+                    newSet.delete(index);
                     return newSet;
                 });
                 return;
             }
 
-            // Load missing items
+            // Fetch fresh missing items and expand
             try {
                 setLoadingMissing((prev) => new Set(prev).add(index));
 
@@ -396,7 +418,7 @@ export function useListIntegration<TSettings, TMissing extends BaseMissingItem>(
                 });
             }
         },
-        [basePath, missingItems]
+        [basePath, expandedMissing]
     );
 
     // Set missing items page
@@ -428,6 +450,7 @@ export function useListIntegration<TSettings, TMissing extends BaseMissingItem>(
         newSource,
         setNewSource,
         addSource,
+        updateSource,
         removeSource,
         syncSource,
         savingSource,

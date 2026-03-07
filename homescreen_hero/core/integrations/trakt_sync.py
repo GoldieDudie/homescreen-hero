@@ -80,6 +80,7 @@ def sync_single_trakt_source(
     existing_ids = {item.ratingKey for item in existing_collection_items}
 
     matched_items = []
+    matched_tmdb_ids: set[int] = set()
     missing_items: List[Dict[str, Any]] = []
 
     for item in items:
@@ -102,6 +103,8 @@ def sync_single_trakt_source(
 
         if plex_item is not None:
             matched_items.append(plex_item)
+            if ids.get("tmdb"):
+                matched_tmdb_ids.add(ids["tmdb"])
         else:
             missing_items.append(
                 {
@@ -151,8 +154,6 @@ def sync_single_trakt_source(
         missing,
     )
 
-    # Logs missing item from Trakt Collection
-    # Future plan: automatically send requests to Sonarr/Radarr to add them
     if missing_items:
         for m in missing_items:
             logger.debug(
@@ -162,8 +163,42 @@ def sync_single_trakt_source(
                 m.get("ids"),
             )
 
-    # Also persist them in the database
-    record_missing_items_in_db(source, missing_items)
+    # Persist missing items in the database (skip on empty upstream to avoid
+    # wiping previously tracked items on transient API failures)
+    if items:
+        record_missing_items_in_db(source, missing_items)
+
+    # Auto-request missing items via Seerr if enabled for this source
+    if source.auto_request and missing_items:
+        try:
+            from .seerr_auto_request import process_auto_requests_for_source
+            ar_result = process_auto_requests_for_source(
+                config=config,
+                integration_type="trakt",
+                source_name=source.name,
+                library_type=library.type,
+            )
+            logger.info(
+                "Seerr auto-request for '%s': %d requested, %d skipped, %d already exist, %d failed",
+                source.name,
+                ar_result.requested,
+                ar_result.skipped,
+                ar_result.already_exists,
+                ar_result.failed,
+            )
+        except Exception as e:
+            logger.error("Seerr auto-request failed for '%s': %s", source.name, e)
+
+    # Mark previously-requested items as downloaded if they now exist in Plex
+    if source.auto_request and matched_tmdb_ids:
+        try:
+            from .seerr_auto_request import mark_auto_requests_downloaded
+            media_type = "movie" if library.type == "movie" else "tv"
+            downloaded = mark_auto_requests_downloaded(matched_tmdb_ids, media_type)
+            if downloaded:
+                logger.info("Marked %d auto-requested items as downloaded for '%s'", downloaded, source.name)
+        except Exception as e:
+            logger.error("Failed to mark downloaded items for '%s': %s", source.name, e)
 
     return total, matched
 
@@ -207,13 +242,13 @@ def record_missing_items_in_db(
     source: TraktSource,
     missing_items: list[dict[str, any]],
 ) -> None:
-    # Store/update records for Trakt titles that weren't found in Plex library
-    if not missing_items:
-        return
-
+    # Store/update records for Trakt titles that weren't found in Plex library,
+    # and remove any previously-missing items that are now matched.
     from homescreen_hero.core.db import get_session
 
     with get_session() as session:
+        now = datetime.utcnow()
+
         for m in missing_items:
             ids = m.get("ids") or {}
             trakt_id = ids.get("trakt")
@@ -236,7 +271,7 @@ def record_missing_items_in_db(
             existing = query.first()
 
             if existing:
-                existing.last_seen = datetime.utcnow()
+                existing.last_seen = now
                 existing.times_seen += 1
             else:
                 row = TraktMissingItem(
@@ -250,10 +285,17 @@ def record_missing_items_in_db(
                     slug=slug,
                     imdb_id=imdb_id,
                     tmdb_id=tmdb_id,
-                    first_seen=datetime.utcnow(),
-                    last_seen=datetime.utcnow(),
+                    first_seen=now,
+                    last_seen=now,
                     times_seen=1,
                 )
                 session.add(row)
+
+        # Remove items no longer missing (not seen in this sync)
+        session.query(TraktMissingItem).filter(
+            TraktMissingItem.source_name == source.name,
+            TraktMissingItem.source_url == source.url,
+            TraktMissingItem.last_seen < now,
+        ).delete()
 
         session.commit()
