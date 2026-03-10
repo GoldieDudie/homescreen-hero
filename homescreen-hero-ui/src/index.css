@@ -2,6 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== Accent theme tokens ===== */
+:root {
+    --color-primary: 25 93 230;
+    --color-primary-hover: 37 99 235;
+    --color-bg-dark: 17 22 33;
+    --color-card-dark: 26 31 46;
+    --color-card-hover: 34 40 56;
+    --color-slate-950: 2 6 23;
+    --color-slate-900: 15 23 42;
+    --color-slate-800: 30 41 59;
+}
+
+:root[data-accent="plex-orange"] {
+    --color-primary: 229 160 13;
+    --color-primary-hover: 204 124 25;
+    --color-bg-dark: 22 19 17;
+    --color-card-dark: 22 27 33;
+    --color-card-hover: 28 34 41;
+    --color-slate-950: 10 8 7;
+    --color-slate-900: 30 30 30;
+    --color-slate-800: 50 50 50;
+}
+
+/* ===== Plex Theme: Flat Card Style ===== */
+:root[data-accent="plex-orange"] .bg-gradient-to-br:not(.preserve-gradient) {
+    background-image: none !important;
+    background-color: #161b21 !important;
+}
+
+:root[data-accent="plex-orange"] .hover\:bg-slate-800\/30:hover {
+    background-color: #1e242b !important;
+}
+
+:root[data-accent="plex-orange"] .shadow-lg,
+:root[data-accent="plex-orange"] .shadow-md {
+    box-shadow: none !important;
+}
+
+:root[data-accent="plex-orange"] .bg-gradient-to-br,
+:root[data-accent="plex-orange"] .bg-card-dark {
+    border-color: #252d36 !important;
+}
+
 /* ===== Custom dark scrollbar ===== */
 .scrollbar-thin {
     scrollbar-width: thin;
@@ -50,12 +93,12 @@
     background-color: transparent;
     /* Hidden by default */
     border-radius: 9999px;
-    transition: background-color 0.2s;
 }
 
 .scrollbar-hover-only:hover::-webkit-scrollbar-thumb {
     background-color: rgba(148, 163, 184, .35);
     /* Visible on hover */
+    transition: background-color 0.2s;
 }
 
 .scrollbar-hover-only::-webkit-scrollbar-thumb:hover {
@@ -219,14 +262,14 @@ select option {
 
 .hsh-datepicker .react-datepicker__day--selected,
 .hsh-datepicker .react-datepicker__day--keyboard-selected {
-    background-color: #3b82f6 !important;
+    background-color: rgb(var(--color-primary)) !important;
     color: #ffffff !important;
     font-weight: 500 !important;
 }
 
 .hsh-datepicker .react-datepicker__day--selected:hover,
 .hsh-datepicker .react-datepicker__day--keyboard-selected:hover {
-    background-color: #2563eb !important;
+    background-color: rgb(var(--color-primary-hover)) !important;
 }
 
 .hsh-datepicker .react-datepicker__day--today {

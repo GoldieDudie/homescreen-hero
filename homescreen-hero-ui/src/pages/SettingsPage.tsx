@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchWithAuth } from "../utils/api";
-import { SlidersHorizontal, Check, ChevronDown, FileText, Copy, Download, Pause, Play, RefreshCw, Search, Server, CalendarSync, Ban, Archive, Upload, HardDriveDownload, HardDriveUpload, Undo2, Shield, Users } from "lucide-react";
+import { SlidersHorizontal, Check, ChevronDown, FileText, Copy, Download, Pause, Play, RefreshCw, Search, Server, CalendarSync, Ban, Archive, Upload, HardDriveDownload, HardDriveUpload, Undo2, Shield, Users, Palette, Sun, Moon, Plug } from "lucide-react";
 import { Switch, Listbox } from "@headlessui/react";
 import FieldRow from "../components/FieldRow";
 import CollapsibleFormSection from "../components/CollapsibleFormSection";
@@ -9,9 +9,13 @@ import TestConnectionCta from "../components/TestConnectionCta";
 import Toast from "../components/Toast";
 import UserRow from "../components/UserRow";
 import { useAuth } from "../utils/auth";
+import { useTheme, type ThemeAccent } from "../utils/theme";
+import { TautulliIntegration } from "../components/integrations/TautulliIntegration";
+import { SeerrIntegration } from "../components/integrations/SeerrIntegration";
 
 const tabs = [
     { id: "general", label: "General", icon: SlidersHorizontal },
+    { id: "integrations", label: "Integrations", icon: Plug },
     { id: "logs", label: "Logs", icon: FileText },
     { id: "backup", label: "Backup", icon: Archive },
 ] as const;
@@ -74,6 +78,61 @@ function LevelBadge({ level }: { level: Exclude<LogLevel, "ALL"> | null }) {
         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${cls}`}>
             {level ?? "LOG"}
         </span>
+    );
+}
+
+const ACCENT_OPTIONS: { value: ThemeAccent; label: string; swatch: string }[] = [
+    { value: "default", label: "Default", swatch: "bg-[rgb(25,93,230)]" },
+    { value: "plex-orange", label: "Plex Orange", swatch: "bg-[rgb(229,160,13)]" },
+];
+
+function AppearanceSection() {
+    const { accent, setAccent } = useTheme();
+
+    return (
+        <CollapsibleFormSection
+            title="Appearance"
+            description="Customize how the dashboard looks."
+            icon={Palette}
+        >
+            <FieldRow label="Mode" description="Light mode may come down the road.">
+                <div className="flex gap-2">
+                    <button
+                        className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition opacity-40 cursor-not-allowed bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                        disabled
+                    >
+                        <Sun className="h-4 w-4" />
+                        Light
+                    </button>
+                    <button
+                        className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition bg-primary text-white"
+                        disabled
+                    >
+                        <Moon className="h-4 w-4" />
+                        Dark
+                    </button>
+                </div>
+            </FieldRow>
+
+            <FieldRow label="Accent" description="Choose the primary accent color used throughout the app.">
+                <div className="flex gap-3">
+                    {ACCENT_OPTIONS.map((opt) => (
+                        <button
+                            key={opt.value}
+                            onClick={() => setAccent(opt.value)}
+                            className={`flex items-center gap-2.5 rounded-lg px-4 py-2 text-sm font-medium transition border ${
+                                accent === opt.value
+                                    ? "border-primary bg-primary/10 text-slate-900 dark:text-white"
+                                    : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600"
+                            }`}
+                        >
+                            <span className={`h-4 w-4 rounded-full ${opt.swatch} ring-1 ring-black/10`} />
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+            </FieldRow>
+        </CollapsibleFormSection>
     );
 }
 
@@ -220,6 +279,8 @@ export default function SettingsPage() {
         switch (activeTab) {
             case "general":
                 return "Control the basics without directly editing the YAML config.";
+            case "integrations":
+                return "Configure connections to Plex, Tautulli, and Seerr.";
             case "logs":
                 return "View and search application logs in real-time.";
             case "backup":
@@ -834,147 +895,7 @@ export default function SettingsPage() {
 
             {activeTab === "general" ? (
                 <>
-                    <CollapsibleFormSection
-                        title="Plex"
-                        description="Provide credentials for the media server this dashboard references."
-                        icon={Server}
-                    >
-                        <FieldRow
-                            label="Server URL"
-                            description="Internal address the backend should use to reach Plex."
-                            hint="Example: http://localhost:32400"
-                        >
-                            <input
-                                type="text"
-                                placeholder="http://localhost:32400"
-                                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/70"
-                                value={plexSettings.base_url}
-                                onChange={(e) =>
-                                    setPlexSettings((prev) => ({
-                                        ...prev,
-                                        base_url: e.target.value,
-                                    }))
-                                }
-                                disabled={loadingPlex}
-                            />
-                        </FieldRow>
-
-                        <FieldRow
-                            label="X-Plex-Token"
-                            description="Stored securely and not written to the config until you save."
-                        >
-                            <input
-                                type="password"
-                                placeholder="••••••••"
-                                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/70"
-                                value={plexSettings.token}
-                                onChange={(e) =>
-                                    setPlexSettings((prev) => ({
-                                        ...prev,
-                                        token: e.target.value,
-                                    }))
-                                }
-                                disabled={loadingPlex}
-                            />
-                        </FieldRow>
-
-                        <FieldRow label="Libraries" hint="Select which Plex libraries to use for rotation.">
-                            <div className="space-y-2">
-                                <button
-                                    type="button"
-                                    onClick={fetchAvailableLibraries}
-                                    disabled={loadingPlex || loadingLibraries}
-                                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-slate-800 disabled:opacity-60"
-                                >
-                                    {loadingLibraries ? "Loading..." : "Fetch Available Libraries"}
-                                </button>
-
-                                {availableLibraries.length > 0 && (
-                                    <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-3 space-y-2">
-                                        <div className="text-xs text-slate-400 mb-2">Available Libraries:</div>
-                                        {availableLibraries.map((lib) => {
-                                            const isSelected = plexSettings.libraries.some((l) => l.name === lib.title);
-                                            const isEnabled = plexSettings.libraries.find((l) => l.name === lib.title)?.enabled ?? true;
-                                            return (
-                                                <div key={lib.title} className="flex items-center justify-between gap-2 rounded-md border border-slate-700 bg-slate-950/50 px-3 py-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected && isEnabled}
-                                                            onChange={() => toggleLibrary(lib.title)}
-                                                            className="h-4 w-4 rounded border-slate-600 text-primary focus:ring-2 focus:ring-primary/70"
-                                                            disabled={loadingPlex}
-                                                        />
-                                                        <div>
-                                                            <div className="text-sm text-slate-100">{lib.title}</div>
-                                                            <div className="text-xs text-slate-500">{lib.type}</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-
-                                {plexSettings.libraries.length > 0 && (
-                                    <div className="rounded-lg border border-emerald-700 bg-emerald-900/30 p-3">
-                                        <div className="text-xs text-emerald-300 mb-2">Selected Libraries:</div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {plexSettings.libraries.map((lib) => (
-                                                <div
-                                                    key={lib.name}
-                                                    className={`flex items-center gap-2 rounded-md px-2 py-1 text-xs ${lib.enabled
-                                                            ? "bg-emerald-800/50 text-emerald-100"
-                                                            : "bg-slate-700/50 text-slate-400"
-                                                        }`}
-                                                >
-                                                    <span>{lib.name}</span>
-                                                    {!lib.enabled && <span className="text-xs">(disabled)</span>}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeLibrary(lib.name)}
-                                                        className="text-emerald-200 hover:text-emerald-50"
-                                                        disabled={loadingPlex}
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </FieldRow>
-
-                        {plexMessage ? (
-                            <div className="rounded-lg border border-emerald-700 bg-emerald-900/50 px-3 py-2 text-xs text-emerald-100">
-                                {plexMessage}
-                            </div>
-                        ) : null}
-
-                        {plexError ? (
-                            <div className="rounded-lg border border-rose-700 bg-rose-950/60 px-3 py-2 text-xs text-rose-100">
-                                {plexError}
-                            </div>
-                        ) : null}
-
-                        <TestConnectionCta
-                            service="Plex"
-                            status={plexTestStatus}
-                            onTest={handleTestConnection}
-                            message="Run a dry connection test without restarting the service."
-                            actions={
-                                <button
-                                    type="button"
-                                    onClick={savePlexSettings}
-                                    disabled={savingPlex || loadingPlex}
-                                    className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-800 disabled:opacity-60"
-                                >
-                                    {savingPlex ? "Saving…" : "Save Settings"}
-                                </button>
-                            }
-                        />
-                    </CollapsibleFormSection>
+                    <AppearanceSection />
 
                     <div ref={authSectionRef}>
                     <CollapsibleFormSection
@@ -1069,7 +990,7 @@ export default function SettingsPage() {
                                 type="button"
                                 onClick={saveAuthSettings}
                                 disabled={savingAuth || loadingAuth}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {savingAuth ? (
                                     <>
@@ -1101,7 +1022,7 @@ export default function SettingsPage() {
                                     type="button"
                                     onClick={fetchUsers}
                                     disabled={loadingUsers || authMethod === "password"}
-                                    className="text-xs text-primary hover:text-blue-400 transition disabled:opacity-50"
+                                    className="text-xs text-primary hover:text-primary/80 transition disabled:opacity-50"
                                 >
                                     {loadingUsers ? "Loading..." : "Refresh"}
                                 </button>
@@ -1302,7 +1223,7 @@ export default function SettingsPage() {
                                 type="button"
                                 onClick={saveRotationSettings}
                                 disabled={savingRotation || loadingRotation}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {savingRotation ? (
                                     <>
@@ -1523,6 +1444,155 @@ export default function SettingsPage() {
                 </>
             ) : null}
 
+            {activeTab === "integrations" ? (
+                <div className="space-y-6">
+                    <CollapsibleFormSection
+                        title="Plex"
+                        description="Provide credentials for the media server this dashboard references."
+                        icon={Server}
+                    >
+                        <FieldRow
+                            label="Server URL"
+                            description="Internal address the backend should use to reach Plex."
+                            hint="Example: http://localhost:32400"
+                        >
+                            <input
+                                type="text"
+                                placeholder="http://localhost:32400"
+                                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/70"
+                                value={plexSettings.base_url}
+                                onChange={(e) =>
+                                    setPlexSettings((prev) => ({
+                                        ...prev,
+                                        base_url: e.target.value,
+                                    }))
+                                }
+                                disabled={loadingPlex}
+                            />
+                        </FieldRow>
+
+                        <FieldRow
+                            label="X-Plex-Token"
+                            description="Stored securely and not written to the config until you save."
+                        >
+                            <input
+                                type="password"
+                                placeholder="••••••••"
+                                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/70"
+                                value={plexSettings.token}
+                                onChange={(e) =>
+                                    setPlexSettings((prev) => ({
+                                        ...prev,
+                                        token: e.target.value,
+                                    }))
+                                }
+                                disabled={loadingPlex}
+                            />
+                        </FieldRow>
+
+                        <FieldRow label="Libraries" hint="Select which Plex libraries to use for rotation.">
+                            <div className="space-y-2">
+                                <button
+                                    type="button"
+                                    onClick={fetchAvailableLibraries}
+                                    disabled={loadingPlex || loadingLibraries}
+                                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-slate-800 disabled:opacity-60"
+                                >
+                                    {loadingLibraries ? "Loading..." : "Fetch Available Libraries"}
+                                </button>
+
+                                {availableLibraries.length > 0 && (
+                                    <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-3 space-y-2">
+                                        <div className="text-xs text-slate-400 mb-2">Available Libraries:</div>
+                                        {availableLibraries.map((lib) => {
+                                            const isSelected = plexSettings.libraries.some((l) => l.name === lib.title);
+                                            const isEnabled = plexSettings.libraries.find((l) => l.name === lib.title)?.enabled ?? true;
+                                            return (
+                                                <div key={lib.title} className="flex items-center justify-between gap-2 rounded-md border border-slate-700 bg-slate-950/50 px-3 py-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected && isEnabled}
+                                                            onChange={() => toggleLibrary(lib.title)}
+                                                            className="h-4 w-4 rounded border-slate-600 text-primary focus:ring-2 focus:ring-primary/70"
+                                                            disabled={loadingPlex}
+                                                        />
+                                                        <div>
+                                                            <div className="text-sm text-slate-100">{lib.title}</div>
+                                                            <div className="text-xs text-slate-500">{lib.type}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {plexSettings.libraries.length > 0 && (
+                                    <div className="rounded-lg border border-emerald-700 bg-emerald-900/30 p-3">
+                                        <div className="text-xs text-emerald-300 mb-2">Selected Libraries:</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {plexSettings.libraries.map((lib) => (
+                                                <div
+                                                    key={lib.name}
+                                                    className={`flex items-center gap-2 rounded-md px-2 py-1 text-xs ${lib.enabled
+                                                            ? "bg-emerald-800/50 text-emerald-100"
+                                                            : "bg-slate-700/50 text-slate-400"
+                                                        }`}
+                                                >
+                                                    <span>{lib.name}</span>
+                                                    {!lib.enabled && <span className="text-xs">(disabled)</span>}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeLibrary(lib.name)}
+                                                        className="text-emerald-200 hover:text-emerald-50"
+                                                        disabled={loadingPlex}
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </FieldRow>
+
+                        {plexMessage ? (
+                            <div className="rounded-lg border border-emerald-700 bg-emerald-900/50 px-3 py-2 text-xs text-emerald-100">
+                                {plexMessage}
+                            </div>
+                        ) : null}
+
+                        {plexError ? (
+                            <div className="rounded-lg border border-rose-700 bg-rose-950/60 px-3 py-2 text-xs text-rose-100">
+                                {plexError}
+                            </div>
+                        ) : null}
+
+                        <TestConnectionCta
+                            service="Plex"
+                            status={plexTestStatus}
+                            onTest={handleTestConnection}
+                            message="Run a dry connection test without restarting the service."
+                            actions={
+                                <button
+                                    type="button"
+                                    onClick={savePlexSettings}
+                                    disabled={savingPlex || loadingPlex}
+                                    className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-800 disabled:opacity-60"
+                                >
+                                    {savingPlex ? "Saving…" : "Save Settings"}
+                                </button>
+                            }
+                        />
+                    </CollapsibleFormSection>
+
+                    <TautulliIntegration />
+                    <SeerrIntegration />
+                </div>
+            ) : null}
+
             {activeTab === "logs" ? (
                 <div className="space-y-4">
                     {/* Header */}
@@ -1677,7 +1747,7 @@ export default function SettingsPage() {
                                     type="button"
                                     onClick={handleExport}
                                     disabled={exporting}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {exporting ? (
                                         <>
@@ -1758,7 +1828,7 @@ export default function SettingsPage() {
                                     type="button"
                                     onClick={handleImport}
                                     disabled={!selectedFile || importing || validating || (validationResult !== null && !validationResult.ok)}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {importing ? (
                                         <>

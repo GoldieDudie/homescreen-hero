@@ -20,6 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Pin, Home, Users, Star } from "lucide-react";
 import { fetchWithAuth } from "../utils/api";
 import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
+import { useTheme } from "../utils/theme";
 
 export type ActiveCollection = {
     title: string;
@@ -48,6 +49,7 @@ function SortableCollectionCard({
     onUnpin,
     isPinning,
     animate,
+    cinematic,
 }: {
     collection: ActiveCollection;
     index: number;
@@ -56,6 +58,7 @@ function SortableCollectionCard({
     onUnpin: () => void;
     isPinning: boolean;
     animate: boolean;
+    cinematic?: boolean;
 }) {
     const [popoverOpen, setPopoverOpen] = useState(false);
     const [visibility, setVisibility] = useState<VisibilityOptions>({
@@ -105,9 +108,13 @@ function SortableCollectionCard({
         <div
             ref={setNodeRef}
             style={style}
-            className={`w-28 sm:w-32 shrink-0 text-left transition-opacity duration-200 ${animate ? "animate-fade-in" : ""} ${isDragging ? "opacity-50 z-50" : ""}`}
+            className={`${cinematic ? "w-36 sm:w-44" : "w-28 sm:w-32"} shrink-0 text-left transition-opacity duration-200 ${animate ? "animate-fade-in" : ""} ${isDragging ? "opacity-50 z-50" : ""}`}
         >
-            <div className="group relative aspect-[2/3] rounded-xl overflow-hidden bg-slate-800 shadow-md hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 ring-1 ring-slate-700/50 hover:ring-slate-600">
+            <div className={`group relative aspect-[2/3] rounded-xl overflow-hidden bg-slate-800 shadow-md transition-all duration-300 ${
+                cinematic
+                    ? "hover:shadow-xl hover:shadow-primary/30"
+                    : "hover:shadow-xl hover:shadow-primary/20 ring-1 ring-slate-700/50 hover:ring-slate-600"
+            }`}>
                 {/* Drag handle */}
                 <button
                     {...attributes}
@@ -215,7 +222,7 @@ function SortableCollectionCard({
                     className="absolute inset-0 w-full h-full cursor-pointer disabled:cursor-default"
                 >
                     <div
-                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-out group-hover:scale-110"
+                        className={`absolute inset-0 bg-cover bg-center ${cinematic ? "" : "transition-transform duration-700 ease-out group-hover:scale-110"}`}
                         style={{
                             backgroundImage: collection.poster_url
                                 ? `url('${collection.poster_url}')`
@@ -227,8 +234,29 @@ function SortableCollectionCard({
                             No Poster
                         </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-70 group-hover:opacity-50 transition-opacity duration-300" />
+                    {cinematic ? (
+                        <>
+                            {/* Base gradient always visible for bottom readability */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                            {/* Dark overlay fades in on hover */}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                        </>
+                    ) : (
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-70 group-hover:opacity-50 transition-opacity duration-300" />
+                    )}
                 </button>
+
+                {/* Plex-style orange border overlay on hover */}
+                {cinematic && (
+                    <div className="absolute inset-0 rounded-xl border-[1.5px] border-transparent group-hover:border-primary/90 transition-colors duration-200 pointer-events-none z-30" />
+                )}
+
+                {/* Library pill overlaid on poster (cinematic only) */}
+                {cinematic && collection.library && (
+                    <span className="absolute bottom-2 left-2 z-20 text-[10px] px-2 py-0.5 rounded-full bg-black/60 text-slate-300 font-medium backdrop-blur-sm pointer-events-none">
+                        {collection.library}
+                    </span>
+                )}
             </div>
 
             <div className="mt-2.5">
@@ -241,7 +269,7 @@ function SortableCollectionCard({
                     </div>
                 </div>
 
-                {collection.library && (
+                {!cinematic && collection.library && (
                     <span className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-300 font-medium">
                         {collection.library}
                     </span>
@@ -259,6 +287,8 @@ export default function ActiveCollectionsCard({
     loading?: boolean;
 }) {
     const navigate = useNavigate();
+    const { accent } = useTheme();
+    const cinematic = accent === "plex-orange";
     const [visibilityFilter, setVisibilityFilter] = useState<"all" | "my_home" | "shared" | "recommended">("my_home");
     const [localCollections, setLocalCollections] = useState<ActiveCollection[]>([]);
     const [pinningCollection, setPinningCollection] = useState<string | null>(null);
@@ -423,7 +453,7 @@ export default function ActiveCollectionsCard({
         }
     };
     return (
-        <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 via-slate-900/50 to-slate-900/50 shadow-lg shadow-primary/5 px-5 py-4 transition-all duration-300 hover:bg-slate-800/30">
+        <div className={cinematic ? "py-2" : "rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 via-slate-900/50 to-slate-900/50 shadow-lg shadow-primary/5 px-5 py-4 transition-all duration-300 hover:bg-slate-800/30"}>
             <div className="flex items-center justify-between mb-4">
                 <div>
                     <h3 className="text-lg font-bold text-white tracking-tight">Active Collections</h3>
@@ -439,7 +469,7 @@ export default function ActiveCollectionsCard({
                         onClick={() => setVisibilityFilter("my_home")}
                         className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
                             visibilityFilter === "my_home"
-                                ? "bg-primary/20 text-white shadow-sm"
+                                ? "bg-[#374151] text-white shadow-sm"
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
@@ -450,7 +480,7 @@ export default function ActiveCollectionsCard({
                         onClick={() => setVisibilityFilter("shared")}
                         className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
                             visibilityFilter === "shared"
-                                ? "bg-primary/20 text-white shadow-sm"
+                                ? "bg-[#374151] text-white shadow-sm"
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
@@ -461,7 +491,7 @@ export default function ActiveCollectionsCard({
                         onClick={() => setVisibilityFilter("recommended")}
                         className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
                             visibilityFilter === "recommended"
-                                ? "bg-primary/20 text-white shadow-sm"
+                                ? "bg-[#374151] text-white shadow-sm"
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
@@ -472,7 +502,7 @@ export default function ActiveCollectionsCard({
                         onClick={() => setVisibilityFilter("all")}
                         className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
                             visibilityFilter === "all"
-                                ? "bg-primary/20 text-white shadow-sm"
+                                ? "bg-[#374151] text-white shadow-sm"
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
@@ -482,9 +512,9 @@ export default function ActiveCollectionsCard({
             </div>
 
             {loading ? (
-                <div className="flex gap-4 overflow-x-auto pb-2">
+                <div className={`flex ${cinematic ? "gap-5" : "gap-4"} overflow-x-auto pb-2 scrollbar-hover-only`}>
                     {Array.from({ length: 8 }).map((_, i) => (
-                        <div key={i} className="w-28 sm:w-32 shrink-0">
+                        <div key={i} className={`${cinematic ? "w-36 sm:w-44" : "w-28 sm:w-32"} shrink-0`}>
                             <div className="aspect-[2/3] rounded-xl bg-slate-800/60 animate-pulse" />
                             <div className="h-3 mt-2 rounded bg-slate-800/60 animate-pulse" />
                         </div>
@@ -504,7 +534,7 @@ export default function ActiveCollectionsCard({
                         items={filteredCollections.map(c => c.title)}
                         strategy={horizontalListSortingStrategy}
                     >
-                        <div className="flex gap-4 overflow-x-auto px-2 py-2 -mx-2 -my-2 scrollbar-hover-only">
+                        <div className={`flex ${cinematic ? "gap-5" : "gap-4"} overflow-x-auto px-2 py-2 -mx-2 -my-2 scrollbar-hover-only`}>
                             {filteredCollections.map((c, index) => (
                                 <SortableCollectionCard
                                     key={c.title}
@@ -515,6 +545,7 @@ export default function ActiveCollectionsCard({
                                     onUnpin={() => handleUnpin(c)}
                                     isPinning={pinningCollection === c.title}
                                     animate={!hasAnimated.current}
+                                    cinematic={cinematic}
                                 />
                             ))}
                         </div>
