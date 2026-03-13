@@ -4,6 +4,7 @@ import IconButton from "./IconButton";
 import VersionBadge from "./VersionBadge";
 import { useAuth } from "../utils/auth";
 
+
 function NavItem({ to, label }: { to: string; label: string }) {
     return (
         <NavLink

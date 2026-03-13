@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import VersionBadge from "./VersionBadge";
 import { usePageHeader } from "../utils/pageHeader";
 
+
 const routeTitles: Record<string, string> = {
     "/": "System Overview",
     "/groups": "Groups",
@@ -19,7 +20,6 @@ type TopBarProps = {
 export default function TopBar({ onMenuClick }: TopBarProps) {
     const location = useLocation();
     const { title, actions } = usePageHeader();
-
     const displayTitle = title || routeTitles[location.pathname] || "";
 
     return (
