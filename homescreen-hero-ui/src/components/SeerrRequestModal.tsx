@@ -354,7 +354,7 @@ export default function SeerrRequestModal({
                                 </button>
                             </div>
 
-                            {seerrBaseUrl && detail.media.tmdbId && (
+                            {seerrBaseUrl && detail.media.tmdbId && import.meta.env.VITE_DEMO_MODE !== "true" && (
                                 <a
                                     href={`${seerrBaseUrl}/${detail.media.mediaType}/${detail.media.tmdbId}`}
                                     target="_blank"

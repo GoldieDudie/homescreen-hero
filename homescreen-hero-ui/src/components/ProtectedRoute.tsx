@@ -53,8 +53,9 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
         );
     }
 
-    // If config is not configured, redirect to quick start
-    if (!configStatus.is_configured) {
+    // If config is not configured, redirect to quick start (skip in demo mode)
+    const isDemo = import.meta.env.VITE_DEMO_MODE === "true";
+    if (!configStatus.is_configured && !isDemo) {
         return <Navigate to="/quick-start" replace />;
     }
 

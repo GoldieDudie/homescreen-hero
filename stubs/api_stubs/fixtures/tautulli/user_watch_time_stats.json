@@ -1,0 +1,10 @@
+[
+  {"user_id": 1, "username": "MovieFan2024", "friendly_name": "MovieFan2024", "total_plays": 85, "total_time": 612000},
+  {"user_id": 2, "username": "CinematicVibes", "friendly_name": "CinematicVibes", "total_plays": 62, "total_time": 446400},
+  {"user_id": 3, "username": "AnimeLover", "friendly_name": "AnimeLover", "total_plays": 48, "total_time": 345600},
+  {"user_id": 4, "username": "RetroFan", "friendly_name": "RetroFan", "total_plays": 41, "total_time": 295200},
+  {"user_id": 5, "username": "SciFiLover", "friendly_name": "SciFiLover", "total_plays": 35, "total_time": 252000},
+  {"user_id": 6, "username": "FilmBuff", "friendly_name": "FilmBuff", "total_plays": 28, "total_time": 201600},
+  {"user_id": 7, "username": "NightOwl", "friendly_name": "NightOwl", "total_plays": 22, "total_time": 158400},
+  {"user_id": 8, "username": "WeekendWatcher", "friendly_name": "WeekendWatcher", "total_plays": 15, "total_time": 108000}
+]

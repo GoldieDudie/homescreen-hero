@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../utils/auth";
+import { useTheme, type ThemeAccent } from "../utils/theme";
 import PosterBackground from "../components/PosterBackground";
+
+const isDemo = import.meta.env.VITE_DEMO_MODE === "true";
+
+const DEMO_ACCENTS: { value: ThemeAccent; label: string; swatch: string }[] = [
+    { value: "default", label: "Default", swatch: "bg-[rgb(25,93,230)]" },
+    { value: "plex-orange", label: "Plex Orange", swatch: "bg-[rgb(229,160,13)]" },
+];
 
 export default function LoginPage() {
     const [username, setUsername] = useState("");
@@ -14,6 +22,7 @@ export default function LoginPage() {
     const [pendingApproval, setPendingApproval] = useState(false);
     const navigate = useNavigate();
     const { login, authEnabled, authMethod, loading: authLoading } = useAuth();
+    const { accent, setAccent } = useTheme();
 
     // If auth is disabled, redirect to dashboard
     useEffect(() => {
@@ -141,7 +150,28 @@ export default function LoginPage() {
     return (
         <PosterBackground>
             <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 w-full max-w-md p-8 space-y-6">
+                <div className="w-full max-w-md space-y-4">
+
+                {/* Demo banner */}
+                {isDemo && (
+                    <div className="bg-primary/15 backdrop-blur-md rounded-2xl shadow-lg shadow-primary/25 border border-primary/30 px-5 py-3">
+                        <div className="text-center">
+                            <h2 className="text-lg font-bold text-white">Welcome to the Demo!</h2>
+                            <div className="flex items-center justify-center gap-4 mt-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs uppercase tracking-wider text-slate-400">Username</span>
+                                    <span className="font-mono font-bold text-white bg-white/10 px-3 py-1 rounded-md text-sm">admin</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs uppercase tracking-wider text-slate-400">Password</span>
+                                    <span className="font-mono font-bold text-white bg-white/10 px-3 py-1 rounded-md text-sm">demo</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 w-full p-8 space-y-6">
                     {/* Logo */}
                     <div className="flex flex-col items-center gap-4">
                         <img
@@ -260,6 +290,29 @@ export default function LoginPage() {
                                 />
                             </div>
 
+                            {isDemo && (
+                                <div>
+                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Choose a theme</p>
+                                    <div className="flex gap-3">
+                                        {DEMO_ACCENTS.map((opt) => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setAccent(opt.value)}
+                                                className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition border ${
+                                                    accent === opt.value
+                                                        ? "border-primary bg-primary/10 text-slate-900 dark:text-white"
+                                                        : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600"
+                                                }`}
+                                            >
+                                                <span className={`h-4 w-4 rounded-full ${opt.swatch} ring-1 ring-black/10`} />
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <button
                                 type="submit"
                                 disabled={loading}
@@ -277,6 +330,7 @@ export default function LoginPage() {
                             </button>
                         </form>
                     )}
+                </div>
                 </div>
             </div>
         </PosterBackground>

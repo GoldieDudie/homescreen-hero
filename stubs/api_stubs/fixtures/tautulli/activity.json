@@ -1,0 +1,41 @@
+{
+  "stream_count": "2",
+  "sessions": [
+    {
+      "session_key": "1",
+      "media_type": "movie",
+      "title": "Inception",
+      "full_title": "Inception",
+      "year": "2010",
+      "thumb": "/library/metadata/1030/thumb/1700000000",
+      "user": "MovieFan2024",
+      "player": "Plex Web",
+      "state": "playing",
+      "progress_percent": "47",
+      "view_offset": "4200000",
+      "duration": "8880000",
+      "transcode_decision": "direct play"
+    },
+    {
+      "session_key": "2",
+      "media_type": "movie",
+      "title": "Spirited Away",
+      "full_title": "Spirited Away",
+      "year": "2001",
+      "thumb": "/library/metadata/1020/thumb/1700000000",
+      "user": "AnimeLover",
+      "player": "Plex for Apple TV",
+      "state": "paused",
+      "progress_percent": "72",
+      "view_offset": "5400000",
+      "duration": "7500000",
+      "transcode_decision": "transcode"
+    }
+  ],
+  "stream_count_direct_play": 1,
+  "stream_count_direct_stream": 0,
+  "stream_count_transcode": 1,
+  "total_bandwidth": 25000,
+  "lan_bandwidth": 20000,
+  "wan_bandwidth": 5000
+}

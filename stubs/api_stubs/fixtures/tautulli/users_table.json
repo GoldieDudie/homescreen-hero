@@ -1,0 +1,15 @@
+{
+  "recordsFiltered": 8,
+  "recordsTotal": 8,
+  "data": [
+    {"user_id": 1, "username": "MovieFan2024", "friendly_name": "MovieFan2024", "total_plays": 85, "total_duration": 612000, "last_played": "Oppenheimer", "last_seen": 1710000000, "thumb": "", "is_active": 1},
+    {"user_id": 2, "username": "CinematicVibes", "friendly_name": "CinematicVibes", "total_plays": 62, "total_duration": 446400, "last_played": "Poor Things", "last_seen": 1709900000, "thumb": "", "is_active": 1},
+    {"user_id": 3, "username": "AnimeLover", "friendly_name": "AnimeLover", "total_plays": 48, "total_duration": 345600, "last_played": "Spirited Away", "last_seen": 1709800000, "thumb": "", "is_active": 1},
+    {"user_id": 4, "username": "RetroFan", "friendly_name": "RetroFan", "total_plays": 41, "total_duration": 295200, "last_played": "Die Hard", "last_seen": 1709700000, "thumb": "", "is_active": 1},
+    {"user_id": 5, "username": "SciFiLover", "friendly_name": "SciFiLover", "total_plays": 35, "total_duration": 252000, "last_played": "Blade Runner 2049", "last_seen": 1709600000, "thumb": "", "is_active": 1},
+    {"user_id": 6, "username": "FilmBuff", "friendly_name": "FilmBuff", "total_plays": 28, "total_duration": 201600, "last_played": "Pulp Fiction", "last_seen": 1709500000, "thumb": "", "is_active": 1},
+    {"user_id": 7, "username": "NightOwl", "friendly_name": "NightOwl", "total_plays": 22, "total_duration": 158400, "last_played": "The Matrix", "last_seen": 1709400000, "thumb": "", "is_active": 0},
+    {"user_id": 8, "username": "WeekendWatcher", "friendly_name": "WeekendWatcher", "total_plays": 15, "total_duration": 108000, "last_played": "Elf", "last_seen": 1709300000, "thumb": "", "is_active": 0}
+  ],
+  "draw": 1
+}

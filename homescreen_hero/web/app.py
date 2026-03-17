@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import FileResponse, Response
+from starlette.responses import FileResponse, JSONResponse, Response
 
 from homescreen_hero.core.config.loader import load_config
 from homescreen_hero.core.db.history import init_db
@@ -70,6 +71,40 @@ def create_app() -> FastAPI:
     app.include_router(version_router, prefix="/api")
     app.include_router(library_stats_router, prefix="/api")
     app.include_router(user_targeting_router, prefix="/api")
+
+    # Demo mode: block config/settings mutations so visitors can't break the demo
+    if os.getenv("DEMO_MODE", "").lower() in ("true", "1"):
+        # Paths that are allowed even in demo mode (read-only or safe actions)
+        DEMO_ALLOWED_PATHS = {
+            "/api/auth/login",
+            "/api/auth/logout",
+            "/api/admin/config/quick-start",
+            "/api/rotate/run",
+            "/api/rotate/simulate",
+            "/api/rotate/dry-run",
+        }
+
+        @app.middleware("http")
+        async def demo_guard(request: Request, call_next):
+            if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+                path = request.url.path
+                if path.startswith("/api/") and path not in DEMO_ALLOWED_PATHS:
+                    # Allow rotation and read-like POST endpoints
+                    if not any(
+                        path.startswith(p)
+                        for p in (
+                            "/api/rotate/",
+                            "/api/health/",
+                            "/api/admin/analytics/",
+                            "/api/admin/config/test-",
+                        )
+                    ):
+                        return JSONResponse(
+                            status_code=403,
+                            content={"detail": "This action is disabled in demo mode."},
+                            headers={"X-Demo-Blocked": "true"},
+                        )
+            return await call_next(request)
 
     # Frontend (serve only if build exists)
     logger.info(

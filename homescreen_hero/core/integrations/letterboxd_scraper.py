@@ -168,5 +168,8 @@ class LetterboxdScraper:
         return text.strip(), None
 
 # Factory function to create a LetterboxdScraper instance
-def get_letterboxd_scraper() -> LetterboxdScraper:
-    return LetterboxdScraper()
+def get_letterboxd_scraper(config=None) -> LetterboxdScraper:
+    base_url = "https://letterboxd.com"
+    if config and config.letterboxd:
+        base_url = getattr(config.letterboxd, "base_url", base_url)
+    return LetterboxdScraper(base_url=base_url)

@@ -491,7 +491,7 @@ export default function SeerrNewRequestModal({
                                 )}
                             </div>
 
-                            {seerrBaseUrl && (
+                            {seerrBaseUrl && import.meta.env.VITE_DEMO_MODE !== "true" && (
                                 <a
                                     href={`${seerrBaseUrl}/${result.mediaType}/${result.tmdbId}`}
                                     target="_blank"

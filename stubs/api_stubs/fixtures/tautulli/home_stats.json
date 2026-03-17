@@ -1,0 +1,24 @@
+[
+  {
+    "stat_id": "top_movies",
+    "stat_title": "Most Watched Movies",
+    "rows": [
+      {"title": "Inception", "total_plays": 12, "total_duration": 106560, "rating_key": 1030, "thumb": "/library/metadata/1030/thumb"},
+      {"title": "The Dark Knight", "total_plays": 10, "total_duration": 91200, "rating_key": 1031, "thumb": "/library/metadata/1031/thumb"},
+      {"title": "Spirited Away", "total_plays": 8, "total_duration": 60000, "rating_key": 1020, "thumb": "/library/metadata/1020/thumb"},
+      {"title": "Pulp Fiction", "total_plays": 7, "total_duration": 64680, "rating_key": 1040, "thumb": "/library/metadata/1040/thumb"},
+      {"title": "Die Hard", "total_plays": 6, "total_duration": 47520, "rating_key": 1010, "thumb": "/library/metadata/1010/thumb"}
+    ]
+  },
+  {
+    "stat_id": "top_users",
+    "stat_title": "Most Active Users",
+    "rows": [
+      {"user": "MovieFan2024", "total_plays": 85, "total_duration": 612000, "user_id": 1},
+      {"user": "CinematicVibes", "total_plays": 62, "total_duration": 446400, "user_id": 2},
+      {"user": "AnimeLover", "total_plays": 48, "total_duration": 345600, "user_id": 3},
+      {"user": "BingeWatcher", "total_plays": 35, "total_duration": 252000, "user_id": 4},
+      {"user": "NightOwlTV", "total_plays": 21, "total_duration": 151200, "user_id": 5}
+    ]
+  }
+]

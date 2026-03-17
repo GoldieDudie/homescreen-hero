@@ -112,7 +112,8 @@ def sync_single_mal_source(
         logger.warning("MAL is not configured; skipping sync for '%s'", source.name)
         return 0, 0
 
-    client = MALClient(MALConfig(client_id=config.mal.client_id))
+    base_url = getattr(config.mal, "base_url", "https://api.myanimelist.net/v2")
+    client = MALClient(MALConfig(client_id=config.mal.client_id, base_url=base_url))
 
     logger.info("Syncing MAL source '%s' from %s", source.name, source.url)
 

@@ -647,7 +647,7 @@ export default function CollectionsPage() {
             }
 
             // Add the first movie to create the collection
-            await fetchWithAuth(
+            const createRes = await fetchWithAuth(
                 `/api/collections/${encodeURIComponent(newCollectionLibrary)}/${encodeURIComponent(newCollectionTitle)}/add-item`,
                 {
                     method: "POST",
@@ -655,6 +655,7 @@ export default function CollectionsPage() {
                     body: JSON.stringify({ rating_key: firstMovieKey }),
                 }
             );
+            if (!createRes.ok) throw new Error("Failed to create collection");
 
             // Add remaining movies if any
             const remainingMovies = Array.from(selectedMovies).slice(1);

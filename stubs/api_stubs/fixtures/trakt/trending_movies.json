@@ -1,0 +1,5 @@
+[
+  {"watchers": 150, "movie": {"title": "Inception", "year": 2010, "ids": {"trakt": 10, "slug": "inception-2010", "imdb": "tt1375666", "tmdb": 27205}}},
+  {"watchers": 120, "movie": {"title": "The Dark Knight", "year": 2008, "ids": {"trakt": 11, "slug": "the-dark-knight-2008", "imdb": "tt0468569", "tmdb": 155}}},
+  {"watchers": 95, "movie": {"title": "Interstellar", "year": 2014, "ids": {"trakt": 12, "slug": "interstellar-2014", "imdb": "tt0816692", "tmdb": 157336}}}
+]

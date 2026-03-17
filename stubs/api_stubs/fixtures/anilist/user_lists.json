@@ -1,0 +1,12 @@
+{
+  "data": {
+    "MediaListCollection": {
+      "lists": [
+        {"name": "Watching", "isCustomList": false},
+        {"name": "Completed", "isCustomList": false},
+        {"name": "Plan to Watch", "isCustomList": false},
+        {"name": "Favorites", "isCustomList": true}
+      ]
+    }
+  }
+}

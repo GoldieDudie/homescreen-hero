@@ -405,4 +405,5 @@ def get_anilist_client(config) -> Optional[AniListClient]:
     # Factory function: returns None if AniList is not configured
     if not config.anilist:
         return None
-    return AniListClient(AniListConfig())
+    base_url = getattr(config.anilist, "base_url", ANILIST_GRAPHQL_URL)
+    return AniListClient(AniListConfig(base_url=base_url))

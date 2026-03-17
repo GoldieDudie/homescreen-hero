@@ -19,6 +19,14 @@ export default function VersionBadge() {
             });
     }, []);
 
+    if (import.meta.env.VITE_DEMO_MODE === "true") {
+        return (
+            <span className="text-xs font-medium px-2 py-1 rounded-md bg-primary/10 text-primary">
+                v0.6.0
+            </span>
+        );
+    }
+
     if (!version) {
         return null;
     }

@@ -1,0 +1,54 @@
+# HomeScreen Hero - Demo Dockerfile
+# Bundles stub servers + main app in a single container for Render deployment
+
+# Stage 1: Build frontend
+FROM node:20-slim AS frontend
+WORKDIR /ui
+COPY homescreen-hero-ui/package*.json ./
+RUN npm ci
+COPY homescreen-hero-ui/ .
+ENV VITE_DEMO_MODE=true
+RUN npm run build
+
+# Stage 2: Runtime
+FROM python:3.12-slim
+WORKDIR /app
+
+# Install dependencies
+COPY homescreen_hero/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY homescreen_hero/ /app/homescreen_hero/
+COPY stubs/ /app/stubs/
+
+# Copy built frontend
+COPY --from=frontend /ui/dist /app/homescreen_hero/web/frontend/
+
+# Setup startup script
+COPY stubs/start_demo.sh /app/start_demo.sh
+RUN chmod +x /app/start_demo.sh
+
+# Create data directory
+RUN mkdir -p /data/logs
+
+EXPOSE 8000
+
+ENV HOMESCREEN_HERO_CONFIG=/data/config.yaml
+ENV HOMESCREEN_HERO_DB=sqlite:////data/homescreen_hero.sqlite
+ENV HOMESCREEN_HERO_LOG_DIR=/data/logs
+ENV HSH_PLEX_URL=http://localhost:32400
+ENV HSH_PLEX_TOKEN=demo-token
+ENV HSH_AUTH_PASSWORD=demo
+ENV HSH_AUTH_SECRET_KEY=demo-secret-key-not-for-production
+ENV HSH_TRAKT_CLIENT_ID=demo-trakt-id
+ENV HSH_MDBLIST_API_KEY=demo-mdblist-key
+ENV HSH_TMDB_API_KEY=demo-tmdb-key
+ENV HSH_TAUTULLI_API_KEY=demo-tautulli-key
+ENV HSH_TAUTULLI_BASE_URL=http://localhost:9000/tautulli
+ENV HSH_SEERR_API_KEY=demo-seerr-key
+ENV HSH_SEERR_BASE_URL=http://localhost:9000/seerr
+ENV HSH_MAL_CLIENT_ID=demo-mal-id
+ENV DEMO_MODE=true
+
+CMD ["/app/start_demo.sh"]

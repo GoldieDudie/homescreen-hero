@@ -1,0 +1,176 @@
+plex:
+  base_url: http://localhost:32400
+  libraries:
+  - name: Movies
+    enabled: true
+  - name: TV Shows
+    enabled: true
+rotation:
+  enabled: true
+  interval_hours: 8
+  max_collections: 5
+  group_order: random
+  allow_repeats: false
+  sync_all_on_rotation: false
+  blacklisted_collections: []
+  auto_rotate:
+    enabled: false
+    libraries: []
+    visibility_home: true
+    visibility_shared: false
+    visibility_recommended: false
+  per_library_limits: {}
+auth:
+  enabled: true
+  method: password
+  username: admin
+  token_expire_days: 30
+  auto_approve_users: true
+groups:
+- name: Featured Films
+  enabled: true
+  min_picks: 1
+  max_picks: 3
+  display_order: 0
+  visibility_home: true
+  visibility_shared: true
+  collections:
+  - Oscar Winners 2024
+  - Christopher Nolan Collection
+  - A24 Films
+  - MCU Infinity Saga
+- name: Genre Picks
+  enabled: true
+  min_picks: 1
+  max_picks: 2
+  display_order: 1
+  visibility_home: true
+  visibility_shared: true
+  collections:
+  - 80s Action Classics
+  - 90s Crime Dramas
+  - Sci-Fi Essentials
+  - Heist Movies
+- name: Animation
+  enabled: false
+  min_picks: 0
+  max_picks: 1
+  display_order: 2
+  visibility_home: true
+  collections:
+  - Studio Ghibli Films
+- name: Holiday
+  enabled: true
+  min_picks: 0
+  max_picks: 1
+  display_order: 3
+  visibility_home: true
+  date_range:
+    start: 11-20
+    end: 12-31
+  collections:
+  - Holiday Classics
+- name: Director Spotlight
+  enabled: true
+  min_picks: 0
+  max_picks: 1
+  display_order: 4
+  visibility_home: true
+  visibility_shared: true
+  collection_selection: random
+  collections:
+  - Christopher Nolan Collection
+  - Spielberg Collection
+  - Tarantino Collection
+  - Denis Villeneuve Collection
+- name: Spooky Season
+  enabled: true
+  min_picks: 0
+  max_picks: 1
+  display_order: 5
+  visibility_home: true
+  visibility_shared: true
+  date_range:
+    start: 10-01
+    end: 11-01
+  collections:
+  - Classic Horror
+  - Halloween Favorites
+  - Modern Horror
+- name: Trending
+  enabled: true
+  min_picks: 0
+  max_picks: 1
+  display_order: 6
+  visibility_home: true
+  visibility_shared: true
+  collections:
+  - Trakt Popular
+  - Letterboxd Favorites
+- name: TV Highlights
+  enabled: true
+  min_picks: 1
+  max_picks: 2
+  display_order: 7
+  visibility_home: true
+  visibility_shared: true
+  collections:
+  - HBO Prestige Dramas
+  - Anime Essentials
+  - Critically Acclaimed TV
+  - Binge-Worthy Miniseries
+trakt:
+  enabled: true
+  base_url: http://localhost:9000/trakt
+  sources:
+  - name: Trakt Popular
+    url: https://trakt.tv/users/demo/lists/popular
+    plex_library: Movies
+    auto_request: true
+  - name: MCU Infinity Saga
+    url: https://trakt.tv/users/demo/lists/mcu-infinity-saga
+    plex_library: Movies
+    auto_request: true
+  - name: Heist Movies
+    url: https://trakt.tv/users/demo/lists/heist-movies
+    plex_library: Movies
+mdblist:
+  enabled: true
+  base_url: http://localhost:9000/mdblist
+  sources:
+  - name: Sci-Fi Essentials
+    url: https://mdblist.com/lists/demo/sci-fi
+    plex_library: Movies
+tmdb:
+  enabled: true
+  base_url: http://localhost:9000/tmdb
+tautulli:
+  enabled: true
+  base_url: http://localhost:9000/tautulli
+  collect_on_rotation: true
+  collect_interval_hours: 24
+seerr:
+  enabled: true
+  base_url: http://localhost:9000/seerr
+anilist:
+  base_url: http://localhost:9000/anilist
+  sources:
+  - name: Top Anime
+    url: https://anilist.co/user/demo/animelist
+    plex_library: TV Shows
+mal:
+  enabled: true
+  base_url: http://localhost:9000/mal
+  sources:
+  - name: MAL Spring Season
+    url: mal://season/2026/spring
+    plex_library: TV Shows
+letterboxd:
+  base_url: http://localhost:9000/letterboxd
+  sources:
+  - name: Letterboxd Favorites
+    url: https://letterboxd.com/demo/list/favorites/
+    plex_library: Movies
+    auto_request: true
+logging:
+  level: INFO

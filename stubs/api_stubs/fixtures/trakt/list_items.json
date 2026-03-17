@@ -1,0 +1,5 @@
+[
+  {"rank": 1, "type": "movie", "movie": {"title": "Pulp Fiction", "year": 1994, "ids": {"trakt": 200, "slug": "pulp-fiction-1994", "imdb": "tt0110912", "tmdb": 680}}},
+  {"rank": 2, "type": "movie", "movie": {"title": "The Shawshank Redemption", "year": 1994, "ids": {"trakt": 201, "slug": "the-shawshank-redemption-1994", "imdb": "tt0111161", "tmdb": 278}}},
+  {"rank": 3, "type": "movie", "movie": {"title": "Goodfellas", "year": 1990, "ids": {"trakt": 202, "slug": "goodfellas-1990", "imdb": "tt0099685", "tmdb": 769}}}
+]

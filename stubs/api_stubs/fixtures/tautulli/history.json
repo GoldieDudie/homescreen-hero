@@ -1,0 +1,987 @@
+{
+  "recordsFiltered": 98,
+  "recordsTotal": 98,
+  "data": [
+    {
+      "date": 1773699964,
+      "user": "NightOwl",
+      "full_title": "Predator",
+      "media_type": "movie",
+      "duration": 6420,
+      "play_duration": 6420,
+      "started": 1773699964,
+      "stopped": 1773706384
+    },
+    {
+      "date": 1773691769,
+      "user": "SciFiLover",
+      "full_title": "Predator",
+      "media_type": "movie",
+      "duration": 6420,
+      "play_duration": 6420,
+      "started": 1773691769,
+      "stopped": 1773698189
+    },
+    {
+      "date": 1773691585,
+      "user": "RetroFan",
+      "full_title": "Princess Mononoke",
+      "media_type": "movie",
+      "duration": 8040,
+      "play_duration": 8040,
+      "started": 1773691585,
+      "stopped": 1773699625
+    },
+    {
+      "date": 1773691542,
+      "user": "MovieFan2024",
+      "full_title": "Inception",
+      "media_type": "movie",
+      "duration": 8880,
+      "play_duration": 8880,
+      "started": 1773691542,
+      "stopped": 1773700422
+    },
+    {
+      "date": 1773691367,
+      "user": "FilmBuff",
+      "full_title": "Hereditary",
+      "media_type": "movie",
+      "duration": 7620,
+      "play_duration": 7620,
+      "started": 1773691367,
+      "stopped": 1773698987
+    },
+    {
+      "date": 1773691335,
+      "user": "SciFiLover",
+      "full_title": "Oppenheimer",
+      "media_type": "movie",
+      "duration": 10800,
+      "play_duration": 10800,
+      "started": 1773691335,
+      "stopped": 1773702135
+    },
+    {
+      "date": 1773691326,
+      "user": "NightOwl",
+      "full_title": "Home Alone",
+      "media_type": "movie",
+      "duration": 6180,
+      "play_duration": 6180,
+      "started": 1773691326,
+      "stopped": 1773697506
+    },
+    {
+      "date": 1773691274,
+      "user": "FilmBuff",
+      "full_title": "Poor Things",
+      "media_type": "movie",
+      "duration": 8520,
+      "play_duration": 8520,
+      "started": 1773691274,
+      "stopped": 1773699794
+    },
+    {
+      "date": 1773691246,
+      "user": "NightOwl",
+      "full_title": "Lady Bird",
+      "media_type": "movie",
+      "duration": 5580,
+      "play_duration": 5580,
+      "started": 1773691246,
+      "stopped": 1773696826
+    },
+    {
+      "date": 1773691220,
+      "user": "AnimeLover",
+      "full_title": "Predator",
+      "media_type": "movie",
+      "duration": 6420,
+      "play_duration": 6420,
+      "started": 1773691220,
+      "stopped": 1773697640
+    },
+    {
+      "date": 1773673780,
+      "user": "CinematicVibes",
+      "full_title": "The Shawshank Redemption",
+      "media_type": "movie",
+      "duration": 8520,
+      "play_duration": 8520,
+      "started": 1773673780,
+      "stopped": 1773682300
+    },
+    {
+      "date": 1773673733,
+      "user": "RetroFan",
+      "full_title": "Oppenheimer",
+      "media_type": "movie",
+      "duration": 10800,
+      "play_duration": 10800,
+      "started": 1773673733,
+      "stopped": 1773684533
+    },
+    {
+      "date": 1773673585,
+      "user": "RetroFan",
+      "full_title": "Die Hard",
+      "media_type": "movie",
+      "duration": 7920,
+      "play_duration": 7920,
+      "started": 1773673585,
+      "stopped": 1773681505
+    },
+    {
+      "date": 1773673582,
+      "user": "FilmBuff",
+      "full_title": "Princess Mononoke",
+      "media_type": "movie",
+      "duration": 8040,
+      "play_duration": 8040,
+      "started": 1773673582,
+      "stopped": 1773681622
+    },
+    {
+      "date": 1773673365,
+      "user": "WeekendWatcher",
+      "full_title": "The Dark Knight",
+      "media_type": "movie",
+      "duration": 9120,
+      "play_duration": 9120,
+      "started": 1773673365,
+      "stopped": 1773682485
+    },
+    {
+      "date": 1773655567,
+      "user": "AnimeLover",
+      "full_title": "Die Hard",
+      "media_type": "movie",
+      "duration": 7920,
+      "play_duration": 7920,
+      "started": 1773655567,
+      "stopped": 1773663487
+    },
+    {
+      "date": 1773648701,
+      "user": "RetroFan",
+      "full_title": "Goodfellas",
+      "media_type": "movie",
+      "duration": 8760,
+      "play_duration": 8760,
+      "started": 1773648701,
+      "stopped": 1773657461
+    },
+    {
+      "date": 1773617383,
+      "user": "AnimeLover",
+      "full_title": "Everything Everywhere All at Once",
+      "media_type": "movie",
+      "duration": 8400,
+      "play_duration": 8400,
+      "started": 1773617383,
+      "stopped": 1773625783
+    },
+    {
+      "date": 1773605373,
+      "user": "AnimeLover",
+      "full_title": "Pulp Fiction",
+      "media_type": "movie",
+      "duration": 9240,
+      "play_duration": 9240,
+      "started": 1773605373,
+      "stopped": 1773614613
+    },
+    {
+      "date": 1773605162,
+      "user": "CinematicVibes",
+      "full_title": "Moonlight",
+      "media_type": "movie",
+      "duration": 6660,
+      "play_duration": 6660,
+      "started": 1773605162,
+      "stopped": 1773611822
+    },
+    {
+      "date": 1773604953,
+      "user": "CinematicVibes",
+      "full_title": "Moonlight",
+      "media_type": "movie",
+      "duration": 6660,
+      "play_duration": 6660,
+      "started": 1773604953,
+      "stopped": 1773611613
+    },
+    {
+      "date": 1773604916,
+      "user": "AnimeLover",
+      "full_title": "Blade Runner 2049",
+      "media_type": "movie",
+      "duration": 9840,
+      "play_duration": 9840,
+      "started": 1773604916,
+      "stopped": 1773614756
+    },
+    {
+      "date": 1773604833,
+      "user": "NightOwl",
+      "full_title": "Elf",
+      "media_type": "movie",
+      "duration": 5700,
+      "play_duration": 5700,
+      "started": 1773604833,
+      "stopped": 1773610533
+    },
+    {
+      "date": 1773587227,
+      "user": "RetroFan",
+      "full_title": "Everything Everywhere All at Once",
+      "media_type": "movie",
+      "duration": 8400,
+      "play_duration": 8400,
+      "started": 1773587227,
+      "stopped": 1773595627
+    },
+    {
+      "date": 1773587079,
+      "user": "FilmBuff",
+      "full_title": "Princess Mononoke",
+      "media_type": "movie",
+      "duration": 8040,
+      "play_duration": 8040,
+      "started": 1773587079,
+      "stopped": 1773595119
+    },
+    {
+      "date": 1773587035,
+      "user": "SciFiLover",
+      "full_title": "Moonlight",
+      "media_type": "movie",
+      "duration": 6660,
+      "play_duration": 6660,
+      "started": 1773587035,
+      "stopped": 1773593695
+    },
+    {
+      "date": 1773586962,
+      "user": "MovieFan2024",
+      "full_title": "The Shawshank Redemption",
+      "media_type": "movie",
+      "duration": 8520,
+      "play_duration": 8520,
+      "started": 1773586962,
+      "stopped": 1773595482
+    },
+    {
+      "date": 1773586919,
+      "user": "AnimeLover",
+      "full_title": "Home Alone",
+      "media_type": "movie",
+      "duration": 6180,
+      "play_duration": 6180,
+      "started": 1773586919,
+      "stopped": 1773593099
+    },
+    {
+      "date": 1773562413,
+      "user": "MovieFan2024",
+      "full_title": "Poor Things",
+      "media_type": "movie",
+      "duration": 8520,
+      "play_duration": 8520,
+      "started": 1773562413,
+      "stopped": 1773570933
+    },
+    {
+      "date": 1773530047,
+      "user": "AnimeLover",
+      "full_title": "Princess Mononoke",
+      "media_type": "movie",
+      "duration": 8040,
+      "play_duration": 8040,
+      "started": 1773530047,
+      "stopped": 1773538087
+    },
+    {
+      "date": 1773518983,
+      "user": "SciFiLover",
+      "full_title": "Moonlight",
+      "media_type": "movie",
+      "duration": 6660,
+      "play_duration": 6660,
+      "started": 1773518983,
+      "stopped": 1773525643
+    },
+    {
+      "date": 1773518874,
+      "user": "NightOwl",
+      "full_title": "Lady Bird",
+      "media_type": "movie",
+      "duration": 5580,
+      "play_duration": 5580,
+      "started": 1773518874,
+      "stopped": 1773524454
+    },
+    {
+      "date": 1773518870,
+      "user": "MovieFan2024",
+      "full_title": "Elf",
+      "media_type": "movie",
+      "duration": 5700,
+      "play_duration": 5700,
+      "started": 1773518870,
+      "stopped": 1773524570
+    },
+    {
+      "date": 1773518588,
+      "user": "WeekendWatcher",
+      "full_title": "Home Alone",
+      "media_type": "movie",
+      "duration": 6180,
+      "play_duration": 6180,
+      "started": 1773518588,
+      "stopped": 1773524768
+    },
+    {
+      "date": 1773518573,
+      "user": "RetroFan",
+      "full_title": "Spirited Away",
+      "media_type": "movie",
+      "duration": 7500,
+      "play_duration": 7500,
+      "started": 1773518573,
+      "stopped": 1773526073
+    },
+    {
+      "date": 1773518517,
+      "user": "WeekendWatcher",
+      "full_title": "Inception",
+      "media_type": "movie",
+      "duration": 8880,
+      "play_duration": 8880,
+      "started": 1773518517,
+      "stopped": 1773527397
+    },
+    {
+      "date": 1773518473,
+      "user": "MovieFan2024",
+      "full_title": "Inception",
+      "media_type": "movie",
+      "duration": 8880,
+      "play_duration": 8880,
+      "started": 1773518473,
+      "stopped": 1773527353
+    },
+    {
+      "date": 1773497271,
+      "user": "AnimeLover",
+      "full_title": "Inception",
+      "media_type": "movie",
+      "duration": 8880,
+      "play_duration": 8880,
+      "started": 1773497271,
+      "stopped": 1773506151
+    },
+    {
+      "date": 1773497228,
+      "user": "AnimeLover",
+      "full_title": "Moonlight",
+      "media_type": "movie",
+      "duration": 6660,
+      "play_duration": 6660,
+      "started": 1773497228,
+      "stopped": 1773503888
+    },
+    {
+      "date": 1773497168,
+      "user": "RetroFan",
+      "full_title": "Princess Mononoke",
+      "media_type": "movie",
+      "duration": 8040,
+      "play_duration": 8040,
+      "started": 1773497168,
+      "stopped": 1773505208
+    },
+    {
+      "date": 1773496933,
+      "user": "NightOwl",
+      "full_title": "The Shawshank Redemption",
+      "media_type": "movie",
+      "duration": 8520,
+      "play_duration": 8520,
+      "started": 1773496933,
+      "stopped": 1773505453
+    },
+    {
+      "date": 1773476968,
+      "user": "NightOwl",
+      "full_title": "The Matrix",
+      "media_type": "movie",
+      "duration": 8160,
+      "play_duration": 8160,
+      "started": 1773476968,
+      "stopped": 1773485128
+    },
+    {
+      "date": 1773443413,
+      "user": "SciFiLover",
+      "full_title": "Interstellar",
+      "media_type": "movie",
+      "duration": 10140,
+      "play_duration": 10140,
+      "started": 1773443413,
+      "stopped": 1773453553
+    },
+    {
+      "date": 1773440388,
+      "user": "MovieFan2024",
+      "full_title": "Poor Things",
+      "media_type": "movie",
+      "duration": 8520,
+      "play_duration": 8520,
+      "started": 1773440388,
+      "stopped": 1773448908
+    },
+    {
+      "date": 1773432513,
+      "user": "RetroFan",
+      "full_title": "Moonlight",
+      "media_type": "movie",
+      "duration": 6660,
+      "play_duration": 6660,
+      "started": 1773432513,
+      "stopped": 1773439173
+    },
+    {
+      "date": 1773432479,
+      "user": "SciFiLover",
+      "full_title": "Moonlight",
+      "media_type": "movie",
+      "duration": 6660,
+      "play_duration": 6660,
+      "started": 1773432479,
+      "stopped": 1773439139
+    },
+    {
+      "date": 1773432409,
+      "user": "CinematicVibes",
+      "full_title": "Oppenheimer",
+      "media_type": "movie",
+      "duration": 10800,
+      "play_duration": 10800,
+      "started": 1773432409,
+      "stopped": 1773443209
+    },
+    {
+      "date": 1773432210,
+      "user": "NightOwl",
+      "full_title": "Princess Mononoke",
+      "media_type": "movie",
+      "duration": 8040,
+      "play_duration": 8040,
+      "started": 1773432210,
+      "stopped": 1773440250
+    },
+    {
+      "date": 1773432205,
+      "user": "CinematicVibes",
+      "full_title": "Oppenheimer",
+      "media_type": "movie",
+      "duration": 10800,
+      "play_duration": 10800,
+      "started": 1773432205,
+      "stopped": 1773443005
+    },
+    {
+      "date": 1773432171,
+      "user": "WeekendWatcher",
+      "full_title": "Elf",
+      "media_type": "movie",
+      "duration": 5700,
+      "play_duration": 5700,
+      "started": 1773432171,
+      "stopped": 1773437871
+    },
+    {
+      "date": 1773432001,
+      "user": "SciFiLover",
+      "full_title": "Elf",
+      "media_type": "movie",
+      "duration": 5700,
+      "play_duration": 5700,
+      "started": 1773432001,
+      "stopped": 1773437701
+    },
+    {
+      "date": 1773410826,
+      "user": "NightOwl",
+      "full_title": "Everything Everywhere All at Once",
+      "media_type": "movie",
+      "duration": 8400,
+      "play_duration": 8400,
+      "started": 1773410826,
+      "stopped": 1773419226
+    },
+    {
+      "date": 1773410744,
+      "user": "FilmBuff",
+      "full_title": "Pulp Fiction",
+      "media_type": "movie",
+      "duration": 9240,
+      "play_duration": 9240,
+      "started": 1773410744,
+      "stopped": 1773419984
+    },
+    {
+      "date": 1773410597,
+      "user": "SciFiLover",
+      "full_title": "The Dark Knight",
+      "media_type": "movie",
+      "duration": 9120,
+      "play_duration": 9120,
+      "started": 1773410597,
+      "stopped": 1773419717
+    },
+    {
+      "date": 1773410404,
+      "user": "SciFiLover",
+      "full_title": "Interstellar",
+      "media_type": "movie",
+      "duration": 10140,
+      "play_duration": 10140,
+      "started": 1773410404,
+      "stopped": 1773420544
+    },
+    {
+      "date": 1773396776,
+      "user": "WeekendWatcher",
+      "full_title": "Hereditary",
+      "media_type": "movie",
+      "duration": 7620,
+      "play_duration": 7620,
+      "started": 1773396776,
+      "stopped": 1773404396
+    },
+    {
+      "date": 1773358014,
+      "user": "AnimeLover",
+      "full_title": "Home Alone",
+      "media_type": "movie",
+      "duration": 6180,
+      "play_duration": 6180,
+      "started": 1773358014,
+      "stopped": 1773364194
+    },
+    {
+      "date": 1773357282,
+      "user": "NightOwl",
+      "full_title": "Predator",
+      "media_type": "movie",
+      "duration": 6420,
+      "play_duration": 6420,
+      "started": 1773357282,
+      "stopped": 1773363702
+    },
+    {
+      "date": 1773346048,
+      "user": "WeekendWatcher",
+      "full_title": "Spirited Away",
+      "media_type": "movie",
+      "duration": 7500,
+      "play_duration": 7500,
+      "started": 1773346048,
+      "stopped": 1773353548
+    },
+    {
+      "date": 1773346031,
+      "user": "CinematicVibes",
+      "full_title": "Princess Mononoke",
+      "media_type": "movie",
+      "duration": 8040,
+      "play_duration": 8040,
+      "started": 1773346031,
+      "stopped": 1773354071
+    },
+    {
+      "date": 1773346024,
+      "user": "CinematicVibes",
+      "full_title": "Interstellar",
+      "media_type": "movie",
+      "duration": 10140,
+      "play_duration": 10140,
+      "started": 1773346024,
+      "stopped": 1773356164
+    },
+    {
+      "date": 1773346008,
+      "user": "RetroFan",
+      "full_title": "The Shawshank Redemption",
+      "media_type": "movie",
+      "duration": 8520,
+      "play_duration": 8520,
+      "started": 1773346008,
+      "stopped": 1773354528
+    },
+    {
+      "date": 1773345918,
+      "user": "SciFiLover",
+      "full_title": "Everything Everywhere All at Once",
+      "media_type": "movie",
+      "duration": 8400,
+      "play_duration": 8400,
+      "started": 1773345918,
+      "stopped": 1773354318
+    },
+    {
+      "date": 1773345855,
+      "user": "SciFiLover",
+      "full_title": "The Matrix",
+      "media_type": "movie",
+      "duration": 8160,
+      "play_duration": 8160,
+      "started": 1773345855,
+      "stopped": 1773354015
+    },
+    {
+      "date": 1773345785,
+      "user": "FilmBuff",
+      "full_title": "Poor Things",
+      "media_type": "movie",
+      "duration": 8520,
+      "play_duration": 8520,
+      "started": 1773345785,
+      "stopped": 1773354305
+    },
+    {
+      "date": 1773345708,
+      "user": "RetroFan",
+      "full_title": "Inception",
+      "media_type": "movie",
+      "duration": 8880,
+      "play_duration": 8880,
+      "started": 1773345708,
+      "stopped": 1773354588
+    },
+    {
+      "date": 1773324408,
+      "user": "NightOwl",
+      "full_title": "Inception",
+      "media_type": "movie",
+      "duration": 8880,
+      "play_duration": 8880,
+      "started": 1773324408,
+      "stopped": 1773333288
+    },
+    {
+      "date": 1773324345,
+      "user": "NightOwl",
+      "full_title": "Pulp Fiction",
+      "media_type": "movie",
+      "duration": 9240,
+      "play_duration": 9240,
+      "started": 1773324345,
+      "stopped": 1773333585
+    },
+    {
+      "date": 1773324190,
+      "user": "SciFiLover",
+      "full_title": "Spirited Away",
+      "media_type": "movie",
+      "duration": 7500,
+      "play_duration": 7500,
+      "started": 1773324190,
+      "stopped": 1773331690
+    },
+    {
+      "date": 1773324011,
+      "user": "MovieFan2024",
+      "full_title": "Lady Bird",
+      "media_type": "movie",
+      "duration": 5580,
+      "play_duration": 5580,
+      "started": 1773324011,
+      "stopped": 1773329591
+    },
+    {
+      "date": 1773314834,
+      "user": "SciFiLover",
+      "full_title": "Everything Everywhere All at Once",
+      "media_type": "movie",
+      "duration": 8400,
+      "play_duration": 8400,
+      "started": 1773314834,
+      "stopped": 1773323234
+    },
+    {
+      "date": 1773306425,
+      "user": "FilmBuff",
+      "full_title": "Moonlight",
+      "media_type": "movie",
+      "duration": 6660,
+      "play_duration": 6660,
+      "started": 1773306425,
+      "stopped": 1773313085
+    },
+    {
+      "date": 1773267006,
+      "user": "AnimeLover",
+      "full_title": "The Dark Knight",
+      "media_type": "movie",
+      "duration": 9120,
+      "play_duration": 9120,
+      "started": 1773267006,
+      "stopped": 1773276126
+    },
+    {
+      "date": 1773259735,
+      "user": "RetroFan",
+      "full_title": "The Matrix",
+      "media_type": "movie",
+      "duration": 8160,
+      "play_duration": 8160,
+      "started": 1773259735,
+      "stopped": 1773267895
+    },
+    {
+      "date": 1773259618,
+      "user": "CinematicVibes",
+      "full_title": "Die Hard",
+      "media_type": "movie",
+      "duration": 7920,
+      "play_duration": 7920,
+      "started": 1773259618,
+      "stopped": 1773267538
+    },
+    {
+      "date": 1773259463,
+      "user": "NightOwl",
+      "full_title": "Moonlight",
+      "media_type": "movie",
+      "duration": 6660,
+      "play_duration": 6660,
+      "started": 1773259463,
+      "stopped": 1773266123
+    },
+    {
+      "date": 1773259329,
+      "user": "WeekendWatcher",
+      "full_title": "Interstellar",
+      "media_type": "movie",
+      "duration": 10140,
+      "play_duration": 10140,
+      "started": 1773259329,
+      "stopped": 1773269469
+    },
+    {
+      "date": 1773259257,
+      "user": "AnimeLover",
+      "full_title": "Blade Runner 2049",
+      "media_type": "movie",
+      "duration": 9840,
+      "play_duration": 9840,
+      "started": 1773259257,
+      "stopped": 1773269097
+    },
+    {
+      "date": 1773259256,
+      "user": "WeekendWatcher",
+      "full_title": "Pulp Fiction",
+      "media_type": "movie",
+      "duration": 9240,
+      "play_duration": 9240,
+      "started": 1773259256,
+      "stopped": 1773268496
+    },
+    {
+      "date": 1773245229,
+      "user": "NightOwl",
+      "full_title": "Spirited Away",
+      "media_type": "movie",
+      "duration": 7500,
+      "play_duration": 7500,
+      "started": 1773245229,
+      "stopped": 1773252729
+    },
+    {
+      "date": 1773244980,
+      "user": "CinematicVibes",
+      "full_title": "Poor Things",
+      "media_type": "movie",
+      "duration": 8520,
+      "play_duration": 8520,
+      "started": 1773244980,
+      "stopped": 1773253500
+    },
+    {
+      "date": 1773244888,
+      "user": "SciFiLover",
+      "full_title": "Blade Runner 2049",
+      "media_type": "movie",
+      "duration": 9840,
+      "play_duration": 9840,
+      "started": 1773244888,
+      "stopped": 1773254728
+    },
+    {
+      "date": 1773244823,
+      "user": "WeekendWatcher",
+      "full_title": "The Dark Knight",
+      "media_type": "movie",
+      "duration": 9120,
+      "play_duration": 9120,
+      "started": 1773244823,
+      "stopped": 1773253943
+    },
+    {
+      "date": 1773244805,
+      "user": "FilmBuff",
+      "full_title": "The Matrix",
+      "media_type": "movie",
+      "duration": 8160,
+      "play_duration": 8160,
+      "started": 1773244805,
+      "stopped": 1773252965
+    },
+    {
+      "date": 1773221130,
+      "user": "AnimeLover",
+      "full_title": "The Shawshank Redemption",
+      "media_type": "movie",
+      "duration": 8520,
+      "play_duration": 8520,
+      "started": 1773221130,
+      "stopped": 1773229650
+    },
+    {
+      "date": 1773183705,
+      "user": "AnimeLover",
+      "full_title": "Interstellar",
+      "media_type": "movie",
+      "duration": 10140,
+      "play_duration": 10140,
+      "started": 1773183705,
+      "stopped": 1773193845
+    },
+    {
+      "date": 1773173347,
+      "user": "WeekendWatcher",
+      "full_title": "Spirited Away",
+      "media_type": "movie",
+      "duration": 7500,
+      "play_duration": 7500,
+      "started": 1773173347,
+      "stopped": 1773180847
+    },
+    {
+      "date": 1773173341,
+      "user": "WeekendWatcher",
+      "full_title": "Spirited Away",
+      "media_type": "movie",
+      "duration": 7500,
+      "play_duration": 7500,
+      "started": 1773173341,
+      "stopped": 1773180841
+    },
+    {
+      "date": 1773173235,
+      "user": "FilmBuff",
+      "full_title": "Pulp Fiction",
+      "media_type": "movie",
+      "duration": 9240,
+      "play_duration": 9240,
+      "started": 1773173235,
+      "stopped": 1773182475
+    },
+    {
+      "date": 1773173123,
+      "user": "MovieFan2024",
+      "full_title": "The Matrix",
+      "media_type": "movie",
+      "duration": 8160,
+      "play_duration": 8160,
+      "started": 1773173123,
+      "stopped": 1773181283
+    },
+    {
+      "date": 1773173075,
+      "user": "MovieFan2024",
+      "full_title": "Moonlight",
+      "media_type": "movie",
+      "duration": 6660,
+      "play_duration": 6660,
+      "started": 1773173075,
+      "stopped": 1773179735
+    },
+    {
+      "date": 1773155301,
+      "user": "NightOwl",
+      "full_title": "Pulp Fiction",
+      "media_type": "movie",
+      "duration": 9240,
+      "play_duration": 9240,
+      "started": 1773155301,
+      "stopped": 1773164541
+    },
+    {
+      "date": 1773155192,
+      "user": "CinematicVibes",
+      "full_title": "Elf",
+      "media_type": "movie",
+      "duration": 5700,
+      "play_duration": 5700,
+      "started": 1773155192,
+      "stopped": 1773160892
+    },
+    {
+      "date": 1773155021,
+      "user": "NightOwl",
+      "full_title": "Interstellar",
+      "media_type": "movie",
+      "duration": 10140,
+      "play_duration": 10140,
+      "started": 1773155021,
+      "stopped": 1773165161
+    },
+    {
+      "date": 1773155017,
+      "user": "WeekendWatcher",
+      "full_title": "Blade Runner 2049",
+      "media_type": "movie",
+      "duration": 9840,
+      "play_duration": 9840,
+      "started": 1773155017,
+      "stopped": 1773164857
+    },
+    {
+      "date": 1773154983,
+      "user": "FilmBuff",
+      "full_title": "Lady Bird",
+      "media_type": "movie",
+      "duration": 5580,
+      "play_duration": 5580,
+      "started": 1773154983,
+      "stopped": 1773160563
+    },
+    {
+      "date": 1773140809,
+      "user": "AnimeLover",
+      "full_title": "Hereditary",
+      "media_type": "movie",
+      "duration": 7620,
+      "play_duration": 7620,
+      "started": 1773140809,
+      "stopped": 1773148429
+    },
+    {
+      "date": 1773133708,
+      "user": "CinematicVibes",
+      "full_title": "Blade Runner 2049",
+      "media_type": "movie",
+      "duration": 9840,
+      "play_duration": 9840,
+      "started": 1773133708,
+      "stopped": 1773143548
+    }
+  ],
+  "draw": 1
+}

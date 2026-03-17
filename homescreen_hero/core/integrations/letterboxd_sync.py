@@ -108,7 +108,7 @@ def sync_single_letterboxd_source(
         return 0, 0
 
     # Scrape the Letterboxd list
-    scraper = get_letterboxd_scraper()
+    scraper = get_letterboxd_scraper(config)
     try:
         movies = scraper.get_list_movies(source.url)
     except Exception as exc:

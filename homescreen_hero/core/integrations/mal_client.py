@@ -346,4 +346,5 @@ def get_mal_client(config) -> Optional[MALClient]:
     client_id = config.mal.client_id
     if not client_id:
         return None
-    return MALClient(MALConfig(client_id=client_id))
+    base_url = getattr(config.mal, "base_url", MAL_API_BASE)
+    return MALClient(MALConfig(client_id=client_id, base_url=base_url))

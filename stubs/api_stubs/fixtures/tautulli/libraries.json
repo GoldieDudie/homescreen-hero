@@ -1,0 +1,28 @@
+{
+  "data": [
+    {
+      "section_id": "1",
+      "section_name": "Movies",
+      "section_type": "movie",
+      "count": "450",
+      "parent_count": "0",
+      "child_count": "0",
+      "last_accessed": 1710000000,
+      "last_played": "Oppenheimer",
+      "duration": 864000,
+      "plays": 1250
+    },
+    {
+      "section_id": "2",
+      "section_name": "TV Shows",
+      "section_type": "show",
+      "count": "85",
+      "parent_count": "320",
+      "child_count": "4500",
+      "last_accessed": 1710000000,
+      "last_played": "Succession",
+      "duration": 1200000,
+      "plays": 3200
+    }
+  ]
+}

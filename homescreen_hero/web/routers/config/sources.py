@@ -1250,12 +1250,14 @@ def get_anilist_user_lists(
     current_user: CurrentUser = Depends(require_admin),
 ):
     # Fetch list names for an AniList user (for the dropdown)
-    from homescreen_hero.core.integrations.anilist_client import AniListClient, AniListConfig
+    from homescreen_hero.core.integrations.anilist_client import AniListClient, AniListConfig, ANILIST_GRAPHQL_URL
 
     if not username.strip():
         raise HTTPException(status_code=400, detail="Username is required")
 
-    client = AniListClient(AniListConfig())
+    cfg = load_config()
+    base_url = getattr(cfg.anilist, "base_url", ANILIST_GRAPHQL_URL) if cfg.anilist else ANILIST_GRAPHQL_URL
+    client = AniListClient(AniListConfig(base_url=base_url))
     try:
         lists = client.get_user_lists(username.strip())
         return {"lists": lists}

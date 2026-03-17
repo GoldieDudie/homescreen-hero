@@ -1,0 +1,1438 @@
+{
+  "libraries": [
+    {
+      "key": "1",
+      "title": "Movies",
+      "type": "movie",
+      "agent": "tv.plex.agents.movie",
+      "scanner": "Plex Movie",
+      "path": "/media/movies"
+    },
+    {
+      "key": "2",
+      "title": "TV Shows",
+      "type": "show",
+      "agent": "tv.plex.agents.series",
+      "scanner": "Plex TV Series",
+      "path": "/media/tv"
+    }
+  ],
+  "collections": {
+    "1": [
+      {
+        "ratingKey": 10001,
+        "title": "Oscar Winners 2024",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Academy Award winning films from 2024",
+        "minYear": 2023,
+        "maxYear": 2024,
+        "labels": [
+          "award-winners"
+        ]
+      },
+      {
+        "ratingKey": 10002,
+        "title": "80s Action Classics",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "The best action films of the 1980s",
+        "minYear": 1980,
+        "maxYear": 1989,
+        "labels": []
+      },
+      {
+        "ratingKey": 10003,
+        "title": "Studio Ghibli Films",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Animated masterpieces from Studio Ghibli",
+        "minYear": 1986,
+        "maxYear": 2023,
+        "labels": [
+          "animation"
+        ]
+      },
+      {
+        "ratingKey": 10004,
+        "title": "Christopher Nolan Collection",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Films directed by Christopher Nolan",
+        "minYear": 2000,
+        "maxYear": 2023,
+        "labels": [
+          "director"
+        ]
+      },
+      {
+        "ratingKey": 10005,
+        "title": "90s Crime Dramas",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Crime drama films from the 1990s",
+        "minYear": 1990,
+        "maxYear": 1999,
+        "labels": []
+      },
+      {
+        "ratingKey": 10006,
+        "title": "Sci-Fi Essentials",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Must-watch science fiction films",
+        "minYear": 1968,
+        "maxYear": 2023,
+        "labels": [
+          "sci-fi"
+        ]
+      },
+      {
+        "ratingKey": 10007,
+        "title": "A24 Films",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Acclaimed films from A24 studio",
+        "minYear": 2013,
+        "maxYear": 2024,
+        "labels": [
+          "studio"
+        ]
+      },
+      {
+        "ratingKey": 10008,
+        "title": "Holiday Classics",
+        "childCount": 6,
+        "subtype": "movie",
+        "summary": "Beloved holiday and Christmas films",
+        "minYear": 1946,
+        "maxYear": 2022,
+        "labels": [
+          "holiday",
+          "seasonal"
+        ]
+      },
+      {
+        "ratingKey": 10016,
+        "title": "Spielberg Collection",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Films directed by Steven Spielberg",
+        "minYear": 1975,
+        "maxYear": 2022,
+        "labels": ["director"]
+      },
+      {
+        "ratingKey": 10017,
+        "title": "Tarantino Collection",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Films directed by Quentin Tarantino",
+        "minYear": 1992,
+        "maxYear": 2019,
+        "labels": ["director"]
+      },
+      {
+        "ratingKey": 10018,
+        "title": "Denis Villeneuve Collection",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Films directed by Denis Villeneuve",
+        "minYear": 2013,
+        "maxYear": 2024,
+        "labels": ["director"]
+      },
+      {
+        "ratingKey": 10020,
+        "title": "MCU Infinity Saga",
+        "childCount": 6,
+        "subtype": "movie",
+        "summary": "The complete Infinity Saga from the Marvel Cinematic Universe",
+        "minYear": 2008,
+        "maxYear": 2019,
+        "labels": ["trakt"]
+      },
+      {
+        "ratingKey": 10021,
+        "title": "Heist Movies",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "The best heist and caper films",
+        "minYear": 2001,
+        "maxYear": 2017,
+        "labels": ["trakt"]
+      },
+      {
+        "ratingKey": 10019,
+        "title": "Anime Essentials",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Must-watch anime films",
+        "minYear": 1984,
+        "maxYear": 2023,
+        "labels": ["anime"]
+      },
+      {
+        "ratingKey": 10013,
+        "title": "Classic Horror",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Iconic horror films that defined the genre",
+        "minYear": 1960,
+        "maxYear": 2000,
+        "labels": ["horror"]
+      },
+      {
+        "ratingKey": 10014,
+        "title": "Halloween Favorites",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Perfect picks for Halloween night",
+        "minYear": 1978,
+        "maxYear": 2023,
+        "labels": ["horror", "seasonal"]
+      },
+      {
+        "ratingKey": 10015,
+        "title": "Modern Horror",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "The best horror films of the 2010s and 2020s",
+        "minYear": 2010,
+        "maxYear": 2024,
+        "labels": ["horror"]
+      },
+      {
+        "ratingKey": 10011,
+        "title": "Trending Movies",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Currently trending films",
+        "minYear": 2023,
+        "maxYear": 2025,
+        "labels": ["pinned"]
+      },
+      {
+        "ratingKey": 10012,
+        "title": "Recently Downloaded Movies",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Latest additions to the library",
+        "minYear": 2022,
+        "maxYear": 2025,
+        "labels": ["pinned"]
+      },
+      {
+        "ratingKey": 10009,
+        "title": "Trakt Popular",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Most popular movies on Trakt right now",
+        "minYear": 2023,
+        "maxYear": 2024,
+        "labels": [
+          "trakt"
+        ]
+      },
+      {
+        "ratingKey": 10010,
+        "title": "Letterboxd Favorites",
+        "childCount": 5,
+        "subtype": "movie",
+        "summary": "Top rated films from a curated Letterboxd list",
+        "minYear": 1994,
+        "maxYear": 2010,
+        "labels": [
+          "letterboxd"
+        ]
+      }
+    ],
+    "2": [
+      {
+        "ratingKey": 20004,
+        "title": "Critically Acclaimed TV",
+        "childCount": 5,
+        "subtype": "show",
+        "summary": "Television series with near-perfect critic scores",
+        "minYear": 2008,
+        "maxYear": 2024,
+        "labels": []
+      },
+      {
+        "ratingKey": 20005,
+        "title": "Binge-Worthy Miniseries",
+        "childCount": 5,
+        "subtype": "show",
+        "summary": "Complete stories you can finish in a weekend",
+        "minYear": 2001,
+        "maxYear": 2024,
+        "labels": []
+      },
+      {
+        "ratingKey": 20006,
+        "title": "Top Anime",
+        "childCount": 5,
+        "subtype": "show",
+        "summary": "Top rated anime from AniList",
+        "minYear": 1998,
+        "maxYear": 2024,
+        "labels": ["anilist"]
+      },
+      {
+        "ratingKey": 20007,
+        "title": "MAL Spring Season",
+        "childCount": 5,
+        "subtype": "show",
+        "summary": "Spring 2026 anime season from MyAnimeList",
+        "minYear": 1998,
+        "maxYear": 2024,
+        "labels": ["mal"]
+      },
+      {
+        "ratingKey": 20003,
+        "title": "Currently Airing on TV",
+        "childCount": 5,
+        "subtype": "show",
+        "summary": "Most watched shows this week",
+        "minYear": 2020,
+        "maxYear": 2025,
+        "labels": ["pinned"]
+      },
+      {
+        "ratingKey": 20001,
+        "title": "HBO Prestige Dramas",
+        "childCount": 5,
+        "subtype": "show",
+        "summary": "The finest dramatic television from HBO",
+        "minYear": 1999,
+        "maxYear": 2024,
+        "labels": []
+      }
+    ]
+  },
+  "items": {
+    "1": [
+      {
+        "ratingKey": 1001,
+        "title": "Oppenheimer",
+        "year": 2023,
+        "type": "movie",
+        "guid": "plex://movie/demo-1001",
+        "guids": [
+          "tmdb://872585",
+          "imdb://tt15398776"
+        ],
+        "duration": 10800000,
+        "addedAt": 1773696166,
+        "genres": [
+          "Drama",
+          "History"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1002,
+        "title": "Poor Things",
+        "year": 2023,
+        "type": "movie",
+        "guid": "plex://movie/demo-1002",
+        "guids": [
+          "tmdb://792307",
+          "imdb://tt14230458"
+        ],
+        "duration": 8520000,
+        "addedAt": 1773613366,
+        "genres": [
+          "Comedy",
+          "Drama",
+          "Romance"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1003,
+        "title": "The Holdovers",
+        "year": 2023,
+        "type": "movie",
+        "guid": "plex://movie/demo-1003",
+        "guids": [
+          "tmdb://840430",
+          "imdb://tt14849194"
+        ],
+        "duration": 7980000,
+        "addedAt": 1700200000,
+        "genres": [
+          "Comedy",
+          "Drama"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1004,
+        "title": "Anatomy of a Fall",
+        "year": 2023,
+        "type": "movie",
+        "guid": "plex://movie/demo-1004",
+        "guids": [
+          "tmdb://915935",
+          "imdb://tt17009710"
+        ],
+        "duration": 9120000,
+        "addedAt": 1700300000,
+        "genres": [
+          "Drama",
+          "Thriller"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1005,
+        "title": "Killers of the Flower Moon",
+        "year": 2023,
+        "type": "movie",
+        "guid": "plex://movie/demo-1005",
+        "guids": [
+          "tmdb://466420",
+          "imdb://tt5906664"
+        ],
+        "duration": 12360000,
+        "addedAt": 1700400000,
+        "genres": [
+          "Crime",
+          "Drama",
+          "History"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1010,
+        "title": "Die Hard",
+        "year": 1988,
+        "type": "movie",
+        "guid": "plex://movie/demo-1010",
+        "guids": [
+          "tmdb://562",
+          "imdb://tt0095016"
+        ],
+        "duration": 7920000,
+        "addedAt": 1600000000,
+        "genres": [
+          "Action",
+          "Thriller"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1011,
+        "title": "Predator",
+        "year": 1987,
+        "type": "movie",
+        "guid": "plex://movie/demo-1011",
+        "guids": [
+          "tmdb://106",
+          "imdb://tt0093773"
+        ],
+        "duration": 6420000,
+        "addedAt": 1600100000,
+        "genres": [
+          "Action",
+          "Sci-Fi"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1012,
+        "title": "Robocop",
+        "year": 1987,
+        "type": "movie",
+        "guid": "plex://movie/demo-1012",
+        "guids": [
+          "tmdb://5548",
+          "imdb://tt0093870"
+        ],
+        "duration": 6180000,
+        "addedAt": 1600200000,
+        "genres": [
+          "Action",
+          "Crime",
+          "Sci-Fi"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1013,
+        "title": "Lethal Weapon",
+        "year": 1987,
+        "type": "movie",
+        "guid": "plex://movie/demo-1013",
+        "guids": [
+          "tmdb://941",
+          "imdb://tt0093409"
+        ],
+        "duration": 6600000,
+        "addedAt": 1600300000,
+        "genres": [
+          "Action",
+          "Thriller"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1014,
+        "title": "Total Recall",
+        "year": 1990,
+        "type": "movie",
+        "guid": "plex://movie/demo-1014",
+        "guids": [
+          "tmdb://861",
+          "imdb://tt0100802"
+        ],
+        "duration": 6780000,
+        "addedAt": 1600400000,
+        "genres": [
+          "Action",
+          "Sci-Fi"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1020,
+        "title": "Spirited Away",
+        "year": 2001,
+        "type": "movie",
+        "guid": "plex://movie/demo-1020",
+        "guids": [
+          "tmdb://129",
+          "imdb://tt0245429"
+        ],
+        "duration": 7500000,
+        "addedAt": 1500000000,
+        "genres": [
+          "Animation",
+          "Adventure",
+          "Family"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "PG"
+      },
+      {
+        "ratingKey": 1021,
+        "title": "Princess Mononoke",
+        "year": 1997,
+        "type": "movie",
+        "guid": "plex://movie/demo-1021",
+        "guids": [
+          "tmdb://128",
+          "imdb://tt0119698"
+        ],
+        "duration": 8040000,
+        "addedAt": 1500100000,
+        "genres": [
+          "Animation",
+          "Adventure",
+          "Fantasy"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "PG-13"
+      },
+      {
+        "ratingKey": 1022,
+        "title": "My Neighbor Totoro",
+        "year": 1988,
+        "type": "movie",
+        "guid": "plex://movie/demo-1022",
+        "guids": [
+          "tmdb://8392",
+          "imdb://tt0096283"
+        ],
+        "duration": 5160000,
+        "addedAt": 1500200000,
+        "genres": [
+          "Animation",
+          "Family",
+          "Fantasy"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "G"
+      },
+      {
+        "ratingKey": 1023,
+        "title": "Howl's Moving Castle",
+        "year": 2004,
+        "type": "movie",
+        "guid": "plex://movie/demo-1023",
+        "guids": [
+          "tmdb://4935",
+          "imdb://tt0347149"
+        ],
+        "duration": 7080000,
+        "addedAt": 1500300000,
+        "genres": [
+          "Animation",
+          "Adventure",
+          "Fantasy"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "PG"
+      },
+      {
+        "ratingKey": 1024,
+        "title": "Nausicaa of the Valley of the Wind",
+        "year": 1984,
+        "type": "movie",
+        "guid": "plex://movie/demo-1024",
+        "guids": [
+          "tmdb://13838",
+          "imdb://tt0087544"
+        ],
+        "duration": 7020000,
+        "addedAt": 1500400000,
+        "genres": [
+          "Animation",
+          "Adventure",
+          "Fantasy"
+        ],
+        "videoResolution": "720",
+        "contentRating": "PG"
+      },
+      {
+        "ratingKey": 1030,
+        "title": "Inception",
+        "year": 2010,
+        "type": "movie",
+        "guid": "plex://movie/demo-1030",
+        "guids": [
+          "tmdb://27205",
+          "imdb://tt1375666"
+        ],
+        "duration": 8880000,
+        "addedAt": 1400000000,
+        "genres": [
+          "Action",
+          "Sci-Fi",
+          "Thriller"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "PG-13"
+      },
+      {
+        "ratingKey": 1031,
+        "title": "The Dark Knight",
+        "year": 2008,
+        "type": "movie",
+        "guid": "plex://movie/demo-1031",
+        "guids": [
+          "tmdb://155",
+          "imdb://tt0468569"
+        ],
+        "duration": 9120000,
+        "addedAt": 1400100000,
+        "genres": [
+          "Action",
+          "Crime",
+          "Drama"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "PG-13"
+      },
+      {
+        "ratingKey": 1032,
+        "title": "Interstellar",
+        "year": 2014,
+        "type": "movie",
+        "guid": "plex://movie/demo-1032",
+        "guids": [
+          "tmdb://157336",
+          "imdb://tt0816692"
+        ],
+        "duration": 10140000,
+        "addedAt": 1773440566,
+        "genres": [
+          "Adventure",
+          "Drama",
+          "Sci-Fi"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "PG-13"
+      },
+      {
+        "ratingKey": 1033,
+        "title": "Dunkirk",
+        "year": 2017,
+        "type": "movie",
+        "guid": "plex://movie/demo-1033",
+        "guids": [
+          "tmdb://374720",
+          "imdb://tt5013056"
+        ],
+        "duration": 6360000,
+        "addedAt": 1400300000,
+        "genres": [
+          "Action",
+          "Drama",
+          "History"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "PG-13"
+      },
+      {
+        "ratingKey": 1034,
+        "title": "Tenet",
+        "year": 2020,
+        "type": "movie",
+        "guid": "plex://movie/demo-1034",
+        "guids": [
+          "tmdb://577922",
+          "imdb://tt6723592"
+        ],
+        "duration": 9000000,
+        "addedAt": 1400400000,
+        "genres": [
+          "Action",
+          "Sci-Fi",
+          "Thriller"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "PG-13"
+      },
+      {
+        "ratingKey": 1040,
+        "title": "Pulp Fiction",
+        "year": 1994,
+        "type": "movie",
+        "guid": "plex://movie/demo-1040",
+        "guids": [
+          "tmdb://680",
+          "imdb://tt0110912"
+        ],
+        "duration": 9240000,
+        "addedAt": 1300000000,
+        "genres": [
+          "Crime",
+          "Drama"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1041,
+        "title": "The Shawshank Redemption",
+        "year": 1994,
+        "type": "movie",
+        "guid": "plex://movie/demo-1041",
+        "guids": [
+          "tmdb://278",
+          "imdb://tt0111161"
+        ],
+        "duration": 8520000,
+        "addedAt": 1773181366,
+        "genres": [
+          "Drama"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1042,
+        "title": "Goodfellas",
+        "year": 1990,
+        "type": "movie",
+        "guid": "plex://movie/demo-1042",
+        "guids": [
+          "tmdb://769",
+          "imdb://tt0099685"
+        ],
+        "duration": 8760000,
+        "addedAt": 1300200000,
+        "genres": [
+          "Biography",
+          "Crime",
+          "Drama"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1043,
+        "title": "Heat",
+        "year": 1995,
+        "type": "movie",
+        "guid": "plex://movie/demo-1043",
+        "guids": [
+          "tmdb://949",
+          "imdb://tt0113277"
+        ],
+        "duration": 10200000,
+        "addedAt": 1300300000,
+        "genres": [
+          "Action",
+          "Crime",
+          "Drama"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1044,
+        "title": "Se7en",
+        "year": 1995,
+        "type": "movie",
+        "guid": "plex://movie/demo-1044",
+        "guids": [
+          "tmdb://807",
+          "imdb://tt0114369"
+        ],
+        "duration": 7620000,
+        "addedAt": 1300400000,
+        "genres": [
+          "Crime",
+          "Drama",
+          "Mystery"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1050,
+        "title": "Blade Runner 2049",
+        "year": 2017,
+        "type": "movie",
+        "guid": "plex://movie/demo-1050",
+        "guids": [
+          "tmdb://335984",
+          "imdb://tt1856101"
+        ],
+        "duration": 9840000,
+        "addedAt": 1773354166,
+        "genres": [
+          "Drama",
+          "Mystery",
+          "Sci-Fi"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1051,
+        "title": "2001: A Space Odyssey",
+        "year": 1968,
+        "type": "movie",
+        "guid": "plex://movie/demo-1051",
+        "guids": [
+          "tmdb://62",
+          "imdb://tt0062622"
+        ],
+        "duration": 8520000,
+        "addedAt": 1200100000,
+        "genres": [
+          "Adventure",
+          "Sci-Fi"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "G"
+      },
+      {
+        "ratingKey": 1052,
+        "title": "Arrival",
+        "year": 2016,
+        "type": "movie",
+        "guid": "plex://movie/demo-1052",
+        "guids": [
+          "tmdb://329865",
+          "imdb://tt2543164"
+        ],
+        "duration": 7080000,
+        "addedAt": 1200200000,
+        "genres": [
+          "Drama",
+          "Mystery",
+          "Sci-Fi"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "PG-13"
+      },
+      {
+        "ratingKey": 1053,
+        "title": "Ex Machina",
+        "year": 2014,
+        "type": "movie",
+        "guid": "plex://movie/demo-1053",
+        "guids": [
+          "tmdb://264660",
+          "imdb://tt0470752"
+        ],
+        "duration": 6480000,
+        "addedAt": 1200300000,
+        "genres": [
+          "Drama",
+          "Mystery",
+          "Sci-Fi"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1054,
+        "title": "The Matrix",
+        "year": 1999,
+        "type": "movie",
+        "guid": "plex://movie/demo-1054",
+        "guids": [
+          "tmdb://603",
+          "imdb://tt0133093"
+        ],
+        "duration": 8160000,
+        "addedAt": 1200400000,
+        "genres": [
+          "Action",
+          "Sci-Fi"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1060,
+        "title": "Everything Everywhere All at Once",
+        "year": 2022,
+        "type": "movie",
+        "guid": "plex://movie/demo-1060",
+        "guids": [
+          "tmdb://545611",
+          "imdb://tt6710474"
+        ],
+        "duration": 8400000,
+        "addedAt": 1773526966,
+        "genres": [
+          "Action",
+          "Adventure",
+          "Comedy"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1061,
+        "title": "Moonlight",
+        "year": 2016,
+        "type": "movie",
+        "guid": "plex://movie/demo-1061",
+        "guids": [
+          "tmdb://376867",
+          "imdb://tt4975722"
+        ],
+        "duration": 6660000,
+        "addedAt": 1100100000,
+        "genres": [
+          "Drama"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1062,
+        "title": "Lady Bird",
+        "year": 2017,
+        "type": "movie",
+        "guid": "plex://movie/demo-1062",
+        "guids": [
+          "tmdb://391713",
+          "imdb://tt4925292"
+        ],
+        "duration": 5580000,
+        "addedAt": 1100200000,
+        "genres": [
+          "Comedy",
+          "Drama"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1063,
+        "title": "Hereditary",
+        "year": 2018,
+        "type": "movie",
+        "guid": "plex://movie/demo-1063",
+        "guids": [
+          "tmdb://493922",
+          "imdb://tt7784604"
+        ],
+        "duration": 7620000,
+        "addedAt": 1773267766,
+        "genres": [
+          "Drama",
+          "Horror",
+          "Mystery"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1064,
+        "title": "The Lighthouse",
+        "year": 2019,
+        "type": "movie",
+        "guid": "plex://movie/demo-1064",
+        "guids": [
+          "tmdb://503919",
+          "imdb://tt7984734"
+        ],
+        "duration": 6540000,
+        "addedAt": 1100400000,
+        "genres": [
+          "Drama",
+          "Fantasy",
+          "Horror"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1070,
+        "title": "It's a Wonderful Life",
+        "year": 1946,
+        "type": "movie",
+        "guid": "plex://movie/demo-1070",
+        "guids": [
+          "tmdb://1585",
+          "imdb://tt0038650"
+        ],
+        "duration": 7800000,
+        "addedAt": 1000000000,
+        "genres": [
+          "Drama",
+          "Family",
+          "Fantasy"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "PG"
+      },
+      {
+        "ratingKey": 1071,
+        "title": "Home Alone",
+        "year": 1990,
+        "type": "movie",
+        "guid": "plex://movie/demo-1071",
+        "guids": [
+          "tmdb://771",
+          "imdb://tt0099785"
+        ],
+        "duration": 6180000,
+        "addedAt": 1000100000,
+        "genres": [
+          "Comedy",
+          "Family"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "PG"
+      },
+      {
+        "ratingKey": 1072,
+        "title": "Elf",
+        "year": 2003,
+        "type": "movie",
+        "guid": "plex://movie/demo-1072",
+        "guids": [
+          "tmdb://10719",
+          "imdb://tt0319343"
+        ],
+        "duration": 5700000,
+        "addedAt": 1000200000,
+        "genres": [
+          "Comedy",
+          "Family",
+          "Fantasy"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "PG"
+      },
+      {
+        "ratingKey": 1073,
+        "title": "Die Hard",
+        "year": 1988,
+        "type": "movie",
+        "guid": "plex://movie/demo-1073",
+        "guids": [
+          "tmdb://562",
+          "imdb://tt0095016"
+        ],
+        "duration": 7920000,
+        "addedAt": 1000300000,
+        "genres": [
+          "Action",
+          "Thriller"
+        ],
+        "videoResolution": "4k",
+        "contentRating": "R"
+      },
+      {
+        "ratingKey": 1074,
+        "title": "The Nightmare Before Christmas",
+        "year": 1993,
+        "type": "movie",
+        "guid": "plex://movie/demo-1074",
+        "guids": [
+          "tmdb://9479",
+          "imdb://tt0107688"
+        ],
+        "duration": 4560000,
+        "addedAt": 1000400000,
+        "genres": [
+          "Animation",
+          "Family",
+          "Fantasy"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "PG"
+      },
+      {
+        "ratingKey": 1075,
+        "title": "National Lampoon's Christmas Vacation",
+        "year": 1989,
+        "type": "movie",
+        "guid": "plex://movie/demo-1075",
+        "guids": [
+          "tmdb://5825",
+          "imdb://tt0107688"
+        ],
+        "duration": 4560000,
+        "addedAt": 1000400000,
+        "genres": [
+          "Comedy"
+        ],
+        "videoResolution": "1080",
+        "contentRating": "PG-13"
+      },
+      {"ratingKey": 1100, "title": "Iron Man", "year": 2008, "type": "movie", "guid": "plex://movie/demo-1100", "guids": ["tmdb://1726", "imdb://tt0371746"], "duration": 7560000, "addedAt": 400000000, "genres": ["Action", "Sci-Fi", "Adventure"], "videoResolution": "4k", "contentRating": "PG-13"},
+      {"ratingKey": 1101, "title": "The Avengers", "year": 2012, "type": "movie", "guid": "plex://movie/demo-1101", "guids": ["tmdb://24428", "imdb://tt0848228"], "duration": 8580000, "addedAt": 400100000, "genres": ["Action", "Sci-Fi", "Adventure"], "videoResolution": "4k", "contentRating": "PG-13"},
+      {"ratingKey": 1102, "title": "Captain America: The First Avenger", "year": 2011, "type": "movie", "guid": "plex://movie/demo-1102", "guids": ["tmdb://1771", "imdb://tt0458339"], "duration": 7440000, "addedAt": 400200000, "genres": ["Action", "Adventure", "Sci-Fi"], "videoResolution": "4k", "contentRating": "PG-13"},
+      {"ratingKey": 1103, "title": "Guardians of the Galaxy", "year": 2014, "type": "movie", "guid": "plex://movie/demo-1103", "guids": ["tmdb://118340", "imdb://tt2015381"], "duration": 7260000, "addedAt": 400300000, "genres": ["Action", "Adventure", "Comedy"], "videoResolution": "4k", "contentRating": "PG-13"},
+      {"ratingKey": 1104, "title": "Avengers: Infinity War", "year": 2018, "type": "movie", "guid": "plex://movie/demo-1104", "guids": ["tmdb://299536", "imdb://tt4154756"], "duration": 8940000, "addedAt": 400400000, "genres": ["Action", "Adventure", "Sci-Fi"], "videoResolution": "4k", "contentRating": "PG-13"},
+      {"ratingKey": 1105, "title": "Avengers: Endgame", "year": 2019, "type": "movie", "guid": "plex://movie/demo-1105", "guids": ["tmdb://299534", "imdb://tt4154796"], "duration": 10860000, "addedAt": 400500000, "genres": ["Action", "Adventure", "Drama"], "videoResolution": "4k", "contentRating": "PG-13"},
+      {"ratingKey": 1110, "title": "Ocean's Eleven", "year": 2001, "type": "movie", "guid": "plex://movie/demo-1110", "guids": ["tmdb://161", "imdb://tt0240772"], "duration": 7080000, "addedAt": 300000000, "genres": ["Crime", "Thriller"], "videoResolution": "4k", "contentRating": "PG-13"},
+      {"ratingKey": 1111, "title": "The Italian Job", "year": 2003, "type": "movie", "guid": "plex://movie/demo-1111", "guids": ["tmdb://9654", "imdb://tt0317740"], "duration": 6600000, "addedAt": 300100000, "genres": ["Action", "Crime"], "videoResolution": "1080", "contentRating": "PG-13"},
+      {"ratingKey": 1112, "title": "The Town", "year": 2010, "type": "movie", "guid": "plex://movie/demo-1112", "guids": ["tmdb://23168", "imdb://tt0840361"], "duration": 7440000, "addedAt": 300200000, "genres": ["Crime", "Drama", "Thriller"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1113, "title": "Baby Driver", "year": 2017, "type": "movie", "guid": "plex://movie/demo-1113", "guids": ["tmdb://339403", "imdb://tt3890160"], "duration": 6780000, "addedAt": 300300000, "genres": ["Action", "Crime", "Music"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1114, "title": "Inside Man", "year": 2006, "type": "movie", "guid": "plex://movie/demo-1114", "guids": ["tmdb://388", "imdb://tt0454848"], "duration": 7740000, "addedAt": 300400000, "genres": ["Crime", "Drama", "Thriller"], "videoResolution": "1080", "contentRating": "R"},
+      {"ratingKey": 1090, "title": "Schindler's List", "year": 1993, "type": "movie", "guid": "plex://movie/demo-1090", "guids": ["tmdb://424", "imdb://tt0108052"], "duration": 11700000, "addedAt": 700000000, "genres": ["Biography", "Drama", "History"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1091, "title": "Jaws", "year": 1975, "type": "movie", "guid": "plex://movie/demo-1091", "guids": ["tmdb://578", "imdb://tt0073195"], "duration": 7440000, "addedAt": 700100000, "genres": ["Adventure", "Horror", "Thriller"], "videoResolution": "4k", "contentRating": "PG"},
+      {"ratingKey": 1092, "title": "Saving Private Ryan", "year": 1998, "type": "movie", "guid": "plex://movie/demo-1092", "guids": ["tmdb://857", "imdb://tt0120815"], "duration": 9960000, "addedAt": 700200000, "genres": ["Drama", "War"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1093, "title": "Raiders of the Lost Ark", "year": 1981, "type": "movie", "guid": "plex://movie/demo-1093", "guids": ["tmdb://85", "imdb://tt0082971"], "duration": 6900000, "addedAt": 700300000, "genres": ["Action", "Adventure"], "videoResolution": "4k", "contentRating": "PG"},
+      {"ratingKey": 1094, "title": "Jurassic Park", "year": 1993, "type": "movie", "guid": "plex://movie/demo-1094", "guids": ["tmdb://329", "imdb://tt0107290"], "duration": 7620000, "addedAt": 700400000, "genres": ["Adventure", "Sci-Fi", "Thriller"], "videoResolution": "4k", "contentRating": "PG-13"},
+      {"ratingKey": 1095, "title": "Reservoir Dogs", "year": 1992, "type": "movie", "guid": "plex://movie/demo-1095", "guids": ["tmdb://500", "imdb://tt0105236"], "duration": 5940000, "addedAt": 600000000, "genres": ["Crime", "Thriller"], "videoResolution": "1080", "contentRating": "R"},
+      {"ratingKey": 1096, "title": "Kill Bill: Volume 1", "year": 2003, "type": "movie", "guid": "plex://movie/demo-1096", "guids": ["tmdb://24", "imdb://tt0266697"], "duration": 6660000, "addedAt": 600100000, "genres": ["Action", "Crime"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1097, "title": "Inglourious Basterds", "year": 2009, "type": "movie", "guid": "plex://movie/demo-1097", "guids": ["tmdb://16869", "imdb://tt0361748"], "duration": 9180000, "addedAt": 600200000, "genres": ["Drama", "Thriller", "War"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1098, "title": "Django Unchained", "year": 2012, "type": "movie", "guid": "plex://movie/demo-1098", "guids": ["tmdb://68718", "imdb://tt1853728"], "duration": 9900000, "addedAt": 600300000, "genres": ["Drama", "Western"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1099, "title": "Sicario", "year": 2015, "type": "movie", "guid": "plex://movie/demo-1099", "guids": ["tmdb://273481", "imdb://tt3397884"], "duration": 7260000, "addedAt": 500000000, "genres": ["Action", "Crime", "Drama"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1080, "title": "The Shining", "year": 1980, "type": "movie", "guid": "plex://movie/demo-1080", "guids": ["tmdb://694", "imdb://tt0081505"], "duration": 8760000, "addedAt": 900000000, "genres": ["Drama", "Horror"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1081, "title": "Halloween", "year": 1978, "type": "movie", "guid": "plex://movie/demo-1081", "guids": ["tmdb://948", "imdb://tt0077651"], "duration": 5520000, "addedAt": 900100000, "genres": ["Horror", "Thriller"], "videoResolution": "1080", "contentRating": "R"},
+      {"ratingKey": 1082, "title": "A Nightmare on Elm Street", "year": 1984, "type": "movie", "guid": "plex://movie/demo-1082", "guids": ["tmdb://377", "imdb://tt0087800"], "duration": 5520000, "addedAt": 900200000, "genres": ["Horror"], "videoResolution": "1080", "contentRating": "R"},
+      {"ratingKey": 1083, "title": "Scream", "year": 1996, "type": "movie", "guid": "plex://movie/demo-1083", "guids": ["tmdb://4232", "imdb://tt0117571"], "duration": 6660000, "addedAt": 900300000, "genres": ["Horror", "Mystery"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1084, "title": "The Exorcist", "year": 1973, "type": "movie", "guid": "plex://movie/demo-1084", "guids": ["tmdb://9552", "imdb://tt0070047"], "duration": 7320000, "addedAt": 900400000, "genres": ["Horror"], "videoResolution": "1080", "contentRating": "R"},
+      {"ratingKey": 1085, "title": "Get Out", "year": 2017, "type": "movie", "guid": "plex://movie/demo-1085", "guids": ["tmdb://419430", "imdb://tt5052448"], "duration": 6240000, "addedAt": 800000000, "genres": ["Horror", "Mystery", "Thriller"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1086, "title": "Midsommar", "year": 2019, "type": "movie", "guid": "plex://movie/demo-1086", "guids": ["tmdb://530385", "imdb://tt8772262"], "duration": 8880000, "addedAt": 800100000, "genres": ["Drama", "Horror", "Mystery"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1087, "title": "The Conjuring", "year": 2013, "type": "movie", "guid": "plex://movie/demo-1087", "guids": ["tmdb://138843", "imdb://tt1457767"], "duration": 6720000, "addedAt": 800200000, "genres": ["Horror", "Thriller"], "videoResolution": "1080", "contentRating": "R"},
+      {"ratingKey": 1088, "title": "It", "year": 2017, "type": "movie", "guid": "plex://movie/demo-1088", "guids": ["tmdb://346364", "imdb://tt1396484"], "duration": 8100000, "addedAt": 800300000, "genres": ["Horror"], "videoResolution": "4k", "contentRating": "R"},
+      {"ratingKey": 1089, "title": "Hocus Pocus", "year": 1993, "type": "movie", "guid": "plex://movie/demo-1089", "guids": ["tmdb://10909", "imdb://tt0107120"], "duration": 5760000, "addedAt": 800400000, "genres": ["Comedy", "Family", "Fantasy"], "videoResolution": "1080", "contentRating": "PG"}
+    ],
+    "2": [
+      {
+        "ratingKey": 2001,
+        "title": "The Sopranos",
+        "year": 1999,
+        "type": "show",
+        "guid": "plex://show/demo-2001",
+        "guids": [
+          "tmdb://1398",
+          "imdb://tt0141842",
+          "tvdb://75299"
+        ],
+        "addedAt": 1700000000,
+        "genres": [
+          "Crime",
+          "Drama"
+        ],
+        "contentRating": "TV-MA"
+      },
+      {
+        "ratingKey": 2002,
+        "title": "The Wire",
+        "year": 2002,
+        "type": "show",
+        "guid": "plex://show/demo-2002",
+        "guids": [
+          "tmdb://1438",
+          "imdb://tt0306414",
+          "tvdb://79126"
+        ],
+        "addedAt": 1700100000,
+        "genres": [
+          "Crime",
+          "Drama"
+        ],
+        "contentRating": "TV-MA"
+      },
+      {
+        "ratingKey": 2003,
+        "title": "Succession",
+        "year": 2018,
+        "type": "show",
+        "guid": "plex://show/demo-2003",
+        "guids": [
+          "tmdb://76331",
+          "imdb://tt7660850",
+          "tvdb://341174"
+        ],
+        "addedAt": 1773656566,
+        "genres": [
+          "Drama"
+        ],
+        "contentRating": "TV-MA"
+      },
+      {
+        "ratingKey": 2004,
+        "title": "Chernobyl",
+        "year": 2019,
+        "type": "show",
+        "guid": "plex://show/demo-2004",
+        "guids": [
+          "tmdb://87108",
+          "imdb://tt7366338",
+          "tvdb://360893"
+        ],
+        "addedAt": 1700300000,
+        "genres": [
+          "Drama",
+          "History"
+        ],
+        "contentRating": "TV-MA"
+      },
+      {
+        "ratingKey": 2005,
+        "title": "Band of Brothers",
+        "year": 2001,
+        "type": "show",
+        "guid": "plex://show/demo-2005",
+        "guids": [
+          "tmdb://4613",
+          "imdb://tt0185906",
+          "tvdb://74205"
+        ],
+        "addedAt": 1700400000,
+        "genres": [
+          "Action",
+          "Drama",
+          "History"
+        ],
+        "contentRating": "TV-MA"
+      },
+      {
+        "ratingKey": 2010,
+        "title": "Attack on Titan",
+        "year": 2013,
+        "type": "show",
+        "guid": "plex://show/demo-2010",
+        "guids": [
+          "tmdb://1429",
+          "imdb://tt2560140",
+          "tvdb://267440"
+        ],
+        "addedAt": 1773397366,
+        "genres": [
+          "Animation",
+          "Action",
+          "Drama"
+        ],
+        "contentRating": "TV-MA"
+      },
+      {
+        "ratingKey": 2011,
+        "title": "Fullmetal Alchemist: Brotherhood",
+        "year": 2009,
+        "type": "show",
+        "guid": "plex://show/demo-2011",
+        "guids": [
+          "tmdb://31911",
+          "imdb://tt1355642",
+          "tvdb://83462"
+        ],
+        "addedAt": 1600100000,
+        "genres": [
+          "Animation",
+          "Action",
+          "Adventure"
+        ],
+        "contentRating": "TV-14"
+      },
+      {
+        "ratingKey": 2012,
+        "title": "Cowboy Bebop",
+        "year": 1998,
+        "type": "show",
+        "guid": "plex://show/demo-2012",
+        "guids": [
+          "tmdb://30991",
+          "imdb://tt0213338",
+          "tvdb://76885"
+        ],
+        "addedAt": 1600200000,
+        "genres": [
+          "Animation",
+          "Action",
+          "Sci-Fi"
+        ],
+        "contentRating": "TV-14"
+      },
+      {
+        "ratingKey": 2013,
+        "title": "Steins;Gate",
+        "year": 2011,
+        "type": "show",
+        "guid": "plex://show/demo-2013",
+        "guids": [
+          "tmdb://45535",
+          "imdb://tt1910272",
+          "tvdb://244061"
+        ],
+        "addedAt": 1600300000,
+        "genres": [
+          "Animation",
+          "Drama",
+          "Sci-Fi"
+        ],
+        "contentRating": "TV-14"
+      },
+      {
+        "ratingKey": 2014,
+        "title": "Vinland Saga",
+        "year": 2019,
+        "type": "show",
+        "guid": "plex://show/demo-2014",
+        "guids": [
+          "tmdb://83116",
+          "imdb://tt10233448",
+          "tvdb://357131"
+        ],
+        "addedAt": 1773570166,
+        "genres": [
+          "Animation",
+          "Action",
+          "Adventure"
+        ],
+        "contentRating": "TV-MA"
+      },
+      {"ratingKey": 2020, "title": "Breaking Bad", "year": 2008, "type": "show", "guid": "plex://show/demo-2020", "guids": ["tmdb://1396", "imdb://tt0903747", "tvdb://81189"], "addedAt": 1500000000, "genres": ["Crime", "Drama", "Thriller"], "contentRating": "TV-MA"},
+      {"ratingKey": 2021, "title": "Better Call Saul", "year": 2015, "type": "show", "guid": "plex://show/demo-2021", "guids": ["tmdb://60059", "imdb://tt3032476", "tvdb://273181"], "addedAt": 1500100000, "genres": ["Crime", "Drama"], "contentRating": "TV-MA"},
+      {"ratingKey": 2022, "title": "True Detective", "year": 2014, "type": "show", "guid": "plex://show/demo-2022", "guids": ["tmdb://46648", "imdb://tt2356777", "tvdb://270633"], "addedAt": 1500200000, "genres": ["Crime", "Drama", "Mystery"], "contentRating": "TV-MA"},
+      {"ratingKey": 2023, "title": "Shogun", "year": 2024, "type": "show", "guid": "plex://show/demo-2023", "guids": ["tmdb://126308", "imdb://tt2788316", "tvdb://392496"], "addedAt": 1500300000, "genres": ["Drama", "History", "War"], "contentRating": "TV-MA"},
+      {"ratingKey": 2024, "title": "The Bear", "year": 2022, "type": "show", "guid": "plex://show/demo-2024", "guids": ["tmdb://136315", "imdb://tt14452776", "tvdb://408653"], "addedAt": 1500400000, "genres": ["Comedy", "Drama"], "contentRating": "TV-MA"}
+    ]
+  },
+  "collection_items": {
+    "10001": [
+      1001,
+      1002,
+      1003,
+      1004,
+      1005
+    ],
+    "10002": [
+      1010,
+      1011,
+      1012,
+      1013,
+      1014
+    ],
+    "10003": [
+      1020,
+      1021,
+      1022,
+      1023,
+      1024
+    ],
+    "10004": [
+      1030,
+      1031,
+      1032,
+      1033,
+      1034
+    ],
+    "10005": [
+      1040,
+      1041,
+      1042,
+      1043,
+      1044
+    ],
+    "10006": [
+      1050,
+      1051,
+      1052,
+      1053,
+      1054
+    ],
+    "10007": [
+      1060,
+      1061,
+      1062,
+      1063,
+      1064
+    ],
+    "10008": [
+      1070,
+      1071,
+      1072,
+      1073,
+      1074,
+      1075
+    ],
+    "10009": [
+      1001,
+      1002,
+      1003,
+      1004,
+      1005
+    ],
+    "10010": [
+      1041,
+      1040,
+      1031,
+      1030,
+      1020
+    ],
+    "10020": [1100, 1101, 1102, 1103, 1104, 1105],
+    "10021": [1110, 1111, 1112, 1113, 1114],
+    "10019": [1020, 1021, 1022, 1023, 1024],
+    "10016": [1090, 1091, 1092, 1093, 1094],
+    "10017": [1040, 1095, 1096, 1097, 1098],
+    "10018": [1050, 1052, 1099, 1032, 1034],
+    "10013": [1080, 1081, 1082, 1084, 1083],
+    "10014": [1081, 1089, 1063, 1083, 1088],
+    "10015": [1085, 1086, 1063, 1087, 1088],
+    "10011": [1001, 1002, 1060, 1032, 1050],
+    "10012": [1001, 1063, 1034, 1052, 1062],
+    "20003": [2003, 2010, 2014, 2001, 2004],
+    "20006": [2010, 2011, 2012, 2013, 2014],
+    "20007": [2011, 2010, 2014, 2012, 2013],
+    "20004": [2020, 2021, 2003, 2023, 2024],
+    "20005": [2004, 2005, 2022, 2023, 2010],
+    "20001": [
+      2001,
+      2002,
+      2003,
+      2004,
+      2005
+    ],
+    "20002": []
+  }
+}

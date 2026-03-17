@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: homescreen-hero-demo
+    runtime: docker
+    dockerfilePath: ./Dockerfile.demo
+    plan: free
+    envVars:
+      - key: HSH_PLEX_URL
+        value: http://localhost:32400
+      - key: HSH_PLEX_TOKEN
+        value: demo-token
+      - key: HSH_AUTH_PASSWORD
+        value: demo
+      - key: HSH_AUTH_SECRET_KEY
+        value: demo-secret-key-not-for-production
+      - key: HSH_TRAKT_CLIENT_ID
+        value: demo-trakt-id
+      - key: HSH_MDBLIST_API_KEY
+        value: demo-mdblist-key
+      - key: HSH_TMDB_API_KEY
+        value: demo-tmdb-key
+      - key: HSH_TAUTULLI_API_KEY
+        value: demo-tautulli-key
+      - key: HSH_TAUTULLI_BASE_URL
+        value: http://localhost:9000/tautulli
+      - key: HSH_SEERR_API_KEY
+        value: demo-seerr-key
+      - key: HSH_SEERR_BASE_URL
+        value: http://localhost:9000/seerr
+      - key: HSH_MAL_CLIENT_ID
+        value: demo-mal-id
+    healthCheckPath: /api/health

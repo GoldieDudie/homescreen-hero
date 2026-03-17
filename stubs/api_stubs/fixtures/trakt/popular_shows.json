@@ -1,0 +1,5 @@
+[
+  {"title": "The Sopranos", "year": 1999, "ids": {"trakt": 100, "slug": "the-sopranos", "imdb": "tt0141842", "tmdb": 1398}},
+  {"title": "Succession", "year": 2018, "ids": {"trakt": 101, "slug": "succession", "imdb": "tt7660850", "tmdb": 76331}},
+  {"title": "The Wire", "year": 2002, "ids": {"trakt": 102, "slug": "the-wire", "imdb": "tt0306414", "tmdb": 1438}}
+]

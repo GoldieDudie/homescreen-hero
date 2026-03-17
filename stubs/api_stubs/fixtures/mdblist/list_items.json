@@ -1,0 +1,9 @@
+{
+  "movies": [
+    {"title": "The Matrix", "year": 1999, "ids": {"imdb": "tt0133093", "tmdb": 603, "trakt": 300, "mdblist": "m1"}},
+    {"title": "Blade Runner 2049", "year": 2017, "ids": {"imdb": "tt1856101", "tmdb": 335984, "trakt": 301, "mdblist": "m2"}},
+    {"title": "Ex Machina", "year": 2014, "ids": {"imdb": "tt0470752", "tmdb": 264660, "trakt": 302, "mdblist": "m3"}},
+    {"title": "Arrival", "year": 2016, "ids": {"imdb": "tt2543164", "tmdb": 329865, "trakt": 303, "mdblist": "m4"}},
+    {"title": "2001: A Space Odyssey", "year": 1968, "ids": {"imdb": "tt0062622", "tmdb": 62, "trakt": 304, "mdblist": "m5"}}
+  ]
+}

@@ -1,3 +1,13 @@
+// Dispatch a custom event for demo mode blocks so the UI can show a toast
+function fireDemoBlockedEvent() {
+    window.dispatchEvent(new CustomEvent("demo-blocked"));
+}
+
+// Check if a response was blocked by demo mode guard
+export function isDemoBlocked(response: Response): boolean {
+    return response.status === 403 && response.headers.get("X-Demo-Blocked") === "true";
+}
+
 // Helper function to make authenticated API calls
 export async function fetchWithAuth(
     url: string,
@@ -18,6 +28,12 @@ export async function fetchWithAuth(
         ...options,
         headers,
     });
+
+    // Demo mode blocks return 403 with X-Demo-Blocked header - don't logout
+    if (response.status === 403 && response.headers.get("X-Demo-Blocked")) {
+        fireDemoBlockedEvent();
+        return response;
+    }
 
     // 401 = invalid/expired token, 403 = account removed or pending
     if (response.status === 401 || response.status === 403) {

@@ -260,6 +260,29 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
             except Exception:  # pragma: no cover - defensive
                 continue
 
+        # Collect all integration source names first so we can
+        # prefer the integration-branded entry over the plain Plex one
+        integration_names: set[str] = set()
+        _source_configs = [
+            ("trakt", "trakt"),
+            ("letterboxd", "letterboxd"),
+            ("mdblist", "mdblist"),
+            ("tmdb", "tmdb"),
+            ("anilist", "anilist"),
+            ("mal", "mal"),
+        ]
+        for attr, _ in _source_configs:
+            cfg = getattr(config, attr, None)
+            if cfg and getattr(cfg, "sources", None):
+                for src in cfg.sources:
+                    integration_names.add(src.name)
+
+        # Build poster lookup from Plex collections before filtering
+        plex_poster_lookup = {s.name: s.poster_url for s in plex_sources if s.poster_url}
+
+        # Remove Plex collections that are backed by an integration source
+        plex_sources = [s for s in plex_sources if s.name not in integration_names]
+
         trakt_sources: list[CollectionSourcesResponse.CollectionSource] = []
         trakt_cfg: Optional[TraktSettings] = getattr(config, "trakt", None)
         if trakt_cfg and getattr(trakt_cfg, "sources", None):
@@ -269,6 +292,7 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                         name=src.name,
                         source="trakt",
                         detail=src.plex_library or src.url,
+                        poster_url=plex_poster_lookup.get(src.name),
                     )
                 )
 
@@ -281,6 +305,7 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                         name=src.name,
                         source="letterboxd",
                         detail=src.plex_library or src.url,
+                        poster_url=plex_poster_lookup.get(src.name),
                     )
                 )
 
@@ -293,6 +318,7 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                         name=src.name,
                         source="mdblist",
                         detail=src.plex_library or src.url,
+                        poster_url=plex_poster_lookup.get(src.name),
                     )
                 )
 
@@ -305,6 +331,7 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                         name=src.name,
                         source="tmdb",
                         detail=src.plex_library or src.url,
+                        poster_url=plex_poster_lookup.get(src.name),
                     )
                 )
 
@@ -317,6 +344,7 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                         name=src.name,
                         source="anilist",
                         detail=src.plex_library or src.url,
+                        poster_url=plex_poster_lookup.get(src.name),
                     )
                 )
 
@@ -329,13 +357,9 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                         name=src.name,
                         source="mal",
                         detail=src.plex_library or src.url,
+                        poster_url=plex_poster_lookup.get(src.name),
                     )
                 )
-
-        # Plex collections created by third-party sync duplicate those sources.
-        # Filter them out so the UI only shows the authoritative source.
-        third_party_names = {s.name for s in trakt_sources + letterboxd_sources + mdblist_sources + tmdb_sources + anilist_sources + mal_sources}
-        plex_sources = [s for s in plex_sources if s.name not in third_party_names]
 
         return CollectionSourcesResponse(
             plex=plex_sources,

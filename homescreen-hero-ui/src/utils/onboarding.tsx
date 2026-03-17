@@ -202,7 +202,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
     const completedCount = STEPS.filter((s) => state.completed[s]).length;
     const allDone = completedCount === STEPS.length;
-    const active = initialized && !state.dismissed && !allDone;
+    const isDemo = import.meta.env.VITE_DEMO_MODE === "true";
+    const active = initialized && !isDemo && !state.dismissed && !allDone;
 
     const value: OnboardingContextType = {
         initialized,

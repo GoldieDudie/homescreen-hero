@@ -327,6 +327,10 @@ class LetterboxdSource(BaseModel):
 
 class LetterboxdSettings(BaseModel):
     # Letterboxd needs no credentials — always enabled if sources exist.
+    base_url: str = Field(
+        "https://letterboxd.com",
+        description="Base URL for Letterboxd",
+    )
     sources: List[LetterboxdSource] = Field(default_factory=list)
 
 
@@ -398,6 +402,10 @@ class AniListSource(BaseModel):
 
 class AniListSettings(BaseModel):
     # AniList needs no credentials — always enabled if sources exist.
+    base_url: str = Field(
+        "https://graphql.anilist.co",
+        description="Base URL for AniList GraphQL API",
+    )
     sources: List[AniListSource] = Field(default_factory=list)
 
 
@@ -421,6 +429,10 @@ class MALSettings(BaseModel):
     client_id: Optional[str] = Field(
         default=None,
         description="MAL Client ID (can be set via HSH_MAL_CLIENT_ID env var)",
+    )
+    base_url: str = Field(
+        "https://api.myanimelist.net/v2",
+        description="Base URL for MAL API",
     )
     sources: List[MALSource] = Field(default_factory=list)
 

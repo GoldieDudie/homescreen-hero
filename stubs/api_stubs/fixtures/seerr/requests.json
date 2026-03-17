@@ -1,0 +1,11 @@
+{
+  "results": [
+    {"id": 1, "status": 2, "createdAt": "2026-03-15T19:30:00.000Z", "updatedAt": "2026-03-15T20:15:00.000Z", "type": "movie", "media": {"tmdbId": 1184918, "mediaType": "movie", "status": 5}, "requestedBy": {"displayName": "MovieFan2024"}, "modifiedBy": {"displayName": "admin"}},
+    {"id": 2, "status": 1, "createdAt": "2026-03-16T10:00:00.000Z", "updatedAt": "2026-03-16T10:00:00.000Z", "type": "movie", "media": {"tmdbId": 822119, "mediaType": "movie", "status": 2}, "requestedBy": {"displayName": "SciFiLover"}, "modifiedBy": null},
+    {"id": 3, "status": 2, "createdAt": "2026-03-14T14:00:00.000Z", "updatedAt": "2026-03-14T15:30:00.000Z", "type": "tv", "media": {"tmdbId": 94997, "mediaType": "tv", "status": 5}, "requestedBy": {"displayName": "CinematicVibes"}, "modifiedBy": {"displayName": "admin"}},
+    {"id": 4, "status": 1, "createdAt": "2026-03-16T08:45:00.000Z", "updatedAt": "2026-03-16T08:45:00.000Z", "type": "movie", "media": {"tmdbId": 693134, "mediaType": "movie", "status": 2}, "requestedBy": {"displayName": "AnimeLover"}, "modifiedBy": null},
+    {"id": 5, "status": 2, "createdAt": "2026-03-13T21:00:00.000Z", "updatedAt": "2026-03-13T22:00:00.000Z", "type": "movie", "media": {"tmdbId": 762509, "mediaType": "movie", "status": 5}, "requestedBy": {"displayName": "RetroFan"}, "modifiedBy": {"displayName": "admin"}},
+    {"id": 6, "status": 3, "createdAt": "2026-03-12T16:00:00.000Z", "updatedAt": "2026-03-12T18:00:00.000Z", "type": "movie", "media": {"tmdbId": 999999, "mediaType": "movie", "status": 1}, "requestedBy": {"displayName": "FilmBuff"}, "modifiedBy": {"displayName": "admin"}},
+    {"id": 7, "status": 2, "createdAt": "2026-03-15T11:00:00.000Z", "updatedAt": "2026-03-15T12:00:00.000Z", "type": "tv", "media": {"tmdbId": 246, "mediaType": "tv", "status": 5}, "requestedBy": {"displayName": "NightOwl"}, "modifiedBy": {"displayName": "admin"}}
+  ]
+}

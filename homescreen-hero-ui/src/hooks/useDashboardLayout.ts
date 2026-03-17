@@ -58,6 +58,26 @@ function getDefaultHiddenForSection(section: WidgetSection): string[] {
 }
 
 function getDefaultConfig(): DashboardLayoutConfigV2 {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === "true";
+
+    if (isDemo) {
+        // Demo: show every registered widget without needing a manual list.
+        return {
+            version: LAYOUT_VERSION,
+            statusBar: {
+                order: getRegistryWidgetIds("status-bar"),
+                hidden: [],
+            },
+            main: {
+                order: getRegistryWidgetIds("main"),
+                hidden: [],
+            },
+            widgetSettings: {
+                "recent-rotations": { colSpan: 1 },
+            },
+        };
+    }
+
     return {
         version: LAYOUT_VERSION,
         statusBar: {

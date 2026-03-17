@@ -1,0 +1,9 @@
+{
+  "data": [
+    {"rating_key": 10001, "title": "Oscar Winners 2024", "media_type": "collection", "child_count": 5},
+    {"rating_key": 10002, "title": "80s Action Classics", "media_type": "collection", "child_count": 5},
+    {"rating_key": 10003, "title": "Studio Ghibli Films", "media_type": "collection", "child_count": 5},
+    {"rating_key": 10004, "title": "Christopher Nolan Collection", "media_type": "collection", "child_count": 5},
+    {"rating_key": 10005, "title": "90s Crime Dramas", "media_type": "collection", "child_count": 5}
+  ]
+}

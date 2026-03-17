@@ -111,8 +111,9 @@ def sync_single_anilist_source(
 ) -> Tuple[int, int]:
     # Returns (total_items, matched_items)
     # AniList needs no credentials, so create the client directly
-    from homescreen_hero.core.integrations.anilist_client import AniListClient, AniListConfig
-    client = AniListClient(AniListConfig())
+    from homescreen_hero.core.integrations.anilist_client import AniListClient, AniListConfig, ANILIST_GRAPHQL_URL
+    base_url = getattr(config.anilist, "base_url", ANILIST_GRAPHQL_URL) if config.anilist else ANILIST_GRAPHQL_URL
+    client = AniListClient(AniListConfig(base_url=base_url))
 
     logger.info("Syncing AniList source '%s' from %s", source.name, source.url)
 

@@ -1,0 +1,8 @@
+{
+  "items": [
+    {"id": 872585, "title": "Oppenheimer", "media_type": "movie", "release_date": "2023-07-19"},
+    {"id": 792307, "title": "Poor Things", "media_type": "movie", "release_date": "2023-12-08"},
+    {"id": 840430, "title": "The Holdovers", "media_type": "movie", "release_date": "2023-10-27"}
+  ],
+  "total_pages": 1
+}

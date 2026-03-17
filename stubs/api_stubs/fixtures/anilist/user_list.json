@@ -1,0 +1,19 @@
+{
+  "data": {
+    "MediaListCollection": {
+      "lists": [
+        {
+          "name": "Completed",
+          "isCustomList": false,
+          "entries": [
+            {"media": {"id": 16498, "idMal": 16498, "type": "ANIME", "format": "TV", "title": {"romaji": "Shingeki no Kyojin", "english": "Attack on Titan"}, "seasonYear": 2013, "startDate": {"year": 2013}, "episodes": 25}},
+            {"media": {"id": 5114, "idMal": 5114, "type": "ANIME", "format": "TV", "title": {"romaji": "Hagane no Renkinjutsushi: Fullmetal Alchemist", "english": "Fullmetal Alchemist: Brotherhood"}, "seasonYear": 2009, "startDate": {"year": 2009}, "episodes": 64}},
+            {"media": {"id": 1, "idMal": 1, "type": "ANIME", "format": "TV", "title": {"romaji": "Cowboy Bebop", "english": "Cowboy Bebop"}, "seasonYear": 1998, "startDate": {"year": 1998}, "episodes": 26}},
+            {"media": {"id": 9253, "idMal": 9253, "type": "ANIME", "format": "TV", "title": {"romaji": "Steins;Gate", "english": "Steins;Gate"}, "seasonYear": 2011, "startDate": {"year": 2011}, "episodes": 24}},
+            {"media": {"id": 101348, "idMal": 37521, "type": "ANIME", "format": "TV", "title": {"romaji": "Vinland Saga", "english": "Vinland Saga"}, "seasonYear": 2019, "startDate": {"year": 2019}, "episodes": 24}}
+          ]
+        }
+      ]
+    }
+  }
+}

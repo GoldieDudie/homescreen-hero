@@ -1,0 +1,9 @@
+{
+  "data": [
+    {"node": {"id": 16498, "title": "Attack on Titan", "alternative_titles": {"en": "Attack on Titan", "ja": "進撃の巨人"}, "media_type": "tv", "num_episodes": 25, "start_season": {"year": 2013, "season": "spring"}}},
+    {"node": {"id": 5114, "title": "Fullmetal Alchemist: Brotherhood", "alternative_titles": {"en": "Fullmetal Alchemist: Brotherhood", "ja": "鋼の錬金術師"}, "media_type": "tv", "num_episodes": 64, "start_season": {"year": 2009, "season": "spring"}}},
+    {"node": {"id": 1, "title": "Cowboy Bebop", "alternative_titles": {"en": "Cowboy Bebop", "ja": "カウボーイビバップ"}, "media_type": "tv", "num_episodes": 26, "start_season": {"year": 1998, "season": "spring"}}},
+    {"node": {"id": 9253, "title": "Steins;Gate", "alternative_titles": {"en": "Steins;Gate", "ja": "シュタインズ・ゲート"}, "media_type": "tv", "num_episodes": 24, "start_season": {"year": 2011, "season": "spring"}}},
+    {"node": {"id": 37521, "title": "Vinland Saga", "alternative_titles": {"en": "Vinland Saga", "ja": "ヴィンランド・サガ"}, "media_type": "tv", "num_episodes": 24, "start_season": {"year": 2019, "season": "summer"}}}
+  ]
+}
