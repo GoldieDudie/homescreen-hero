@@ -61,14 +61,6 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
         section: "main",
         requiresIntegration: "tautulli",
     },
-    "most-active-users": {
-        id: "most-active-users",
-        name: "Most Active Users",
-        description: "Top users by play count",
-        category: "analytics",
-        section: "main",
-        requiresIntegration: "tautulli",
-    },
     "graph-carousel": {
         id: "graph-carousel",
         name: "Analytics Graphs",
@@ -78,6 +70,14 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
         requiresIntegration: "tautulli",
         colSpan: 2,
     },
+    "most-active-users": {
+        id: "most-active-users",
+        name: "Most Active Users",
+        description: "Top users by play count",
+        category: "analytics",
+        section: "main",
+        requiresIntegration: "tautulli",
+    },
     "recent-rotations": {
         id: "recent-rotations",
         name: "Recent Rotations",
@@ -86,6 +86,13 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
         section: "main",
         colSpan: 2,
         allowedColSpans: [1, 2],
+    },
+    "recently-added": {
+        id: "recently-added",
+        name: "Recently Added",
+        description: "Latest additions to your Plex libraries",
+        category: "activity",
+        section: "main",
     },
     "seerr-carousel": {
         id: "seerr-carousel",
@@ -112,13 +119,6 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
         category: "analytics",
         section: "main",
         colSpan: 2,
-    },
-    "recently-added": {
-        id: "recently-added",
-        name: "Recently Added",
-        description: "Latest additions to your Plex libraries",
-        category: "activity",
-        section: "main",
     },
 };
 
