@@ -12,76 +12,35 @@
 ## **[Try the Live Demo!](https://demo.homescreenhero.com)**
 ***Note:** The demo uses a mock Plex server I built, and is meant to be a Dashboard/UI preview. Not all functionality is enabled*
 
-
 </div>
 
-## A Quick Heads Up
+<div align="center">
+<img src="https://github.com/user-attachments/assets/3f89a2a8-dd2f-4172-9cc0-b5c72bbc38d8" alt="homescreen-hero dashboard demo" width="90%" />
+</div>
 
-This app is very much a **WORK IN PROGRESS!** This started as a simple Python script to rotate my Plex homescreen, and slowly turned in to much, much more. I still have a lot of really cool things planned in the coming weeks, so stay tuned!
+## Why homescreen-hero?
 
-**Disclaimer:** Parts of this app were built with the help of AI. I'm a Data Engineer by day, which means my frontend and UI/UX skills suck, so a good portion of the frontend was built with Claude and Google Stitch.
+homescreen-hero is for Plex users who want more control over how their libraries feel, not just how they're stored. It brings together collection management, automation, personalization, and server tools in one self-hosted app, all so that you get to choose what appears, when it appears, and who sees it.
+
+> **Transparency note:** homescreen-hero was built with a lot of help from AI coding tools, especially for frontend work and iteration. It's still actively designed, tested, reviewed, and maintained by a human, and being transparent about that process is important to me.
 
 ## Features
 
-- **Web Dashboard:** Manage your Plex Server, curate your homescreen(s), and get useful analytics & insights all in one place!
-- **Automated Collection Rotation:** Schedule collections to rotate on your Plex home screen to constantly keep things fresh for all your users.
-- **First-Time Setup Wizard:** Get started in minutes without touching config files
-- **3rd Party List Integrations:** Grow your library with curated lists from your favorite websites! Create/Sync collections from Trakt, Letterboxd, MDBLists, AniList, and MyAnimeList (MAL)
-- **Widgets for your favorite apps:** Add widgets to your dashboard from popular self-hosted apps (Tautulli, Seerr, more to come!)
-- **Useful Tools (WIP):** Collection of tools, scripts and utilites for managing your Plex server (checkout the Tools section below)
+- **Web Dashboard:** Customizable drag-and-drop dashboard with widgets for Tautulli, Seerr, library analytics, and more
+- **Smart Rotation:** Scheduled rotations with rule-based groups, smart filters, and random/weighted/LRU strategies
+- **Per-User Targeting:** Show or hide collections per Plex user so every homescreen feels personalized
+- **3rd Party List Sync:** Sync collections from Trakt, Letterboxd, MDBList, TMDb, AniList, and MAL. Auto-request missing items through Seerr.
+- **Collection Sharing:** Share your custom built Plex collections with other users via exportable JSON files or shareable codes
+- **Authentication:** Password login, Plex OAuth, or both (with role-based access control for future non-admin features)
+- **Plex Tools:** Date Added Editor, Watch History Cleaner, Unwatched Reports, Copy Watch History, and more
 
-#### Got a feature idea? Head over https://ideas.homescreenhero.com to submit feature requests and vote on the ideas you'd like to see implemented first 😊
+> Got a feature idea? Head over to https://ideas.homescreenhero.com to submit feature requests and vote on the ideas you'd like to see implemented first!
 
-## See It In Action!
-
-### Dashboard & Widget System
-<details>
-<summary><strong>Quick video demo of the homescreen-hero dashboard and widgets system</strong></summary>
-
-<video src="https://github.com/user-attachments/assets/74216471-acb2-4a67-812e-c2c640bede66" autoplay muted loop playsinline width="100%"></video>
-
-</details>
-
-### Screenshots
-<details>
-<summary><strong>Check out screenshots of the homescreen-hero UI</strong></summary>
-
-<table>
-  <tr>
-    <td align="center"><strong>Dashboard</strong></td>
-    <td align="center"><strong>Groups Page</strong></td>
-  </tr>
-  <tr>
-    <td><img width="600" alt="Dashboard" src="https://github.com/user-attachments/assets/da4771fb-e3f2-41df-9f13-3b0e5e1bed17" /></td>
-    <td><img width="600" alt="Groups Page" src="https://github.com/user-attachments/assets/1b6ef0f6-956e-40f0-aa56-66fe0e5c0e0a" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Group Details</strong></td>
-    <td align="center"><strong>Group Collections</strong></td>
-  </tr>
-  <tr>
-    <td><img width="600" alt="Group Details" src="https://github.com/user-attachments/assets/4ba5abd8-bc7b-402f-b3a5-28cd19ff1230" /></td>
-    <td><img width="600" alt="Group Collections" src="https://github.com/user-attachments/assets/808e7a8d-d995-49cb-97c8-50385a95058b" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Collections Page</strong></td>
-    <td align="center"><strong>Integrations Page</strong></td>
-  </tr>
-  <tr>
-    <td align="center"><img width="600" alt="Collections Page" src="https://github.com/user-attachments/assets/50eb68ee-d24b-4591-9191-e8d49c36bc1a" /></td>
-    <td aligh="center"><img width="600" alt="Integrations Page" src="https://github.com/user-attachments/assets/b9b7fc31-9e5b-4c76-9264-6288b2bb9f0f" /></td>
-  </tr>
-   <tr>
-    <td align="center" colspan="2"><strong>Tools Page</strong></td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><img width="600" alt="Tools Page" src="https://github.com/user-attachments/assets/e083f377-ebdc-4b4e-9db9-b6e582e0a84e" /></td>
-  </tr>
-</table>
-
-</details>
+📖 **[Full documentation at docs.homescreenhero.com](https://docs.homescreenhero.com)**
 
 ## Quick Start
+
+For all installation methods, including more detailed setup instructions, see the [Installation docs](https://docs.homescreenhero.com/docs/getting-started/installation).
 
 **Prerequisites:** [Docker](https://docs.docker.com/engine/install/), a running [Plex server](https://www.plex.tv/media-server-downloads/), and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)
 
@@ -99,97 +58,13 @@ Open http://localhost:8000 (or whichever port you specified in .env file) and th
 
 ### Windows Portable (Beta)
 
-**Note:** This is very much in beta and was solely created for a few users to simplify the Windows install process. Please feel free to report any issues. You can download the homescreen-hero-portable.zip on the latest [Releases Page](https://github.com/trentferguson/homescreen-hero/releases/latest)
-
-You can find detailed instructions in the homescreen-hero docs. Visit the [Windows Portable (Beta)](https://docs.homescreenhero.com/docs/getting-started/installation#windows-portable-beta) section for an installation guide.
-
-## Environment Variables
-
-Store sensitive values in a `.env` file (copy from `.env.example`). These override any values in `config.yaml`.
-
-### Required
-
-| Variable | Description | Default/Example |
-|----------|-----------------|:-----------:|
-| `HSH_PORT` | Port to run the web UI on) | `8000` |
-| `HSH_PLEX_URL` | Your Plex server URL | `http://192.168.1.100:32400` |
-| `HSH_PLEX_TOKEN` | Your Plex authentication token  | [how to find](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/) |
-| `HSH_AUTH_PASSWORD` | Password for web UI login | ------ |
-| `HSH_AUTH_SECRET_KEY` | Secret key for JWT token | generate with `openssl rand -hex 32` |
-
-
-### Optional Integrations
-
-| Variable | Description | Default/Example |
-|----------|-----------------|:-----------:|
-| `HSH_TRAKT_CLIENT_ID` | Your Trakt OAuth API key | [Get from Trakt](https://trakt.tv/oauth/applications) |
-| `HSH_MDBLIST_API_KEY` | Your MDBList API key | [Get from MDBList](https://mdblist.com/preferences/) |
-| `HSH_TAUTULLI_API_KEY` | Your personal Tautulli instance API key | Settings → Web Interface → API |
-| `HSH_TAUTULLI_BASE_URL` | Full URL of your Tautulli instance | `http://localhost:8181` |
-| `HSH_SEERR_API_KEY` | Your Seerr/Jellyseerr/Overseerr API key | Seerr Settings → General |
-| `HSH_SEERR_BASE_URL` | Full URL of your Seerr/Jellyseerr/Overseerr instance | `http://localhost:5055` |
-
-
-### Internal/Docker Paths
-
-| Variable | Description | Default |
-|----------|---------|-------------|
-| `HOMESCREEN_HERO_CONFIG` | Path to config.yaml file | `/data/config.yaml` |
-| `HOMESCREEN_HERO_DB` | Path to databse file | `sqlite:////data/homescreen_hero.sqlite` |
-| `HOMESCREEN_HERO_LOG_DIR` | Path to Log directory | `/data/logs` |
-
-</details>
+A portable Windows build is available as a zip download on each [Release](https://github.com/trentferguson/homescreen-hero/releases/latest). See the [Windows Portable (Beta)](https://docs.homescreenhero.com/docs/getting-started/installation#windows-portable-beta) docs for installation instructions.
 
 ## Configuration
 
-Settings are stored in `data/config.yaml`. See [example.config.yaml](example.config.yaml) for a full template.
+Copy `.env.example` to `.env` and fill in your Plex URL, token, and any integration API keys. The Setup Wizard handles the rest on first launch.
 
-**Key sections:**
-- **plex** – Server URL, token, and libraries to manage
-- **rotation** – Interval, max collections, and strategy (`random`, `weighted`, or `lru`)
-- **groups** – Named pools of collections with min/max picks and weights
-- **trakt/mdblist** – Third-party list sync configuration
-
-<details>
-<summary><strong>Rotation Strategies</strong></summary>
-
-| Strategy | Description |
-|----------|-------------|
-| `random` | Groups processed in config order, collections selected randomly |
-| `weighted` | Groups processed by weight (highest first), collections selected randomly |
-| `lru` | Least recently used collections selected first for fair rotation |
-
-All strategies respect `min_gap_rotations` to prevent collections from appearing too frequently.
-
-</details>
-
-## Tools & Utilities
-
-As this app as grown, so has the scope of tools and utilities I envision adding. Here you can find a list of current tools implemented on the Tools page, and a general overview of what they do. Do you have a Plex tool that you'd like to see added? I love adding requested features, so just open an issue here on Github, or ping me on our Discord server!
-
-<details>
-<summary><strong>Date Added Editor</strong></summary>
-
-Fix the "Date Added" timestamp on movies and shows that were redownloaded to your library. Choose from a custom date, 30 days ago, or match the media's original release date.
-</details>
-
-<details>
-<summary><strong>Watch History Cleaner</strong></summary>
-
-Mark TV shows as unwatched to fix issues with Plex's "Continue Watching" row. Useful when shows disappear from Continue Watching or you want to start a fresh rewatch.
-</details>
-
-<details>
-<summary><strong>Unwatched Report</strong></summary>
-
-Find content that's collecting dust in your library. Search for items that have never been watched or haven't been watched within a specified time period (30 days, 90 days, 6 months, etc.). Requires Tautulli integration. Export results to CSV for library cleanup decisions.
-</details>
-
-<details>
-<summary><strong>Copy Watch History</summary>
-
-Tool for syncing watched status between Plex Home users. Supports Add Only mode (only mark things watched) and Mirror mode (make watch history identical). Includes preview step and real-time progress bar during sync. 
-</details>
+See the [Environment Variables](https://docs.homescreenhero.com/docs/getting-started/environment-variables) and [Configuration](https://docs.homescreenhero.com/docs/getting-started/configuration) docs for the full reference.
 
 ## Docker Image Tags
 
