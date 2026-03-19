@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from homescreen_hero.core.db.history import init_db, record_rotation
 from homescreen_hero.core.db.history import session_scope
-from homescreen_hero.core.db.models import RotationRecord, PinnedCollection, CollectionAnalytics, SourceSyncRecord
+from homescreen_hero.core.db.models import RotationRecord, PinnedCollection, CollectionAnalytics, SourceSyncRecord, SeerrAutoRequest
 
 COLLECTIONS = {
     "Featured Films": ["Oscar Winners 2024", "Christopher Nolan Collection", "A24 Films"],
@@ -140,6 +140,49 @@ def seed():
             print("Seeded 7 source sync records")
         else:
             print("Source sync records already exist, skipping")
+
+    # Seed auto-request records
+    with session_scope() as db:
+        existing_requests = db.query(SeerrAutoRequest).first()
+        if not existing_requests:
+            auto_requests = [
+                SeerrAutoRequest(
+                    tmdb_id=693134,
+                    media_type="movie",
+                    title="Dune: Part Two",
+                    year=2024,
+                    integration_type="trakt",
+                    source_name="Trakt Popular",
+                    status="downloaded",
+                    requested_at=now - timedelta(hours=18),
+                    downloaded_at=now - timedelta(hours=12),
+                ),
+                SeerrAutoRequest(
+                    tmdb_id=822119,
+                    media_type="movie",
+                    title="Captain America: Brave New World",
+                    year=2025,
+                    integration_type="trakt",
+                    source_name="MCU Infinity Saga",
+                    status="requested",
+                    requested_at=now - timedelta(hours=5),
+                ),
+                SeerrAutoRequest(
+                    tmdb_id=94997,
+                    media_type="tv",
+                    title="House of the Dragon",
+                    year=2022,
+                    integration_type="trakt",
+                    source_name="Trakt Popular",
+                    status="already_exists",
+                    requested_at=now - timedelta(hours=2),
+                ),
+            ]
+            for r in auto_requests:
+                db.add(r)
+            print("Seeded 3 auto-request records")
+        else:
+            print("Auto-request records already exist, skipping")
 
     # Seed pinned collections
     with session_scope() as db:
