@@ -465,9 +465,51 @@ def simulate_rotation_once(
         rotation_result.selected_collections,
     )
 
+    # Apply display ordering so simulation preview matches actual rotation order
+    from .rotation import order_collections_for_display
+    from .db import get_pinned_collections
+    pinned_collections = get_pinned_collections()
+    pinned_order = {p.collection_name: p.display_order for p in pinned_collections}
+    ordered = order_collections_for_display(
+        list(rotation_result.selected_collections),
+        config,
+        pinned_names=pinned_names,
+        pinned_order=pinned_order,
+        smart_group_collections=smart_group_collections,
+    )
+
+    # Sort chosen_collections per group to match display ordering
+    group_cfg_map = {g.name: g for g in config.groups}
+    for group_result in rotation_result.groups:
+        gcfg = group_cfg_map.get(group_result.group_name)
+        if not gcfg or not group_result.chosen_collections:
+            continue
+        if gcfg.collection_order == "alpha":
+            group_result.chosen_collections = sorted(group_result.chosen_collections)
+        elif gcfg.collection_order == "custom" and not gcfg.smart:
+            coll_list = gcfg.collections
+            group_result.chosen_collections = sorted(
+                group_result.chosen_collections,
+                key=lambda c: coll_list.index(c) if c in coll_list else len(coll_list),
+            )
+
+    # Group by library to match how Plex displays collections per-library section
+    enabled_libraries = [lib.name for lib in config.plex.libraries if lib.enabled]
+    library_grouped: list[str] = []
+    used = set()
+    for lib_name in enabled_libraries:
+        for name in ordered:
+            if name not in used and collection_library_map.get(name) == lib_name:
+                library_grouped.append(name)
+                used.add(name)
+    # Append any collections not found in a library (e.g. TV collections with only Movies enabled)
+    for name in ordered:
+        if name not in used:
+            library_grouped.append(name)
+
     execution = RotationExecution(
         rotation=rotation_result,
-        applied_collections=list(rotation_result.selected_collections),
+        applied_collections=library_grouped,
         dry_run=True,
         simulation_id=simulation_id,
     )
