@@ -22,7 +22,7 @@
 
 homescreen-hero is for Plex users who want more control over how their libraries feel, not just how they're stored. It brings together collection management, automation, personalization, and server tools in one self-hosted app, all so that you get to choose what appears, when it appears, and who sees it.
 
-> **Transparency note:** homescreen-hero was built with a lot of help from AI coding tools, especially for frontend work and iteration. It's still actively designed, tested, reviewed, and maintained by a human, and being transparent about that process is important to me.
+> **Transparency note:** While I am a professional engineer, homescreen-hero was built with a lot of help from AI coding tools, especially for frontend work and iteration. It's still actively designed, tested, reviewed, and maintained by a human(s), and being transparent about that process is important to me.
 
 ## Features
 
