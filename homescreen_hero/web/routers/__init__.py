@@ -15,6 +15,7 @@ from .collection_io import router as collection_io_router
 from .version import router as version_router
 from .library_stats import router as library_stats_router
 from .user_targeting import router as user_targeting_router
+from .poster_backup import router as poster_backup_router
 
 __all__ = [
     "analytics_router",
@@ -27,6 +28,7 @@ __all__ = [
     "integrations_router",
     "library_stats_router",
     "logs_router",
+    "poster_backup_router",
     "rotation_router",
     "seerr_router",
     "tools_router",

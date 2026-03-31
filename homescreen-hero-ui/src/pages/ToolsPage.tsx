@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar, Wrench, History, FileSearch, Users, ArrowLeftRight, ShieldOff } from "lucide-react";
+import { Calendar, Wrench, History, FileSearch, Users, ArrowLeftRight, ShieldOff, Image } from "lucide-react";
 import ToolCard from "../components/tools/ToolCard";
 import DateAddedEditor from "../components/tools/DateAddedEditor";
 import WatchHistoryCleaner from "../components/tools/WatchHistoryCleaner";
@@ -7,6 +7,7 @@ import UnwatchedReport from "../components/tools/UnwatchedReport";
 import CopyWatchHistory from "../components/tools/CopyWatchHistory";
 import CollectionImportExport from "../components/tools/CollectionImportExport";
 import ClearUserTargeting from "../components/tools/ClearUserTargeting";
+import PosterBackup from "../components/tools/PosterBackup";
 
 type Tool = {
     id: string;
@@ -51,6 +52,12 @@ const tools: Tool[] = [
         title: "Clear User Targeting Labels",
         description: "Remove all hsh-hide labels and reset user filter settings",
         icon: ShieldOff,
+    },
+    {
+        id: "poster-backup",
+        title: "Poster Backup / Restore",
+        description: "Backup and restore your Plex posters for movies, shows, and collections",
+        icon: Image,
     },
 ];
 
@@ -106,6 +113,9 @@ export default function ToolsPage() {
             )}
             {activeTool === "clear-user-targeting" && (
                 <ClearUserTargeting onClose={() => setActiveTool(null)} />
+            )}
+            {activeTool === "poster-backup" && (
+                <PosterBackup onClose={() => setActiveTool(null)} />
             )}
         </div>
     );

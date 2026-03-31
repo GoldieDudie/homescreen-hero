@@ -31,6 +31,7 @@ from homescreen_hero.web.routers import (
     version_router,
     library_stats_router,
     user_targeting_router,
+    poster_backup_router,
 )
 from homescreen_hero.web.routers.version import get_current_version
 from homescreen_hero.web.routers.collections import invalidate_collections_cache
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(version_router, prefix="/api")
     app.include_router(library_stats_router, prefix="/api")
     app.include_router(user_targeting_router, prefix="/api")
+    app.include_router(poster_backup_router, prefix="/api")
 
     # Frontend (serve only if build exists)
     logger.info(
