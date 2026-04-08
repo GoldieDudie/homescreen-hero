@@ -71,14 +71,20 @@ def get_collection_item_count(collection: object) -> int:
     return getattr(collection, "childCount", 0)
 
 
-def get_configured_collection_names(config: AppConfig) -> Set[str]:
+def get_configured_collection_names(
+    config: AppConfig,
+    smart_group_collections: Dict[str, List[str]] | None = None,
+) -> Set[str]:
     # Build the set of all collection names referenced in your groups and integration sources
     names: Set[str] = set()
 
-    # Add collections from groups
+    # Add collections from groups (use resolved smart group collections when available)
     for group in config.groups:
-        for name in group.collections:
-            names.add(name)
+        if group.smart and smart_group_collections and group.name in smart_group_collections:
+            names.update(smart_group_collections[group.name])
+        else:
+            for name in group.collections:
+                names.add(name)
 
     # Add collections from Trakt sources
     if config.trakt and config.trakt.enabled and config.trakt.sources:
@@ -281,7 +287,7 @@ def apply_home_screen_selection(
         return []
 
     selected_set = set(selected_collection_names)
-    configured_names = get_configured_collection_names(config)
+    configured_names = get_configured_collection_names(config, smart_group_collections)
 
     # Get all collections that have ever been rotated to ensure we clean them up if removed
     _, usage_map = get_rotation_history_context()
