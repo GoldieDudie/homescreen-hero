@@ -337,6 +337,17 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
         third_party_names = {s.name for s in trakt_sources + letterboxd_sources + mdblist_sources + tmdb_sources + anilist_sources + mal_sources}
         plex_sources = [s for s in plex_sources if s.name not in third_party_names]
 
+        # Deduplicate by name: when the same collection name exists in multiple
+        # libraries (e.g. 4K and 1080p), only show it once. The group config stores
+        # names only, so showing duplicates causes both to be added on a single click.
+        seen_plex_names: set[str] = set()
+        deduped: list[CollectionSourcesResponse.CollectionSource] = []
+        for s in plex_sources:
+            if s.name not in seen_plex_names:
+                seen_plex_names.add(s.name)
+                deduped.append(s)
+        plex_sources = deduped
+
         return CollectionSourcesResponse(
             plex=plex_sources,
             trakt=trakt_sources,

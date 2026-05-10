@@ -297,13 +297,20 @@ def apply_home_screen_selection(
     # (auto-rotate can select collections that aren't in groups or history yet)
     all_names_to_process = configured_names | previously_rotated_names | selected_set
 
-    # Fetch collections from all enabled libraries
-    all_collections: Dict[str, object] = {}
+    # Fetch all collection instances per library.
+    # Keyed as {name: [(library_name, collection_obj), ...]} so that collections
+    # with the same name in multiple libraries (e.g. 4K + 1080p) are all processed.
+    # Previously we did `all_collections.update(...)` which caused the last library
+    # to silently overwrite earlier ones, leaving same-named collections in other
+    # libraries at whatever visibility they happened to have — causing "ghost" promoted
+    # collections after rotation.
+    all_instances: Dict[str, List] = {}
     for library_name in enabled_libraries:
         logger.info("Fetching collections from library: %s", library_name)
         try:
             library_collections = get_library_collections(server, library_name)
-            all_collections.update(library_collections)
+            for coll_name, coll_obj in library_collections.items():
+                all_instances.setdefault(coll_name, []).append((library_name, coll_obj))
         except Exception as e:
             logger.error("Failed to fetch collections from library '%s': %s", library_name, e)
             continue
@@ -319,10 +326,13 @@ def apply_home_screen_selection(
         dry_run,
     )
 
-    # Get pinned collections to ensure they come first in the applied order
+    # Get pinned collections to ensure they come first in the applied order.
+    # pinned_library stores the intended library for each pinned name so we can
+    # promote only that library's instance and suppress others.
     from ..db import get_pinned_collections
     pinned_collections = get_pinned_collections()
     pinned_order = {p.collection_name: p.display_order for p in pinned_collections}
+    pinned_library = {p.collection_name: p.library_name for p in pinned_collections}
     pinned_names = set(pinned_order.keys())
 
     # Sort: pinned first (by pin order), then non-pinned (alphabetically)
@@ -332,17 +342,15 @@ def apply_home_screen_selection(
         return (1, 0, name)
 
     for name in sorted(all_names_to_process, key=sort_key):
-        coll = all_collections.get(name)
-        if coll is None:
-            # Collection not found in Plex - might have been deleted from Plex library
+        instances = all_instances.get(name)
+        if not instances:
+            # Collection not found in any enabled Plex library
             if name in configured_names:
                 logger.warning(
                     "Configured collection not found in any enabled Plex library: %s",
                     name,
                 )
             continue
-
-        hub = coll.visibility()
 
         if name in selected_set:
             # Get visibility settings for this collection
@@ -351,36 +359,65 @@ def apply_home_screen_selection(
                 "shared": False,
                 "recommended": False
             })
-
-            logger.info(
-                "Enabling visibility for collection '%s': home=%s, shared=%s, recommended=%s",
-                name,
-                visibility.get("home", True),
-                visibility.get("shared", False),
-                visibility.get("recommended", False)
-            )
             applied.append(name)
-            if not dry_run:
-                hub.updateVisibility(
-                    home=visibility.get("home", True),
-                    shared=visibility.get("shared", False),
-                    recommended=visibility.get("recommended", False)
-                )
-                # Apply collection sort if configured for this collection's group
-                if collection_sort and name in collection_sort:
-                    try:
-                        coll.sortUpdate(sort=collection_sort[name])
-                        logger.debug("Set sort order for '%s' to '%s'", name, collection_sort[name])
-                    except Exception:
-                        logger.warning("Failed to update sort for '%s' (may be a smart collection)", name)
+
+            for lib, coll in instances:
+                hub = coll.visibility()
+                # Pinned collections are library-scoped: only promote the intended
+                # library's instance; suppress all others with the same name.
+                if name in pinned_names:
+                    is_pinned_lib = lib == pinned_library.get(name)
+                    if is_pinned_lib:
+                        logger.info(
+                            "Enabling visibility for pinned collection '%s' (lib=%s): home=%s, shared=%s, recommended=%s",
+                            name, lib,
+                            visibility.get("home", True),
+                            visibility.get("shared", False),
+                            visibility.get("recommended", False),
+                        )
+                        if not dry_run:
+                            hub.updateVisibility(
+                                home=visibility.get("home", True),
+                                shared=visibility.get("shared", False),
+                                recommended=visibility.get("recommended", False),
+                            )
+                    else:
+                        logger.debug("Suppressing non-pinned library instance of '%s' (lib=%s)", name, lib)
+                        if not dry_run:
+                            hub.updateVisibility(home=False, shared=False, recommended=False)
+                else:
+                    # Non-pinned selected: promote all library instances so both
+                    # the 4K and 1080p versions of the same collection appear.
+                    logger.info(
+                        "Enabling visibility for collection '%s' (lib=%s): home=%s, shared=%s, recommended=%s",
+                        name, lib,
+                        visibility.get("home", True),
+                        visibility.get("shared", False),
+                        visibility.get("recommended", False),
+                    )
+                    if not dry_run:
+                        hub.updateVisibility(
+                            home=visibility.get("home", True),
+                            shared=visibility.get("shared", False),
+                            recommended=visibility.get("recommended", False),
+                        )
+                        # Apply collection sort if configured for this collection's group
+                        if collection_sort and name in collection_sort:
+                            try:
+                                coll.sortUpdate(sort=collection_sort[name])
+                                logger.debug("Set sort order for '%s' to '%s'", name, collection_sort[name])
+                            except Exception:
+                                logger.warning("Failed to update sort for '%s' (may be a smart collection)", name)
         else:
-            # Collection is either configured but not selected, or was previously rotated but removed from config
+            # Not selected: disable ALL library instances so no "ghost" promoted
+            # collections linger from a previous rotation.
             if name in previously_rotated_names and name not in configured_names:
                 logger.info("Disabling visibility for previously managed collection (removed from config): %s", name)
             else:
                 logger.debug("Disabling visibility for collection: %s", name)
             if not dry_run:
-                hub.updateVisibility(home=False, shared=False, recommended=False)
+                for _lib, coll in instances:
+                    coll.visibility().updateVisibility(home=False, shared=False, recommended=False)
 
     logger.info(
         "Home screen selection applied; %d collections enabled, %d collections processed",
@@ -391,8 +428,13 @@ def apply_home_screen_selection(
     if dry_run:
         logger.info("Dry run — no changes were sent to Plex")
 
-    # Reorder collections on the homescreen using group display settings
-    if applied and not dry_run:
+    # Reorder collections on the homescreen using group display settings.
+    # Only reorder when at least one group has an explicit collection_order configured.
+    # Without an explicit order, calling reorder would move managed collections to
+    # position 0 (via `hub.move(after=None)`), displacing pre-existing Plex collections
+    # that the user ordered manually outside of homescreen-hero.
+    needs_reorder = any(g.collection_order is not None for g in config.groups)
+    if applied and not dry_run and needs_reorder:
         from ..rotation import order_collections_for_display
         ordered_applied = order_collections_for_display(
             applied,
