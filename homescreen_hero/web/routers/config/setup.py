@@ -19,6 +19,7 @@ from homescreen_hero.core.auth import (
 )
 from homescreen_hero.core.config.loader import (
     CONFIG_ENV_VAR,
+    _DOCKER_DATA_CONFIG,
     get_config_path,
     load_config,
     load_config_text,
@@ -73,7 +74,19 @@ def _config_file_is_parseable(path: Path | None = None) -> bool:
 
 def _is_initial_setup_open() -> bool:
     # Initial setup/recovery stays available until a parseable config file exists.
-    return not _config_file_is_parseable()
+    if _config_file_is_parseable():
+        return False
+    # Safety net: if a valid config exists at the Docker data path but
+    # HOMESCREEN_HERO_CONFIG isn't set to point there, still block the wizard.
+    # This prevents the wizard from firing on bare `docker run` after an update.
+    configured_path = get_config_path()
+    if _DOCKER_DATA_CONFIG.resolve() != configured_path and _config_file_is_parseable(_DOCKER_DATA_CONFIG):
+        logger.warning(
+            "Config found at /data/config.yaml but HOMESCREEN_HERO_CONFIG is not set. "
+            "Set HOMESCREEN_HERO_CONFIG=/data/config.yaml to silence this warning."
+        )
+        return False
+    return True
 
 
 def require_initial_setup_open() -> None:

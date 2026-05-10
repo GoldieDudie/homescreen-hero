@@ -62,6 +62,9 @@ if env_file.exists():
 # Default path to the config file.
 DEFAULT_CONFIG_PATH = Path("config.yaml")
 
+# Well-known Docker volume path — checked before the relative default.
+_DOCKER_DATA_CONFIG = Path("/data/config.yaml")
+
 # Environment variable for config.yaml path override
 CONFIG_ENV_VAR = "HOMESCREEN_HERO_CONFIG"
 
@@ -81,6 +84,12 @@ def _resolve_config_path(path: Optional[Path | str] = None) -> Path:
         resolved = Path(env_path).expanduser().resolve()
         logger.debug(f"Using config path from {CONFIG_ENV_VAR}: {resolved}")
         return resolved
+
+    # Auto-discover: prefer /data/config.yaml (Docker volume convention) so that
+    # containers started without HOMESCREEN_HERO_CONFIG still find their config.
+    if _DOCKER_DATA_CONFIG.exists():
+        logger.debug(f"Auto-discovered config at {_DOCKER_DATA_CONFIG}")
+        return _DOCKER_DATA_CONFIG.resolve()
 
     resolved = DEFAULT_CONFIG_PATH.resolve()
     logger.debug(f"Using default config path: {resolved}")
