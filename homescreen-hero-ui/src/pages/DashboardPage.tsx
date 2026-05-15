@@ -34,19 +34,21 @@ type RotationHistoryItem = {
     created_at: string;
     success: boolean;
     error_message?: string | null;
-    featured_collections: string[];
-    group_contributions?: Record<string, string[]> | null;
+    featured_collections: CollectionRef[];
+    group_contributions?: Record<string, CollectionRef[]> | null;
 };
 
 type HealthComponent = { ok: boolean; error?: string;[k: string]: unknown };
 
+type CollectionRef = { library: string; name: string };
+
 type RotationExecution = {
     rotation: {
-        selected_collections: string[];
+        selected_collections: CollectionRef[];
         groups: {
             group_name: string;
-            chosen_collections: string[];
-            available_collections: string[];
+            chosen_collections: CollectionRef[];
+            available_collections: CollectionRef[];
             picked_count: number;
             reason_skipped?: string | null;
             active: boolean;
@@ -57,10 +59,13 @@ type RotationExecution = {
         remaining_global: number;
         today: string;
     };
-    applied_collections: string[];
+    applied_collections: CollectionRef[];
     dry_run: boolean;
     simulation_id?: number | null;
 };
+
+const refLabel = (r: CollectionRef): string => `${r.name} (${r.library})`;
+const refKey = (r: CollectionRef): string => `${r.library}/${r.name}`;
 
 const healthEndpoints = {
     config: "/api/health/config",
@@ -386,7 +391,7 @@ export default function Dashboard() {
 
         let summary = record.success ? "Rotation succeeded" : "Rotation failed";
         if (featured_collections?.length) {
-            summary = `Featured: ${featured_collections.join(", ")}`;
+            summary = `Featured: ${featured_collections.map(refLabel).join(", ")}`;
         }
 
         return {
@@ -673,8 +678,8 @@ export default function Dashboard() {
                                 <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Selected Collections</h4>
                                 {simulation.applied_collections.length ? (
                                     <ul className="list-disc list-inside text-slate-700 dark:text-slate-200 space-y-1">
-                                        {simulation.applied_collections.map((name) => (
-                                            <li key={name}>{name}</li>
+                                        {simulation.applied_collections.map((ref) => (
+                                            <li key={refKey(ref)}>{refLabel(ref)}</li>
                                         ))}
                                     </ul>
                                 ) : (
@@ -731,8 +736,8 @@ export default function Dashboard() {
                                                     </p>
                                                     {group.available_collections.length ? (
                                                         <ul className="text-sm text-slate-700 dark:text-slate-200 list-disc list-inside space-y-1">
-                                                            {group.available_collections.map((collection) => (
-                                                                <li key={collection}>{collection}</li>
+                                                            {group.available_collections.map((ref) => (
+                                                                <li key={refKey(ref)}>{refLabel(ref)}</li>
                                                             ))}
                                                         </ul>
                                                     ) : (
@@ -745,8 +750,8 @@ export default function Dashboard() {
                                                     </p>
                                                     {group.chosen_collections.length ? (
                                                         <ul className="text-sm text-slate-700 dark:text-slate-200 list-disc list-inside space-y-1">
-                                                            {group.chosen_collections.map((collection) => (
-                                                                <li key={collection}>{collection}</li>
+                                                            {group.chosen_collections.map((ref) => (
+                                                                <li key={refKey(ref)}>{refLabel(ref)}</li>
                                                             ))}
                                                         </ul>
                                                     ) : (

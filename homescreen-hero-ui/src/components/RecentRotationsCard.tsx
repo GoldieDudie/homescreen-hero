@@ -2,14 +2,18 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { normalizeIso, timeAgo } from "../utils/dates";
 
+type CollectionRef = { library: string; name: string };
+const refLabel = (r: CollectionRef): string => `${r.name} (${r.library})`;
+const refKey = (r: CollectionRef): string => `${r.library}/${r.name}`;
+
 type RotationEvent = {
     id: number;
     created_at: string;
     success: boolean;
     summary: string;
     error_message?: string | null;
-    featured_collections: string[];
-    group_contributions?: Record<string, string[]> | null;
+    featured_collections: CollectionRef[];
+    group_contributions?: Record<string, CollectionRef[]> | null;
 };
 
 type LastRun = {
@@ -202,13 +206,13 @@ export default function RecentRotationsCard({
                                         <div key={groupName}>
                                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{groupName}</p>
                                             <ul className="space-y-1.5">
-                                                {collections.map((collection, idx) => (
+                                                {collections.map((ref, idx) => (
                                                     <li
-                                                        key={`${collection}-${idx}`}
+                                                        key={`${refKey(ref)}-${idx}`}
                                                         className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50"
                                                     >
                                                         <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                                                        <span className="text-sm text-white">{collection}</span>
+                                                        <span className="text-sm text-white">{refLabel(ref)}</span>
                                                     </li>
                                                 ))}
                                             </ul>
@@ -222,13 +226,13 @@ export default function RecentRotationsCard({
                                     </p>
                                     {selectedRotation.featured_collections.length > 0 ? (
                                         <ul className="space-y-1.5">
-                                            {selectedRotation.featured_collections.map((collection, idx) => (
+                                            {selectedRotation.featured_collections.map((ref, idx) => (
                                                 <li
-                                                    key={`${collection}-${idx}`}
+                                                    key={`${refKey(ref)}-${idx}`}
                                                     className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50"
                                                 >
                                                     <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                                                    <span className="text-sm text-white">{collection}</span>
+                                                    <span className="text-sm text-white">{refLabel(ref)}</span>
                                                 </li>
                                             ))}
                                         </ul>

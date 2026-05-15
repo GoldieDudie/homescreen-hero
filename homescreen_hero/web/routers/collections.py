@@ -310,12 +310,17 @@ def get_all_collections(
 ) -> AllCollectionsResponse:
     init_db()
 
-    # Get currently active collection names
-    active_names = set()
+    # Get currently active collection (library, name) tuples
+    active_refs: set[tuple[str, str]] = set()
     rows = list_rotations(limit=1)
     if rows:
         latest = rows[0]
-        active_names = set(latest.featured_collections or [])
+        for item in latest.featured_collections or []:
+            if isinstance(item, dict):
+                active_refs.add((item.get("library", ""), item.get("name", "")))
+            else:
+                # Legacy bare-string records — library unknown
+                active_refs.add(("", str(item)))
 
     config = load_config()
     server = get_plex_server(config)
@@ -340,7 +345,7 @@ def get_all_collections(
                         library=section.title,
                         poster_url=poster_url,
                         item_count=item_count,
-                        is_active=(col.title in active_names),
+                        is_active=((section.title, col.title) in active_refs or ("", col.title) in active_refs),
                         smart=bool(getattr(col, "smart", False)),
                     )
                 )

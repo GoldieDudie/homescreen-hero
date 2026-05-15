@@ -10,8 +10,14 @@ const mockItems = [
         success: true,
         summary: "Featured: Action, Comedy",
         error_message: null,
-        featured_collections: ["Action", "Comedy"],
-        group_contributions: { "Movies": ["Action"], "TV Shows": ["Comedy"] },
+        featured_collections: [
+            { library: "Movies", name: "Action" },
+            { library: "TV Shows", name: "Comedy" },
+        ],
+        group_contributions: {
+            "Movies": [{ library: "Movies", name: "Action" }],
+            "TV Shows": [{ library: "TV Shows", name: "Comedy" }],
+        },
     },
     {
         id: 2,
@@ -28,7 +34,11 @@ const mockItems = [
         success: true,
         summary: "Rotated 3 collections",
         error_message: null,
-        featured_collections: ["Horror", "Sci-Fi", "Drama"],
+        featured_collections: [
+            { library: "Movies", name: "Horror" },
+            { library: "Movies", name: "Sci-Fi" },
+            { library: "Movies", name: "Drama" },
+        ],
         group_contributions: null,
     },
 ];
@@ -144,8 +154,8 @@ describe("RecentRotationsCard", () => {
         expect(screen.queryByText(/Featured Collections/)).not.toBeInTheDocument();
         expect(screen.getByText("Movies")).toBeInTheDocument();
         expect(screen.getByText("TV Shows")).toBeInTheDocument();
-        expect(screen.getByText("Action")).toBeInTheDocument();
-        expect(screen.getByText("Comedy")).toBeInTheDocument();
+        expect(screen.getByText("Action (Movies)")).toBeInTheDocument();
+        expect(screen.getByText("Comedy (TV Shows)")).toBeInTheDocument();
     });
 
     it("closes detail modal when clicking close button", async () => {

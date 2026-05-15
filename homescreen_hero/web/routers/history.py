@@ -48,6 +48,7 @@ def get_usage() -> List[CollectionUsageOut]:
 
     return [
         CollectionUsageOut(
+            library_name=u.library_name,
             collection_name=u.collection_name,
             times_used=u.times_used,
             last_rotation_id=u.last_rotation_id,

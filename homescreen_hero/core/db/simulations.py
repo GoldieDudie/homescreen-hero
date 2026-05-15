@@ -13,7 +13,7 @@ from homescreen_hero.core.config.schema import RotationResult  # pydantic model
 def create_simulation(rotation_result: RotationResult) -> int:
     # Store this simulated rotation so it can be applied later
 
-    featured = list(rotation_result.selected_collections)
+    featured = [{"library": r.library, "name": r.name} for r in rotation_result.selected_collections]
 
     # IMPORTANT: make snapshot JSON-safe so the JSON column can store it  <-- Thanks ChatGPT, couldn't figure this one
     # Pydantic's .json() will serialize dates to ISO strings,

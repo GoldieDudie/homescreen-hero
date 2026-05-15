@@ -559,8 +559,8 @@ class RotationRecordOut(BaseModel):
     created_at: datetime
     success: bool
     error_message: Optional[str] = None
-    featured_collections: List[str]
-    group_contributions: Optional[Dict[str, List[str]]] = None
+    featured_collections: List[CollectionRef]
+    group_contributions: Optional[Dict[str, List[CollectionRef]]] = None
 
 
 class CollectionUsageOut(BaseModel):
