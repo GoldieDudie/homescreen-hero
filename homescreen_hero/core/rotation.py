@@ -696,6 +696,46 @@ def build_collection_visibility_map(
     return visibility_map
 
 
+def build_visibility_map_from_rotation_result(
+    rotation_result: RotationResult,
+    config: AppConfig,
+    smart_group_collections: Optional[Dict[str, List[str]]] = None,
+) -> Dict[str, Dict[str, bool]]:
+    # Build visibility map using the group that actually selected each collection.
+    # Each collection is attributed to the group that picked it during rotation,
+    # so visibility reflects that group's settings rather than whichever group
+    # happens to appear first in config order.
+    visibility_map: Dict[str, Dict[str, bool]] = {}
+    group_cfg_map = {g.name: g for g in config.groups}
+
+    for group_result in rotation_result.groups:
+        gcfg = group_cfg_map.get(group_result.group_name)
+        if not gcfg or not group_result.chosen_collections:
+            continue
+        for collection_name in group_result.chosen_collections:
+            if collection_name not in visibility_map:
+                visibility_map[collection_name] = {
+                    "home": gcfg.visibility_home,
+                    "shared": gcfg.visibility_shared,
+                    "recommended": gcfg.visibility_recommended,
+                }
+
+    # Fallback for selected collections not attributed to any group result
+    # (e.g. simulations stored without group data, or edge cases in smart groups).
+    # Degrades gracefully to config-order behaviour for those collections only.
+    unattributed = [n for n in rotation_result.selected_collections if n not in visibility_map]
+    if unattributed:
+        fallback = build_collection_visibility_map(config, smart_group_collections)
+        for name in unattributed:
+            visibility_map[name] = fallback.get(name, {
+                "home": True,
+                "shared": False,
+                "recommended": False,
+            })
+
+    return visibility_map
+
+
 def build_collection_sort_map(
     config: AppConfig,
     smart_group_collections: Optional[Dict[str, List[str]]] = None,

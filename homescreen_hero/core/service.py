@@ -18,7 +18,7 @@ from .integrations import (
 from .integrations.plex_client import get_library_collections
 from .config.loader import load_config
 from .config.schema import AppConfig, RotationExecution, RotationResult
-from .rotation import run_rotation_with_history, run_auto_rotation_with_history, build_collection_visibility_map, build_collection_sort_map
+from .rotation import run_rotation_with_history, run_auto_rotation_with_history, build_collection_visibility_map, build_visibility_map_from_rotation_result, build_collection_sort_map
 from .smart_groups import build_collection_metadata, resolve_smart_rules
 from .db import (
     init_db,
@@ -343,7 +343,9 @@ def run_rotation_once(
             for name in rotation_result.selected_collections
         }
     else:
-        collection_visibility = build_collection_visibility_map(config, smart_group_collections)
+        collection_visibility = build_visibility_map_from_rotation_result(
+            rotation_result, config, smart_group_collections
+        )
 
     # Add pinned collection visibility (overrides group settings for pinned collections)
     from .db import get_pinned_visibility_map
@@ -594,7 +596,9 @@ def apply_simulation(
             for name in rotation_result.selected_collections
         }
     else:
-        collection_visibility = build_collection_visibility_map(config, smart_group_collections)
+        collection_visibility = build_visibility_map_from_rotation_result(
+            rotation_result, config, smart_group_collections
+        )
 
     # Add pinned collection visibility (overrides group settings for pinned collections)
     from .db import get_pinned_visibility_map
