@@ -358,33 +358,35 @@ class GroupPostersResponse(BaseModel):
     posters: List[str]
 
 
-@router.get("/group-posters", response_model=GroupPostersResponse)
+class GroupPostersRequest(BaseModel):
+    refs: List[CollectionRef]
+
+
+@router.post("/group-posters", response_model=GroupPostersResponse)
 async def get_group_posters(
-    collection_names: str,
+    request: GroupPostersRequest,
     _current_user: CurrentUser = Depends(require_admin),
 ) -> GroupPostersResponse:
     try:
         config = load_config()
         server = get_plex_server(config)
 
-        # Parse collection names from query parameter
-        collections_to_fetch = [name.strip() for name in collection_names.split(',') if name.strip()]
-
-        if not collections_to_fetch:
+        wanted_keys = {(ref.library, ref.name) for ref in request.refs}
+        if not wanted_keys:
             return GroupPostersResponse(posters=[])
 
-        # Collect all items from the specified collections
         all_items = []
         for section in server.library.sections():
             try:
                 for col in section.collections():
-                    if col.title in collections_to_fetch:
-                        try:
-                            items = col.items()
-                            all_items.extend(items)
-                        except Exception as e:
-                            logger.warning(f"Could not get items for collection {col.title}: {e}")
-                            continue
+                    if (section.title, col.title) not in wanted_keys:
+                        continue
+                    try:
+                        items = col.items()
+                        all_items.extend(items)
+                    except Exception as e:
+                        logger.warning(f"Could not get items for collection {col.title}: {e}")
+                        continue
             except Exception as e:
                 logger.error(f"Error retrieving collections from section {section.title}: {e}")
                 continue
@@ -403,7 +405,7 @@ async def get_group_posters(
                 plex_url = server.url(item.thumb, includeToken=True)
                 posters.append(create_proxy_url(plex_url))
 
-        logger.info(f"Fetched {len(posters)} poster URLs for group collections: {collections_to_fetch}")
+        logger.info(f"Fetched {len(posters)} poster URLs for group collections: {sorted(wanted_keys)}")
         return GroupPostersResponse(posters=posters)
 
     except Exception as exc:

@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { fetchWithAuth } from "../utils/api";
 
+interface CollectionRef {
+    library: string;
+    name: string;
+}
+
 interface GroupCoverMosaicProps {
-    collections: string[];
+    collections: CollectionRef[];
 }
 
 export default function GroupCoverMosaic({ collections }: GroupCoverMosaicProps) {
@@ -18,8 +23,7 @@ export default function GroupCoverMosaic({ collections }: GroupCoverMosaicProps)
                 return;
             }
 
-            const collectionNames = collections.join(',');
-            const cacheKey = `group-posters-${collectionNames}`;
+            const cacheKey = `group-posters-${collections.map((c) => `${c.library}/${c.name}`).join(',')}`;
 
             // Check sessionStorage for cached posters
             const cachedData = sessionStorage.getItem(cacheKey);
@@ -48,7 +52,11 @@ export default function GroupCoverMosaic({ collections }: GroupCoverMosaicProps)
 
             // If no cache, fetch from API
             try {
-                const response = await fetchWithAuth(`/api/collections/group-posters?collection_names=${encodeURIComponent(collectionNames)}`);
+                const response = await fetchWithAuth(`/api/collections/group-posters`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ refs: collections }),
+                });
                 if (response.ok) {
                     const data = await response.json();
                     const posterUrls = data.posters || [];

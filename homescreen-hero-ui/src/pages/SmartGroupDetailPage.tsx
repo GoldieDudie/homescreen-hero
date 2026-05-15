@@ -62,7 +62,12 @@ type SmartGroupForm = {
     collection_order?: "random" | "alpha" | null;
     collection_sort?: "release" | "alpha" | null;
     date_range?: DateRange | null;
-    collections: string[];
+    collections: CollectionRef[];
+};
+
+type CollectionRef = {
+    library: string;
+    name: string;
 };
 
 type FilterOptions = {
@@ -73,6 +78,7 @@ type FilterOptions = {
 
 type PreviewCollection = {
     name: string;
+    library: string;
     poster_url: string | null;
 };
 
@@ -766,10 +772,11 @@ export default function SmartGroupDetailPage() {
                     ) : (
                         <div className={`grid grid-cols-3 gap-2.5 sm:grid-cols-5 transition-opacity duration-300 ${previewLoading ? "opacity-40" : "opacity-100"}`}>
                             {visiblePreviewCollections.map((col, idx) => {
-                                const posterLoaded = !col.poster_url || loadedPreviewPosters[col.name];
+                                const colKey = `${col.library}/${col.name}`;
+                                const posterLoaded = !col.poster_url || loadedPreviewPosters[colKey];
                                 return (
                                     <div
-                                        key={`${previewRevision}-${col.name}`}
+                                        key={`${previewRevision}-${colKey}`}
                                         className="preview-poster-enter group relative overflow-hidden rounded-lg border border-slate-800 bg-slate-950 aspect-[2/3]"
                                         style={{ animationDelay: `${idx * 40}ms` }}
                                     >
@@ -785,10 +792,10 @@ export default function SmartGroupDetailPage() {
                                                         posterLoaded ? "opacity-100" : "opacity-0"
                                                     }`}
                                                     onLoad={() => {
-                                                        setLoadedPreviewPosters((prev) => (prev[col.name] ? prev : { ...prev, [col.name]: true }));
+                                                        setLoadedPreviewPosters((prev) => (prev[colKey] ? prev : { ...prev, [colKey]: true }));
                                                     }}
                                                     onError={() => {
-                                                        setLoadedPreviewPosters((prev) => (prev[col.name] ? prev : { ...prev, [col.name]: true }));
+                                                        setLoadedPreviewPosters((prev) => (prev[colKey] ? prev : { ...prev, [colKey]: true }));
                                                     }}
                                                 />
                                             </>

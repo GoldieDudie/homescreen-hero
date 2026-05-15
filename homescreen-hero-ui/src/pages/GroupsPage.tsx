@@ -81,7 +81,12 @@ type CollectionGroup = {
     date_range?: DateRange | null;
     smart?: boolean;
     rules?: unknown[];
-    collections: string[];
+    collections: CollectionRef[];
+};
+
+type CollectionRef = {
+    library: string;
+    name: string;
 };
 
 type DisplaySettings = {
