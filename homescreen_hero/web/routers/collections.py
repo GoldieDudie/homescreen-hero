@@ -1136,14 +1136,15 @@ def toggle_pin_collection_endpoint(
     _current_user: CurrentUser = Depends(require_admin),
 ) -> TogglePinResponse:
     init_db()
-    currently_pinned = is_collection_pinned(request.collection_name)
+    ref = CollectionRef(library=request.library, name=request.collection_name)
+    currently_pinned = is_collection_pinned(ref)
 
     # Determine if this is an unpin request (all visibility options are None AND already pinned)
     visibility_provided = request.home is not None or request.shared is not None or request.recommended is not None
     should_unpin = currently_pinned and not visibility_provided
 
     if should_unpin:
-        unpin_collection(request.collection_name)
+        unpin_collection(ref)
 
         # Also remove the collection from the Plex homescreen
         try:
@@ -1175,8 +1176,7 @@ def toggle_pin_collection_endpoint(
 
         # Store pin with visibility settings (creates or updates)
         pin_collection(
-            request.collection_name,
-            request.library,
+            ref,
             visibility_home=home,
             visibility_shared=shared,
             visibility_recommended=recommended,
