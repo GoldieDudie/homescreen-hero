@@ -6,6 +6,7 @@ from typing import List, Literal, Optional
 from pydantic import BaseModel
 
 from homescreen_hero.core.config.schema import (
+    CollectionRef,
     PlexSettings,
     RotationSettings,
     TraktSettings,
@@ -46,7 +47,7 @@ class ConfigUpdateRequest(BaseModel):
 
 class GroupValidationResult(BaseModel):
     name: str
-    collections: List[str]
+    collections: List[CollectionRef]
     ok: bool
     issues: List[str]
 
@@ -144,6 +145,7 @@ class GroupReorderRequest(BaseModel):
 class CollectionSourcesResponse(BaseModel):
     class CollectionSource(BaseModel):
         name: str
+        library: str
         source: Literal["plex", "trakt", "letterboxd", "mdblist", "tmdb", "anilist", "mal"]
         detail: Optional[str] = None
         poster_url: Optional[str] = None
@@ -494,6 +496,7 @@ class SmartGroupPreviewRequest(BaseModel):
 
 class SmartGroupPreviewCollection(BaseModel):
     name: str
+    library: str
     poster_url: Optional[str] = None
 
 

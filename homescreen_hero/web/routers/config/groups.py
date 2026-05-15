@@ -252,6 +252,7 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                     plex_sources.append(
                         CollectionSourcesResponse.CollectionSource(
                             name=col.title,
+                            library=section.title,
                             source="plex",
                             detail=section.title,
                             poster_url=poster_url,
@@ -267,8 +268,9 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                 trakt_sources.append(
                     CollectionSourcesResponse.CollectionSource(
                         name=src.name,
+                        library=src.plex_library,
                         source="trakt",
-                        detail=src.plex_library or src.url,
+                        detail=src.url,
                     )
                 )
 
@@ -279,8 +281,9 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                 letterboxd_sources.append(
                     CollectionSourcesResponse.CollectionSource(
                         name=src.name,
+                        library=src.plex_library,
                         source="letterboxd",
-                        detail=src.plex_library or src.url,
+                        detail=src.url,
                     )
                 )
 
@@ -291,8 +294,9 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                 mdblist_sources.append(
                     CollectionSourcesResponse.CollectionSource(
                         name=src.name,
+                        library=src.plex_library,
                         source="mdblist",
-                        detail=src.plex_library or src.url,
+                        detail=src.url,
                     )
                 )
 
@@ -303,8 +307,9 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                 tmdb_sources.append(
                     CollectionSourcesResponse.CollectionSource(
                         name=src.name,
+                        library=src.plex_library,
                         source="tmdb",
-                        detail=src.plex_library or src.url,
+                        detail=src.url,
                     )
                 )
 
@@ -315,8 +320,9 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                 anilist_sources.append(
                     CollectionSourcesResponse.CollectionSource(
                         name=src.name,
+                        library=src.plex_library,
                         source="anilist",
-                        detail=src.plex_library or src.url,
+                        detail=src.url,
                     )
                 )
 
@@ -327,26 +333,20 @@ def list_group_sources(current_user: CurrentUser = Depends(require_admin)) -> Co
                 mal_sources.append(
                     CollectionSourcesResponse.CollectionSource(
                         name=src.name,
+                        library=src.plex_library,
                         source="mal",
-                        detail=src.plex_library or src.url,
+                        detail=src.url,
                     )
                 )
 
-        # Plex collections created by third-party sync duplicate those sources.
-        # Filter them out so the UI only shows the authoritative source.
-        third_party_names = {s.name for s in trakt_sources + letterboxd_sources + mdblist_sources + tmdb_sources + anilist_sources + mal_sources}
-        plex_sources = [s for s in plex_sources if s.name not in third_party_names]
-
-        # Deduplicate by name: when the same collection name exists in multiple
-        # libraries (e.g. 4K and 1080p), only show it once. The group config stores
-        # names only, so showing duplicates causes both to be added on a single click.
-        seen_plex_names: set[str] = set()
-        deduped: list[CollectionSourcesResponse.CollectionSource] = []
-        for s in plex_sources:
-            if s.name not in seen_plex_names:
-                seen_plex_names.add(s.name)
-                deduped.append(s)
-        plex_sources = deduped
+        # Filter Plex entries that duplicate an integration source (same library + name).
+        # Each integration source authoritatively owns one (library, name) pair; Plex
+        # exposes the synced copy. Without this, the picker shows duplicates.
+        integration_keys = {
+            (s.library, s.name)
+            for s in trakt_sources + letterboxd_sources + mdblist_sources + tmdb_sources + anilist_sources + mal_sources
+        }
+        plex_sources = [s for s in plex_sources if (s.library, s.name) not in integration_keys]
 
         return CollectionSourcesResponse(
             plex=plex_sources,
@@ -379,15 +379,18 @@ def preview_smart_group(
         metadata = build_collection_metadata(server, config)
         matching_names = resolve_smart_rules(payload.rules, metadata)
 
-        # Build name → metadata lookup for poster URLs
-        meta_by_name = {m.name: m for m in metadata}
-        collections = [
-            SmartGroupPreviewCollection(
-                name=name,
-                poster_url=meta_by_name[name].poster_url if name in meta_by_name else None,
+        # Build (library, name) → metadata lookup for poster URLs
+        meta_by_ref = {(m.library, m.name): m for m in metadata}
+        collections = []
+        for ref in matching_names:
+            meta = meta_by_ref.get((ref.library, ref.name))
+            collections.append(
+                SmartGroupPreviewCollection(
+                    name=ref.name,
+                    library=ref.library,
+                    poster_url=meta.poster_url if meta else None,
+                )
             )
-            for name in matching_names
-        ]
         return SmartGroupPreviewResponse(collections=collections, count=len(collections))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -415,16 +418,16 @@ def get_smart_filter_options(
 
 @router.get("/validate", response_model=List[GroupValidationResult])
 def validate_config_groups(current_user: CurrentUser = Depends(require_admin)) -> List[GroupValidationResult]:
-    # Validate configured collection groups against Plex collections
+    # Validate configured collection groups against Plex collections.
+    # A collection is "missing" if no (library, name) match exists in Plex.
     config = load_config()
     server = get_plex_server(config)
 
-    # Build a map of all Plex collections by name for cheap lookup
-    all_collections_by_name: dict[str, bool] = {}
+    plex_keys: set[tuple[str, str]] = set()
     for section in server.library.sections():
         try:
             for col in section.collections():
-                all_collections_by_name[col.title] = True
+                plex_keys.add((section.title, col.title))
         except Exception:
             continue
 
@@ -436,16 +439,17 @@ def validate_config_groups(current_user: CurrentUser = Depends(require_admin)) -
         issues: list[str] = []
         duplicates: list[str] = []
 
-        seen = set()
-        for collection in collections:
-            if collection in seen and collection not in duplicates:
-                duplicates.append(collection)
-            seen.add(collection)
+        seen: set[tuple[str, str]] = set()
+        for ref in collections:
+            key = (ref.library, ref.name)
+            if key in seen and str(ref) not in duplicates:
+                duplicates.append(str(ref))
+            seen.add(key)
 
         if duplicates:
             issues.append(f"Duplicate collections in group: {', '.join(duplicates)}")
 
-        missing = [c for c in collections if c not in all_collections_by_name]
+        missing = [str(ref) for ref in collections if (ref.library, ref.name) not in plex_keys]
         if missing:
             issues.append(f"Missing in Plex: {', '.join(missing)}")
 

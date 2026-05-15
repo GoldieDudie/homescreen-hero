@@ -9,7 +9,7 @@ import tempfile
 import os
 
 from homescreen_hero.core.config.loader import load_config
-from homescreen_hero.core.config.schema import HealthResponse
+from homescreen_hero.core.config.schema import CollectionRef, HealthResponse
 from homescreen_hero.core.auth import CurrentUser, get_current_user, require_admin
 from homescreen_hero.core.db.history import init_db
 from homescreen_hero.core.db.tools import list_rotations
@@ -82,7 +82,7 @@ class TogglePinResponse(BaseModel):
 
 
 class ReorderCollectionsRequest(BaseModel):
-    ordered_collections: List[str]
+    ordered_collections: List[CollectionRef]
 
 
 class ReorderResponse(BaseModel):
