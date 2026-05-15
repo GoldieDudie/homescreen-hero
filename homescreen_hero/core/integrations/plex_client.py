@@ -386,28 +386,40 @@ def apply_home_screen_selection(
                         if not dry_run:
                             hub.updateVisibility(home=False, shared=False, recommended=False)
                 else:
-                    # Non-pinned selected: promote all library instances so both
-                    # the 4K and 1080p versions of the same collection appear.
-                    logger.info(
-                        "Enabling visibility for collection '%s' (lib=%s): home=%s, shared=%s, recommended=%s",
-                        name, lib,
-                        visibility.get("home", True),
-                        visibility.get("shared", False),
-                        visibility.get("recommended", False),
-                    )
-                    if not dry_run:
-                        hub.updateVisibility(
-                            home=visibility.get("home", True),
-                            shared=visibility.get("shared", False),
-                            recommended=visibility.get("recommended", False),
+                    # Non-pinned selected: promote only the FIRST instance (canonical
+                    # library, i.e. first enabled library in config order that has this
+                    # collection). Suppress all additional instances so a collection with
+                    # the same name in Movies + Movies IMAX doesn't appear twice.
+                    # Use pin to a specific library if you need a non-first instance.
+                    is_first = (lib == instances[0][0])
+                    if is_first:
+                        logger.info(
+                            "Enabling visibility for collection '%s' (lib=%s): home=%s, shared=%s, recommended=%s",
+                            name, lib,
+                            visibility.get("home", True),
+                            visibility.get("shared", False),
+                            visibility.get("recommended", False),
                         )
-                        # Apply collection sort if configured for this collection's group
-                        if collection_sort and name in collection_sort:
-                            try:
-                                coll.sortUpdate(sort=collection_sort[name])
-                                logger.debug("Set sort order for '%s' to '%s'", name, collection_sort[name])
-                            except Exception:
-                                logger.warning("Failed to update sort for '%s' (may be a smart collection)", name)
+                        if not dry_run:
+                            hub.updateVisibility(
+                                home=visibility.get("home", True),
+                                shared=visibility.get("shared", False),
+                                recommended=visibility.get("recommended", False),
+                            )
+                            # Apply collection sort if configured for this collection's group
+                            if collection_sort and name in collection_sort:
+                                try:
+                                    coll.sortUpdate(sort=collection_sort[name])
+                                    logger.debug("Set sort order for '%s' to '%s'", name, collection_sort[name])
+                                except Exception:
+                                    logger.warning("Failed to update sort for '%s' (may be a smart collection)", name)
+                    else:
+                        logger.debug(
+                            "Suppressing duplicate library instance of '%s' (lib=%s, canonical lib=%s)",
+                            name, lib, instances[0][0],
+                        )
+                        if not dry_run:
+                            hub.updateVisibility(home=False, shared=False, recommended=False)
         else:
             # Not selected: disable ALL library instances so no "ghost" promoted
             # collections linger from a previous rotation.
