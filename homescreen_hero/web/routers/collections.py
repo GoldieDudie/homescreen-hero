@@ -236,21 +236,22 @@ def get_active_collections(
     config = load_config()
     server = get_plex_server(config)
 
-    # Get pinning info from database (with display order)
+    # Get pinning info from database (with display order), keyed by (library, name)
     pinned_collections = get_pinned_collections()
-    pinned_order_map = {p.collection_name: p.display_order for p in pinned_collections}
-    pinned_names = {p.collection_name for p in pinned_collections}
+    pinned_order_map: dict[tuple[str, str], int] = {
+        (p.library_name, p.collection_name): p.display_order for p in pinned_collections
+    }
+    pinned_refs: set[tuple[str, str]] = set(pinned_order_map.keys())
 
-    # Get actual order from Plex's managed hubs (returns in homescreen order)
-    plex_order_map: dict[str, int] = {}
-    order_counter = 0
+    # Get actual order from Plex's managed hubs, keyed per (library, title)
+    # so duplicate names across libraries don't clobber. Order resets per
+    # section since Plex's homescreen order is per-library.
+    plex_order_map: dict[tuple[str, str], int] = {}
     for section in server.library.sections():
         try:
-            for hub in section.managedHubs():
+            for idx, hub in enumerate(section.managedHubs()):
                 if hasattr(hub, "title"):
-                    # Assign order based on position in managedHubs() results
-                    plex_order_map[hub.title] = order_counter
-                    order_counter += 1
+                    plex_order_map[(section.title, hub.title)] = idx
         except Exception as e:
             logger.warning(f"Could not get managed hubs for section {section.title}: {e}")
 
@@ -267,9 +268,9 @@ def get_active_collections(
 
                     if promoted_own or promoted_shared or promoted_recommended:
                         poster_url = build_collection_poster_url(server, col)
-                        is_pinned = col.title in pinned_names
+                        is_pinned = (section.title, col.title) in pinned_refs
                         # Use Plex's actual order, fallback to 9999 for unknown
-                        display_order = plex_order_map.get(col.title, 9999)
+                        display_order = plex_order_map.get((section.title, col.title), 9999)
 
                         out.append(
                             ActiveCollectionOut(
@@ -292,12 +293,12 @@ def get_active_collections(
                 f"Error retrieving collections from section {section.title}: {e}"
             )
 
-    # Sort: group by library, pinned first (by pin order), then non-pinned (by Plex order)
+    # Sort: group by library, pinned first (by pin order), then non-pinned
+    # in Plex's actual homescreen order (display_order from managedHubs).
     out.sort(key=lambda c: (
         c.library or "",
         0 if c.is_pinned else 1,
-        pinned_order_map.get(c.title, 0) if c.is_pinned else c.display_order,
-        c.title
+        pinned_order_map.get((c.library or "", c.title), 0) if c.is_pinned else (c.display_order if c.display_order is not None else 9999),
     ))
 
     return ActiveCollectionsResponse(collections=out)

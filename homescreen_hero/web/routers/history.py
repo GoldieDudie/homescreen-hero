@@ -20,6 +20,17 @@ router = APIRouter(prefix="/history")
 
 
 # Return rotation history records
+def _coerce_ref_list(items) -> List[Dict[str, str]]:
+    # Legacy records stored bare strings; current records store {library, name} dicts.
+    out: List[Dict[str, str]] = []
+    for item in items or []:
+        if isinstance(item, dict):
+            out.append({"library": item.get("library", ""), "name": item.get("name", "")})
+        else:
+            out.append({"library": "", "name": str(item)})
+    return out
+
+
 @router.get("/all", response_model=List[RotationRecordOut])
 def get_history(limit: int = 20) -> List[RotationRecordOut]:
     logger.debug("Fetching rotation history (limit=%s)", limit)
@@ -32,8 +43,11 @@ def get_history(limit: int = 20) -> List[RotationRecordOut]:
             created_at=r.created_at,
             success=r.success,
             error_message=r.error_message,
-            featured_collections=r.featured_collections or [],
-            group_contributions=r.group_contributions,
+            featured_collections=_coerce_ref_list(r.featured_collections),
+            group_contributions=(
+                {g: _coerce_ref_list(refs) for g, refs in r.group_contributions.items()}
+                if r.group_contributions else None
+            ),
         )
         for r in rows
     ]

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def collect_analytics_for_collections(
     config: AppConfig,
-    collection_names: List[str],
+    collection_refs: List,
     rotation_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
@@ -73,21 +73,24 @@ def collect_analytics_for_collections(
         "status": "success",
         "collected": [],
         "failed": [],
-        "total_collections": len(collection_names),
+        "total_collections": len(collection_refs),
     }
 
-    # Process each collection
-    for collection_name in collection_names:
+    # Process each collection ref
+    for ref in collection_refs:
+        collection_name = ref.name
+        ref_lib = ref.library
         try:
-            # Find the collection in Plex libraries
+            # Find the collection in the specified library (fall back to scan for legacy refs with empty library)
             collection_obj = None
             library_name = None
+            library = None
 
-            # Search through enabled libraries
-            for lib_config in config.plex.libraries:
-                if not lib_config.enabled:
+            libs_to_try = [ref_lib] if ref_lib else [lc.name for lc in config.plex.libraries if lc.enabled]
+            for lib_name in libs_to_try:
+                lib_config = next((lc for lc in config.plex.libraries if lc.name == lib_name and lc.enabled), None)
+                if not lib_config:
                     continue
-
                 try:
                     library = plex.library.section(lib_config.name)
                     collection_obj = library.collection(collection_name)
@@ -240,8 +243,10 @@ def collect_analytics_for_all_active(config: AppConfig) -> Dict[str, Any]:
             "total_collections": 0,
         }
 
+    from ..config.schema import CollectionRef
+
     # Get all collections from enabled libraries
-    active_collections = []
+    active_refs: List = []
 
     for lib_config in config.plex.libraries:
         if not lib_config.enabled:
@@ -250,13 +255,8 @@ def collect_analytics_for_all_active(config: AppConfig) -> Dict[str, Any]:
         try:
             library = plex.library.section(lib_config.name)
             collections = library.collections()
-
-            # Filter for collections that are promoted (visibility > 0)
             for collection in collections:
-                # Check if collection is promoted to home or shared
-                # Note: PlexAPI may not expose visibility directly,
-                # so we collect all collections for now
-                active_collections.append(collection.title)
+                active_refs.append(CollectionRef(library=lib_config.name, name=collection.title))
 
         except Exception as e:
             logger.error(
@@ -264,7 +264,7 @@ def collect_analytics_for_all_active(config: AppConfig) -> Dict[str, Any]:
             )
             continue
 
-    if not active_collections:
+    if not active_refs:
         logger.info("No active collections found")
         return {
             "status": "success",
@@ -273,11 +273,10 @@ def collect_analytics_for_all_active(config: AppConfig) -> Dict[str, Any]:
             "total_collections": 0,
         }
 
-    logger.info(f"Found {len(active_collections)} collections to collect analytics for")
+    logger.info(f"Found {len(active_refs)} collections to collect analytics for")
 
-    # Collect analytics for all found collections
     return collect_analytics_for_collections(
         config=config,
-        collection_names=active_collections,
-        rotation_id=None,  # Not linked to a specific rotation
+        collection_refs=active_refs,
+        rotation_id=None,
     )

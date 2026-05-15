@@ -40,6 +40,8 @@ type VisibilityOptions = {
     recommended: boolean;
 };
 
+const refKey = (c: ActiveCollection) => `${c.library ?? ""}::${c.title}`;
+
 // Sortable collection card component
 function SortableCollectionCard({
     collection,
@@ -74,7 +76,7 @@ function SortableCollectionCard({
         transform,
         transition,
         isDragging,
-    } = useSortable({ id: collection.title });
+    } = useSortable({ id: refKey(collection) });
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -290,6 +292,7 @@ export default function ActiveCollectionsCard({
     const { accent } = useTheme();
     const cinematic = accent === "plex-orange";
     const [visibilityFilter, setVisibilityFilter] = useState<"all" | "my_home" | "shared" | "recommended">("my_home");
+    const [libraryFilter, setLibraryFilter] = useState<string>("all");
     const [localCollections, setLocalCollections] = useState<ActiveCollection[]>([]);
     const [pinningCollection, setPinningCollection] = useState<string | null>(null);
     const hasAnimated = useRef(false);
@@ -321,18 +324,40 @@ export default function ActiveCollectionsCard({
         })
     );
 
+    const availableLibraries = useMemo(() => {
+        const libs = new Set<string>();
+        localCollections.forEach(c => { if (c.library) libs.add(c.library); });
+        return Array.from(libs).sort();
+    }, [localCollections]);
+
     const filteredCollections = useMemo(() => {
-        if (visibilityFilter === "all") {
-            return localCollections;
-        } else if (visibilityFilter === "my_home") {
-            return localCollections.filter(c => c.promoted_to_own_home);
-        } else if (visibilityFilter === "shared") {
-            return localCollections.filter(c => c.promoted_to_shared);
-        } else if (visibilityFilter === "recommended") {
-            return localCollections.filter(c => c.promoted_to_recommended);
+        let base = localCollections;
+        if (libraryFilter !== "all") {
+            base = base.filter(c => c.library === libraryFilter);
         }
-        return localCollections;
-    }, [localCollections, visibilityFilter]);
+        if (visibilityFilter === "all") {
+            return base;
+        } else if (visibilityFilter === "my_home") {
+            return base.filter(c => c.promoted_to_own_home);
+        } else if (visibilityFilter === "shared") {
+            return base.filter(c => c.promoted_to_shared);
+        } else if (visibilityFilter === "recommended") {
+            return base.filter(c => c.promoted_to_recommended);
+        }
+        return base;
+    }, [localCollections, visibilityFilter, libraryFilter]);
+
+    const visibilityCounts = useMemo(() => {
+        const base = libraryFilter === "all"
+            ? localCollections
+            : localCollections.filter(c => c.library === libraryFilter);
+        return {
+            all: base.length,
+            my_home: base.filter(c => c.promoted_to_own_home).length,
+            shared: base.filter(c => c.promoted_to_shared).length,
+            recommended: base.filter(c => c.promoted_to_recommended).length,
+        };
+    }, [localCollections, libraryFilter]);
 
     const handleCollectionClick = (collection: ActiveCollection) => {
         if (collection.library) {
@@ -348,8 +373,8 @@ export default function ActiveCollectionsCard({
         if (!over || active.id === over.id) return;
 
         // Find items in the full list (not just filtered) to compute correct order
-        const activeItem = localCollections.find(c => c.title === active.id);
-        const overItem = localCollections.find(c => c.title === over.id);
+        const activeItem = localCollections.find(c => refKey(c) === active.id);
+        const overItem = localCollections.find(c => refKey(c) === over.id);
 
         if (!activeItem || !overItem) return;
 
@@ -364,11 +389,13 @@ export default function ActiveCollectionsCard({
 
         // Send full reordered list to backend (not just the filtered subset)
         try {
-            const orderedNames = reorderedCollections.map(c => c.title);
+            const orderedRefs = reorderedCollections
+                .filter(c => c.library)
+                .map(c => ({ library: c.library as string, name: c.title }));
             const response = await fetchWithAuth("/api/collections/reorder", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ordered_collections: orderedNames }),
+                body: JSON.stringify({ ordered_collections: orderedRefs }),
             });
 
             if (!response.ok) {
@@ -384,7 +411,7 @@ export default function ActiveCollectionsCard({
     const handlePinWithVisibility = async (collection: ActiveCollection, visibility: VisibilityOptions) => {
         if (!collection.library || pinningCollection) return;
 
-        setPinningCollection(collection.title);
+        setPinningCollection(refKey(collection));
 
         try {
             const response = await fetchWithAuth("/api/collections/toggle-pin", {
@@ -407,7 +434,7 @@ export default function ActiveCollectionsCard({
             // Don't re-sort - keep current position, backend will assign pin order
             setLocalCollections(prev =>
                 prev.map(c =>
-                    c.title === collection.title
+                    refKey(c) === refKey(collection)
                         ? {
                             ...c,
                             is_pinned: true,
@@ -428,7 +455,7 @@ export default function ActiveCollectionsCard({
     const handleUnpin = async (collection: ActiveCollection) => {
         if (!collection.library || pinningCollection) return;
 
-        setPinningCollection(collection.title);
+        setPinningCollection(refKey(collection));
 
         try {
             const response = await fetchWithAuth("/api/collections/toggle-pin", {
@@ -445,7 +472,7 @@ export default function ActiveCollectionsCard({
             }
 
             // Remove from local state since it's no longer on homescreen
-            setLocalCollections(prev => prev.filter(c => c.title !== collection.title));
+            setLocalCollections(prev => prev.filter(c => refKey(c) !== refKey(collection)));
         } catch (error) {
             console.error("Failed to unpin collection:", error);
         } finally {
@@ -454,7 +481,7 @@ export default function ActiveCollectionsCard({
     };
     return (
         <div className={cinematic ? "py-2" : "rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 via-slate-900/50 to-slate-900/50 shadow-lg shadow-primary/5 px-5 py-4 transition-all duration-300 hover:bg-slate-800/30"}>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
                 <div>
                     <h3 className="text-lg font-bold text-white tracking-tight">Active Collections</h3>
                     <p className="text-sm text-slate-400 mt-0.5">
@@ -473,7 +500,7 @@ export default function ActiveCollectionsCard({
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
-                        My Home {!loading && `(${localCollections.filter(c => c.promoted_to_own_home).length})`}
+                        My Home {!loading && `(${visibilityCounts.my_home})`}
                     </button>
                     <button
                         type="button"
@@ -484,7 +511,7 @@ export default function ActiveCollectionsCard({
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
-                        Shared {!loading && `(${localCollections.filter(c => c.promoted_to_shared).length})`}
+                        Shared {!loading && `(${visibilityCounts.shared})`}
                     </button>
                     <button
                         type="button"
@@ -495,7 +522,7 @@ export default function ActiveCollectionsCard({
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
-                        Recommended {!loading && `(${localCollections.filter(c => c.promoted_to_recommended).length})`}
+                        Recommended {!loading && `(${visibilityCounts.recommended})`}
                     </button>
                     <button
                         type="button"
@@ -506,10 +533,40 @@ export default function ActiveCollectionsCard({
                                 : "text-slate-400 hover:text-white"
                         }`}
                     >
-                        All {!loading && localCollections.length > 0 && `(${localCollections.length})`}
+                        All {!loading && visibilityCounts.all > 0 && `(${visibilityCounts.all})`}
                     </button>
                 </div>
             </div>
+
+            {availableLibraries.length > 1 && (
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                    <button
+                        type="button"
+                        onClick={() => setLibraryFilter("all")}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${
+                            libraryFilter === "all"
+                                ? "bg-primary/20 text-primary border border-primary/40"
+                                : "bg-slate-800/40 text-slate-400 border border-slate-700/50 hover:text-white"
+                        }`}
+                    >
+                        All libraries
+                    </button>
+                    {availableLibraries.map(lib => (
+                        <button
+                            key={lib}
+                            type="button"
+                            onClick={() => setLibraryFilter(lib)}
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${
+                                libraryFilter === lib
+                                    ? "bg-primary/20 text-primary border border-primary/40"
+                                    : "bg-slate-800/40 text-slate-400 border border-slate-700/50 hover:text-white"
+                            }`}
+                        >
+                            {lib}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {loading ? (
                 <div className={`flex ${cinematic ? "gap-5" : "gap-4"} overflow-x-auto pb-2 scrollbar-hover-only`}>
@@ -531,19 +588,19 @@ export default function ActiveCollectionsCard({
                     onDragEnd={handleDragEnd}
                 >
                     <SortableContext
-                        items={filteredCollections.map(c => c.title)}
+                        items={filteredCollections.map(c => refKey(c))}
                         strategy={horizontalListSortingStrategy}
                     >
                         <div className={`flex ${cinematic ? "gap-5" : "gap-4"} overflow-x-auto px-2 py-2 -mx-2 -my-2 scrollbar-hover-only`}>
                             {filteredCollections.map((c, index) => (
                                 <SortableCollectionCard
-                                    key={c.title}
+                                    key={refKey(c)}
                                     collection={c}
                                     index={index}
                                     onClick={() => handleCollectionClick(c)}
                                     onPinWithVisibility={(visibility) => handlePinWithVisibility(c, visibility)}
                                     onUnpin={() => handleUnpin(c)}
-                                    isPinning={pinningCollection === c.title}
+                                    isPinning={pinningCollection === refKey(c)}
                                     animate={!hasAnimated.current}
                                     cinematic={cinematic}
                                 />

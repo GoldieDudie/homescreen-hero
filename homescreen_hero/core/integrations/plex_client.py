@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import requests
 import urllib3
@@ -297,7 +297,19 @@ def apply_home_screen_selection(
     configured_name_strings: Set[str] = {r.name for r in configured_refs}
 
     _, usage_map = get_rotation_history_context()
-    previously_rotated_names: Set[str] = {r.name for r in usage_map.keys()}
+    # Track previously managed instances by full (library, name) so we don't disable
+    # collections in libraries we've never actually rotated into.
+    previously_rotated_refs: Set[Tuple[str, str]] = {(r.library, r.name) for r in usage_map.keys()}
+    previously_rotated_names: Set[str] = {n for _, n in previously_rotated_refs}
+
+    # Libraries scoped for cleanup: only libraries that have at least one
+    # currently-configured collection OR a currently-selected collection.
+    # If no active group manages a library, leave its collections alone,
+    # even if we managed it in the past.
+    active_libraries: Set[str] = (
+        {r.library for r in configured_refs if r.library}
+        | {r.library for r in selected_set if r.library}
+    )
 
     # Process all names we care about (configured + rotated history + currently selected)
     all_names_to_process: Set[str] = (
@@ -413,7 +425,11 @@ def apply_home_screen_selection(
                             except Exception:
                                 logger.warning("Failed to update sort for '%s' (may be a smart collection)", name)
                 else:
-                    # This library has an instance but no CollectionRef selected it — suppress
+                    # No selected ref for this library instance. Only suppress if we manage
+                    # this library; otherwise leave it untouched.
+                    if lib not in active_libraries:
+                        logger.debug("Skipping '%s' in unmanaged library '%s'", name, lib)
+                        continue
                     logger.debug("Suppressing unselected library instance of '%s' (lib=%s)", name, lib)
                     if not dry_run:
                         hub.updateVisibility(home=False, shared=False, recommended=False)
@@ -423,13 +439,23 @@ def apply_home_screen_selection(
                 if any(lib == ref.library for lib, _ in instances) or (ref.library == "" and instances):
                     applied.append(ref)
         else:
-            # Not selected: disable ALL library instances
-            if name in previously_rotated_names and name not in configured_name_strings:
-                logger.info("Disabling visibility for previously managed collection (removed from config): %s", name)
-            else:
-                logger.debug("Disabling visibility for collection: %s", name)
-            if not dry_run:
-                for _lib, coll in instances:
+            # Not selected: disable matching instances, but only where we manage the library
+            # AND only specific (lib, name) instances we've previously rotated or have configured.
+            configured_pairs: Set[Tuple[str, str]] = {(r.library, r.name) for r in configured_refs}
+            for _lib, coll in instances:
+                if _lib not in active_libraries:
+                    logger.debug("Skipping '%s' in unmanaged library '%s'", name, _lib)
+                    continue
+                pair = (_lib, name)
+                if pair not in previously_rotated_refs and pair not in configured_pairs:
+                    # We've never managed this (lib, name) — leave it alone
+                    logger.debug("Leaving unmanaged collection '%s' (lib=%s) untouched", name, _lib)
+                    continue
+                if pair in previously_rotated_refs and pair not in configured_pairs:
+                    logger.info("Disabling visibility for previously managed collection (removed from config): %s (lib=%s)", name, _lib)
+                else:
+                    logger.debug("Disabling visibility for collection: %s (lib=%s)", name, _lib)
+                if not dry_run:
                     coll.visibility().updateVisibility(home=False, shared=False, recommended=False)
 
     logger.info(
