@@ -16,6 +16,7 @@ from homescreen_hero.core.config.schema import (
     RotationSettings,
     CollectionGroupConfig,
 )
+from tests.conftest import cr
 
 
 @pytest.fixture
@@ -345,7 +346,7 @@ def _make_config(tautulli=None):
                 min_picks=1,
                 max_picks=2,
                 weight=1,
-                collections=["Test Collection"],
+                collections=[cr("Test Collection")],
             )
         ],
         tautulli=tautulli,

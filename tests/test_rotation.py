@@ -17,12 +17,14 @@ from homescreen_hero.core.rotation import (
 )
 from homescreen_hero.core.config.schema import (
     AppConfig,
+    CollectionRef,
     CollectionGroupConfig,
     DateRange,
     PlexSettings,
     PlexLibraryConfig,
     RotationSettings,
 )
+from tests.conftest import cr
 
 
 # Mock CollectionUsage for testing
@@ -88,7 +90,7 @@ class TestGroupIsActive:
         group = CollectionGroupConfig(
             name="Test",
             enabled=False,
-            collections=["Test Collection"]
+            collections=[cr("Test Collection")]
         )
         assert _group_is_active(group, date(2024, 12, 15)) is False
 
@@ -96,7 +98,7 @@ class TestGroupIsActive:
         group = CollectionGroupConfig(
             name="Test",
             enabled=True,
-            collections=["Test Collection"]
+            collections=[cr("Test Collection")]
         )
         assert _group_is_active(group, date(2024, 12, 15)) is True
 
@@ -105,7 +107,7 @@ class TestGroupIsActive:
             name="Christmas",
             enabled=True,
             date_range=DateRange(start="12-01", end="12-26"),
-            collections=["Christmas Movies"]
+            collections=[cr("Christmas Movies")]
         )
         assert _group_is_active(group, date(2024, 12, 15)) is True
         assert _group_is_active(group, date(2024, 12, 1)) is True
@@ -116,7 +118,7 @@ class TestGroupIsActive:
             name="Summer",
             enabled=True,
             date_range=DateRange(start="06-01", end="08-31"),
-            collections=["Summer Blockbusters"]
+            collections=[cr("Summer Blockbusters")]
         )
         assert _group_is_active(group, date(2024, 7, 15)) is True
         assert _group_is_active(group, date(2024, 12, 15)) is False
@@ -130,94 +132,105 @@ class TestPassesGapRule:
             name="Test",
             enabled=True,
             min_gap_rotations=0,
-            collections=["Test Collection"]
+            collections=[cr("Test Collection")]
         )
+        ref = cr("Test Collection")
         usage_map = {
-            "Test Collection": MockCollectionUsage("Test Collection", 5)
+            ref: MockCollectionUsage("Test Collection", 5)
         }
-        assert _passes_gap_rule("Test Collection", group, max_rotation_id=6, usage_map=usage_map) is True
+        assert _passes_gap_rule(ref, group, max_rotation_id=6, usage_map=usage_map) is True
 
     def test_no_previous_rotations(self):
         group = CollectionGroupConfig(
             name="Test",
             enabled=True,
             min_gap_rotations=3,
-            collections=["Test Collection"]
+            collections=[cr("Test Collection")]
         )
-        assert _passes_gap_rule("Test Collection", group, max_rotation_id=0, usage_map={}) is True
+        assert _passes_gap_rule(cr("Test Collection"), group, max_rotation_id=0, usage_map={}) is True
 
     def test_never_used_before(self):
         group = CollectionGroupConfig(
             name="Test",
             enabled=True,
             min_gap_rotations=3,
-            collections=["New Collection"]
+            collections=[cr("New Collection")]
         )
+        other_ref = cr("Other Collection")
         usage_map = {
-            "Other Collection": MockCollectionUsage("Other Collection", 5)
+            other_ref: MockCollectionUsage("Other Collection", 5)
         }
-        assert _passes_gap_rule("New Collection", group, max_rotation_id=10, usage_map=usage_map) is True
+        assert _passes_gap_rule(cr("New Collection"), group, max_rotation_id=10, usage_map=usage_map) is True
 
     def test_gap_requirement_not_met(self):
         group = CollectionGroupConfig(
             name="Test",
             enabled=True,
             min_gap_rotations=5,
-            collections=["Test Collection"]
+            collections=[cr("Test Collection")]
         )
+        ref = cr("Test Collection")
         usage_map = {
-            "Test Collection": MockCollectionUsage("Test Collection", 8)
+            ref: MockCollectionUsage("Test Collection", 8)
         }
         # Current rotation is 10, last used at 8, gap is 2 (needs 5)
-        assert _passes_gap_rule("Test Collection", group, max_rotation_id=10, usage_map=usage_map) is False
+        assert _passes_gap_rule(ref, group, max_rotation_id=10, usage_map=usage_map) is False
 
     def test_gap_requirement_met(self):
         group = CollectionGroupConfig(
             name="Test",
             enabled=True,
             min_gap_rotations=5,
-            collections=["Test Collection"]
+            collections=[cr("Test Collection")]
         )
+        ref = cr("Test Collection")
         usage_map = {
-            "Test Collection": MockCollectionUsage("Test Collection", 5)
+            ref: MockCollectionUsage("Test Collection", 5)
         }
         # Current rotation is 11, last used at 5, gap is 6 (needs 5)
-        assert _passes_gap_rule("Test Collection", group, max_rotation_id=11, usage_map=usage_map) is True
+        assert _passes_gap_rule(ref, group, max_rotation_id=11, usage_map=usage_map) is True
 
     def test_gap_requirement_exactly_met(self):
         group = CollectionGroupConfig(
             name="Test",
             enabled=True,
             min_gap_rotations=3,
-            collections=["Test Collection"]
+            collections=[cr("Test Collection")]
         )
+        ref = cr("Test Collection")
         usage_map = {
-            "Test Collection": MockCollectionUsage("Test Collection", 7)
+            ref: MockCollectionUsage("Test Collection", 7)
         }
         # Current rotation is 10, last used at 7, gap is exactly 3
-        assert _passes_gap_rule("Test Collection", group, max_rotation_id=10, usage_map=usage_map) is True
+        assert _passes_gap_rule(ref, group, max_rotation_id=10, usage_map=usage_map) is True
 
 
 class TestIsBlacklisted:
     """Tests for _is_blacklisted function"""
 
     def test_collection_not_blacklisted_empty_list(self):
-        assert _is_blacklisted("Collection A", []) is False
+        assert _is_blacklisted(cr("Collection A"), []) is False
 
     def test_collection_blacklisted(self):
         blacklist = ["Collection A", "Collection B"]
-        assert _is_blacklisted("Collection A", blacklist) is True
-        assert _is_blacklisted("Collection B", blacklist) is True
+        assert _is_blacklisted(cr("Collection A"), blacklist) is True
+        assert _is_blacklisted(cr("Collection B"), blacklist) is True
 
     def test_collection_not_in_blacklist(self):
         blacklist = ["Collection A", "Collection B"]
-        assert _is_blacklisted("Collection C", blacklist) is False
+        assert _is_blacklisted(cr("Collection C"), blacklist) is False
 
     def test_case_sensitive_matching(self):
         blacklist = ["Collection A"]
-        assert _is_blacklisted("Collection A", blacklist) is True
-        assert _is_blacklisted("collection a", blacklist) is False
-        assert _is_blacklisted("COLLECTION A", blacklist) is False
+        assert _is_blacklisted(cr("Collection A"), blacklist) is True
+        assert _is_blacklisted(cr("collection a"), blacklist) is False
+        assert _is_blacklisted(cr("COLLECTION A"), blacklist) is False
+
+    def test_blacklist_is_name_only_ignores_library(self):
+        # Blacklist matches by name across all libraries
+        blacklist = ["Collection A"]
+        assert _is_blacklisted(cr("Collection A", "Movies"), blacklist) is True
+        assert _is_blacklisted(cr("Collection A", "TV Shows"), blacklist) is True
 
 
 class TestGetOrderedGroups:
@@ -231,21 +244,21 @@ class TestGetOrderedGroups:
                 enabled=True,
                 weight=5,
                 display_order=2,
-                collections=["Collection A"]
+                collections=[cr("Collection A")]
             ),
             CollectionGroupConfig(
                 name="Group B",
                 enabled=True,
                 weight=10,
                 display_order=0,
-                collections=["Collection B"]
+                collections=[cr("Collection B")]
             ),
             CollectionGroupConfig(
                 name="Group C",
                 enabled=True,
                 weight=1,
                 display_order=1,
-                collections=["Collection C"]
+                collections=[cr("Collection C")]
             ),
         ]
         rng = random.Random(42)
@@ -263,19 +276,19 @@ class TestGetOrderedGroups:
                 name="Group A",
                 enabled=True,
                 weight=5,
-                collections=["Collection A"]
+                collections=[cr("Collection A")]
             ),
             CollectionGroupConfig(
                 name="Group B",
                 enabled=True,
                 weight=10,
-                collections=["Collection B"]
+                collections=[cr("Collection B")]
             ),
             CollectionGroupConfig(
                 name="Group C",
                 enabled=True,
                 weight=1,
-                collections=["Collection C"]
+                collections=[cr("Collection C")]
             ),
         ]
         rng = random.Random(42)
@@ -296,19 +309,19 @@ class TestGetOrderedGroups:
                 name="Group A",
                 enabled=True,
                 weight=5,
-                collections=["Collection A"]
+                collections=[cr("Collection A")]
             ),
             CollectionGroupConfig(
                 name="Group B",
                 enabled=True,
                 weight=5,
-                collections=["Collection B"]
+                collections=[cr("Collection B")]
             ),
             CollectionGroupConfig(
                 name="Group C",
                 enabled=True,
                 weight=5,
-                collections=["Collection C"]
+                collections=[cr("Collection C")]
             ),
         ]
         rng = random.Random(42)
@@ -326,25 +339,25 @@ class TestGetOrderedGroups:
                 name="Group A",
                 enabled=True,
                 weight=3,
-                collections=["Collection A"]
+                collections=[cr("Collection A")]
             ),
             CollectionGroupConfig(
                 name="Group B",
                 enabled=True,
                 weight=10,
-                collections=["Collection B"]
+                collections=[cr("Collection B")]
             ),
             CollectionGroupConfig(
                 name="Group C",
                 enabled=True,
                 weight=3,
-                collections=["Collection C"]
+                collections=[cr("Collection C")]
             ),
             CollectionGroupConfig(
                 name="Group D",
                 enabled=True,
                 weight=7,
-                collections=["Collection D"]
+                collections=[cr("Collection D")]
             ),
         ]
         rng = random.Random(42)
@@ -362,7 +375,7 @@ class TestSelectCollectionsFromGroup:
 
     def test_random_strategy_uses_random_sample(self):
         """Random strategy should use random sampling"""
-        available = ["Collection A", "Collection B", "Collection C", "Collection D"]
+        available = [cr("Collection A"), cr("Collection B"), cr("Collection C"), cr("Collection D")]
         usage_map = {}
         rng = random.Random(42)
 
@@ -373,39 +386,46 @@ class TestSelectCollectionsFromGroup:
 
     def test_lru_strategy_prioritizes_never_used(self):
         """LRU strategy should prioritize collections never used"""
-        available = ["Never Used", "Used Recently", "Used Long Ago"]
+        ref_never = cr("Never Used")
+        ref_recent = cr("Used Recently")
+        ref_old = cr("Used Long Ago")
+        available = [ref_never, ref_recent, ref_old]
         usage_map = {
-            "Used Recently": MockCollectionUsage("Used Recently", 10),
-            "Used Long Ago": MockCollectionUsage("Used Long Ago", 5),
-            # "Never Used" not in usage_map
+            ref_recent: MockCollectionUsage("Used Recently", 10),
+            ref_old: MockCollectionUsage("Used Long Ago", 5),
+            # ref_never not in usage_map
         }
         rng = random.Random(42)
 
         chosen = _select_collections_from_group(available, 2, "lru", usage_map, rng)
 
         # Should pick "Never Used" first, then "Used Long Ago" (older rotation ID)
-        assert chosen[0] == "Never Used"
-        assert chosen[1] == "Used Long Ago"
+        assert chosen[0] == ref_never
+        assert chosen[1] == ref_old
 
     def test_lru_strategy_orders_by_rotation_id(self):
         """LRU strategy should order by last_rotation_id ascending"""
-        available = ["Recent 1", "Old 1", "Recent 2", "Old 2"]
+        ref_r1 = cr("Recent 1")
+        ref_o1 = cr("Old 1")
+        ref_r2 = cr("Recent 2")
+        ref_o2 = cr("Old 2")
+        available = [ref_r1, ref_o1, ref_r2, ref_o2]
         usage_map = {
-            "Recent 1": MockCollectionUsage("Recent 1", 20),
-            "Old 1": MockCollectionUsage("Old 1", 5),
-            "Recent 2": MockCollectionUsage("Recent 2", 15),
-            "Old 2": MockCollectionUsage("Old 2", 8),
+            ref_r1: MockCollectionUsage("Recent 1", 20),
+            ref_o1: MockCollectionUsage("Old 1", 5),
+            ref_r2: MockCollectionUsage("Recent 2", 15),
+            ref_o2: MockCollectionUsage("Old 2", 8),
         }
         rng = random.Random(42)
 
         chosen = _select_collections_from_group(available, 3, "lru", usage_map, rng)
 
         # Should be ordered by rotation ID: Old 1 (5), Old 2 (8), Recent 2 (15)
-        assert chosen == ["Old 1", "Old 2", "Recent 2"]
+        assert chosen == [ref_o1, ref_o2, ref_r2]
 
     def test_lru_strategy_all_never_used(self):
         """LRU strategy with all collections never used"""
-        available = ["A", "B", "C", "D"]
+        available = [cr("A"), cr("B"), cr("C"), cr("D")]
         usage_map = {}
         rng = random.Random(42)
 
@@ -417,13 +437,18 @@ class TestSelectCollectionsFromGroup:
 
     def test_lru_strategy_respects_k_parameter(self):
         """LRU strategy should respect the k parameter"""
-        available = ["A", "B", "C", "D", "E"]
+        ref_a = cr("A")
+        ref_b = cr("B")
+        ref_c = cr("C")
+        ref_d = cr("D")
+        ref_e = cr("E")
+        available = [ref_a, ref_b, ref_c, ref_d, ref_e]
         usage_map = {
-            "A": MockCollectionUsage("A", 1),
-            "B": MockCollectionUsage("B", 2),
-            "C": MockCollectionUsage("C", 3),
-            "D": MockCollectionUsage("D", 4),
-            "E": MockCollectionUsage("E", 5),
+            ref_a: MockCollectionUsage("A", 1),
+            ref_b: MockCollectionUsage("B", 2),
+            ref_c: MockCollectionUsage("C", 3),
+            ref_d: MockCollectionUsage("D", 4),
+            ref_e: MockCollectionUsage("E", 5),
         }
         rng = random.Random(42)
 
@@ -431,7 +456,7 @@ class TestSelectCollectionsFromGroup:
         chosen = _select_collections_from_group(available, 3, "lru", usage_map, rng)
 
         # Should get oldest 3: A(1), B(2), C(3)
-        assert chosen == ["A", "B", "C"]
+        assert chosen == [ref_a, ref_b, ref_c]
 
 
 # Helper to create minimal AppConfig for testing
@@ -475,7 +500,13 @@ class TestPerLibraryLimits:
                 enabled=True,
                 min_picks=5,
                 max_picks=5,
-                collections=["Movie A", "Movie B", "Movie C", "Movie D", "Movie E"],
+                collections=[
+                    cr("Movie A", "Movies"),
+                    cr("Movie B", "Movies"),
+                    cr("Movie C", "Movies"),
+                    cr("Movie D", "Movies"),
+                    cr("Movie E", "Movies"),
+                ],
             ),
         ]
         config = _make_test_config(
@@ -483,20 +514,11 @@ class TestPerLibraryLimits:
             max_collections=10,
             per_library_limits={"Movies": 2},  # Only allow 2 from Movies
         )
-        # All collections are from Movies library
-        collection_library_map = {
-            "Movie A": "Movies",
-            "Movie B": "Movies",
-            "Movie C": "Movies",
-            "Movie D": "Movies",
-            "Movie E": "Movies",
-        }
 
         result = run_rotation_with_history(
             config,
             max_rotation_id=0,
             usage_map={},
-            collection_library_map=collection_library_map,
             rng=random.Random(42),
         )
 
@@ -512,14 +534,14 @@ class TestPerLibraryLimits:
                 enabled=True,
                 min_picks=2,
                 max_picks=2,
-                collections=["Movie A", "Movie B"],
+                collections=[cr("Movie A", "Movies"), cr("Movie B", "Movies")],
             ),
             CollectionGroupConfig(
                 name="Group 2",
                 enabled=True,
                 min_picks=2,
                 max_picks=2,
-                collections=["Movie C", "Movie D"],
+                collections=[cr("Movie C", "Movies"), cr("Movie D", "Movies")],
             ),
         ]
         config = _make_test_config(
@@ -527,18 +549,11 @@ class TestPerLibraryLimits:
             max_collections=10,
             per_library_limits={"Movies": 3},  # Only allow 3 total from Movies
         )
-        collection_library_map = {
-            "Movie A": "Movies",
-            "Movie B": "Movies",
-            "Movie C": "Movies",
-            "Movie D": "Movies",
-        }
 
         result = run_rotation_with_history(
             config,
             max_rotation_id=0,
             usage_map={},
-            collection_library_map=collection_library_map,
             rng=random.Random(42),
         )
 
@@ -554,7 +569,13 @@ class TestPerLibraryLimits:
                 enabled=True,
                 min_picks=5,
                 max_picks=5,
-                collections=["Movie A", "Movie B", "TV A", "TV B", "TV C"],
+                collections=[
+                    cr("Movie A", "Movies"),
+                    cr("Movie B", "Movies"),
+                    cr("TV A", "TV Shows"),
+                    cr("TV B", "TV Shows"),
+                    cr("TV C", "TV Shows"),
+                ],
             ),
         ]
         config = _make_test_config(
@@ -562,19 +583,11 @@ class TestPerLibraryLimits:
             max_collections=10,
             per_library_limits={"Movies": 1},  # Only limit Movies, not TV Shows
         )
-        collection_library_map = {
-            "Movie A": "Movies",
-            "Movie B": "Movies",
-            "TV A": "TV Shows",
-            "TV B": "TV Shows",
-            "TV C": "TV Shows",
-        }
 
         result = run_rotation_with_history(
             config,
             max_rotation_id=0,
             usage_map={},
-            collection_library_map=collection_library_map,
             rng=random.Random(42),
         )
 
@@ -584,14 +597,18 @@ class TestPerLibraryLimits:
         assert result.per_library_counts["TV Shows"] == 3
 
     def test_unknown_library_collections_allowed(self):
-        """Collections not in the library map should be allowed"""
+        """Collections from a library not in per_library_limits should be allowed"""
         groups = [
             CollectionGroupConfig(
                 name="Mixed Group",
                 enabled=True,
                 min_picks=3,
                 max_picks=3,
-                collections=["Known Movie", "Unknown Collection", "Another Unknown"],
+                collections=[
+                    cr("Known Movie", "Movies"),
+                    cr("Unknown Collection", "Other"),
+                    cr("Another Unknown", "Other"),
+                ],
             ),
         ]
         config = _make_test_config(
@@ -599,21 +616,15 @@ class TestPerLibraryLimits:
             max_collections=10,
             per_library_limits={"Movies": 1},
         )
-        # Only one collection has a known library
-        collection_library_map = {
-            "Known Movie": "Movies",
-            # "Unknown Collection" and "Another Unknown" not in map
-        }
 
         result = run_rotation_with_history(
             config,
             max_rotation_id=0,
             usage_map={},
-            collection_library_map=collection_library_map,
             rng=random.Random(42),
         )
 
-        # Should select all 3 (1 Movie limited, 2 unknown allowed)
+        # Should select all 3 (1 Movie limited, 2 "Other" library allowed)
         assert len(result.selected_collections) == 3
         assert result.per_library_counts.get("Movies", 0) <= 1
 
@@ -625,7 +636,13 @@ class TestPerLibraryLimits:
                 enabled=True,
                 min_picks=5,
                 max_picks=5,
-                collections=["A", "B", "C", "D", "E"],
+                collections=[
+                    cr("A", "Movies"),
+                    cr("B", "Movies"),
+                    cr("C", "Movies"),
+                    cr("D", "Movies"),
+                    cr("E", "Movies"),
+                ],
             ),
         ]
         config = _make_test_config(
@@ -633,19 +650,11 @@ class TestPerLibraryLimits:
             max_collections=10,
             per_library_limits={},  # No limits
         )
-        collection_library_map = {
-            "A": "Movies",
-            "B": "Movies",
-            "C": "Movies",
-            "D": "Movies",
-            "E": "Movies",
-        }
 
         result = run_rotation_with_history(
             config,
             max_rotation_id=0,
             usage_map={},
-            collection_library_map=collection_library_map,
             rng=random.Random(42),
         )
 
@@ -660,7 +669,11 @@ class TestPerLibraryLimits:
                 enabled=True,
                 min_picks=3,
                 max_picks=3,
-                collections=["Movie A", "Movie B", "Movie C"],
+                collections=[
+                    cr("Movie A", "Movies"),
+                    cr("Movie B", "Movies"),
+                    cr("Movie C", "Movies"),
+                ],
             ),
         ]
         config = _make_test_config(
@@ -668,17 +681,11 @@ class TestPerLibraryLimits:
             max_collections=10,
             per_library_limits={"Movies": 0},  # Block all Movies
         )
-        collection_library_map = {
-            "Movie A": "Movies",
-            "Movie B": "Movies",
-            "Movie C": "Movies",
-        }
 
         result = run_rotation_with_history(
             config,
             max_rotation_id=0,
             usage_map={},
-            collection_library_map=collection_library_map,
             rng=random.Random(42),
         )
 
@@ -694,25 +701,23 @@ class TestPerLibraryLimits:
                 enabled=True,
                 min_picks=4,
                 max_picks=4,
-                collections=["Movie A", "Movie B", "TV A", "TV B"],
+                collections=[
+                    cr("Movie A", "Movies"),
+                    cr("Movie B", "Movies"),
+                    cr("TV A", "TV Shows"),
+                    cr("TV B", "TV Shows"),
+                ],
             ),
         ]
         config = _make_test_config(
             groups=groups,
             max_collections=10,
         )
-        collection_library_map = {
-            "Movie A": "Movies",
-            "Movie B": "Movies",
-            "TV A": "TV Shows",
-            "TV B": "TV Shows",
-        }
 
         result = run_rotation_with_history(
             config,
             max_rotation_id=0,
             usage_map={},
-            collection_library_map=collection_library_map,
             rng=random.Random(42),
         )
 
@@ -727,14 +732,13 @@ class TestAutoRotationPerLibraryLimits:
 
     def test_auto_rotation_library_limit_enforced(self):
         """Auto-rotation should respect per-library limits"""
-        all_collections = ["Movie A", "Movie B", "Movie C", "TV A", "TV B"]
-        collection_library_map = {
-            "Movie A": "Movies",
-            "Movie B": "Movies",
-            "Movie C": "Movies",
-            "TV A": "TV Shows",
-            "TV B": "TV Shows",
-        }
+        all_collections = [
+            cr("Movie A", "Movies"),
+            cr("Movie B", "Movies"),
+            cr("Movie C", "Movies"),
+            cr("TV A", "TV Shows"),
+            cr("TV B", "TV Shows"),
+        ]
 
         result = run_auto_rotation_with_history(
             all_collections,
@@ -745,7 +749,6 @@ class TestAutoRotationPerLibraryLimits:
             last_rotation_collections=[],
             max_rotation_id=0,
             usage_map={},
-            collection_library_map=collection_library_map,
             per_library_limits={"Movies": 2, "TV Shows": 1},
             rng=random.Random(42),
         )
@@ -757,8 +760,7 @@ class TestAutoRotationPerLibraryLimits:
 
     def test_auto_rotation_no_limits(self):
         """Auto-rotation without limits should select up to max_collections"""
-        all_collections = ["A", "B", "C", "D", "E"]
-        collection_library_map = {c: "Movies" for c in all_collections}
+        all_collections = [cr(c, "Movies") for c in ["A", "B", "C", "D", "E"]]
 
         result = run_auto_rotation_with_history(
             all_collections,
@@ -769,7 +771,6 @@ class TestAutoRotationPerLibraryLimits:
             last_rotation_collections=[],
             max_rotation_id=0,
             usage_map={},
-            collection_library_map=collection_library_map,
             per_library_limits={},  # No limits
             rng=random.Random(42),
         )
@@ -778,11 +779,10 @@ class TestAutoRotationPerLibraryLimits:
 
     def test_auto_rotation_iterative_selection(self):
         """Auto-rotation with limits should use iterative selection"""
-        all_collections = ["M1", "M2", "M3", "M4", "T1", "T2"]
-        collection_library_map = {
-            "M1": "Movies", "M2": "Movies", "M3": "Movies", "M4": "Movies",
-            "T1": "TV Shows", "T2": "TV Shows",
-        }
+        all_collections = [
+            cr("M1", "Movies"), cr("M2", "Movies"), cr("M3", "Movies"), cr("M4", "Movies"),
+            cr("T1", "TV Shows"), cr("T2", "TV Shows"),
+        ]
 
         result = run_auto_rotation_with_history(
             all_collections,
@@ -793,7 +793,6 @@ class TestAutoRotationPerLibraryLimits:
             last_rotation_collections=[],
             max_rotation_id=0,
             usage_map={},
-            collection_library_map=collection_library_map,
             per_library_limits={"Movies": 2, "TV Shows": 2},
             rng=random.Random(42),
         )
@@ -804,9 +803,12 @@ class TestAutoRotationPerLibraryLimits:
         assert result.per_library_counts.get("TV Shows", 0) <= 2
 
     def test_auto_rotation_unknown_collections_allowed(self):
-        """Auto-rotation should allow collections not in library map"""
-        all_collections = ["Known", "Unknown1", "Unknown2"]
-        collection_library_map = {"Known": "Movies"}
+        """Auto-rotation should allow collections not limited by per_library_limits"""
+        all_collections = [
+            cr("Known", "Movies"),
+            cr("Unknown1", "Other"),
+            cr("Unknown2", "Other"),
+        ]
 
         result = run_auto_rotation_with_history(
             all_collections,
@@ -817,10 +819,9 @@ class TestAutoRotationPerLibraryLimits:
             last_rotation_collections=[],
             max_rotation_id=0,
             usage_map={},
-            collection_library_map=collection_library_map,
             per_library_limits={"Movies": 1},
             rng=random.Random(42),
         )
 
-        # Should select all 3 (1 from Movies, 2 unknown)
+        # Should select all 3 (1 from Movies, 2 from "Other" which has no limit)
         assert len(result.selected_collections) == 3

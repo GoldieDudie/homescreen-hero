@@ -12,6 +12,7 @@ from homescreen_hero.core.config.schema import (
     CollectionGroupConfig,
     DateRange,
 )
+from tests.conftest import cr
 
 
 # Mock CollectionUsage for testing
@@ -38,7 +39,7 @@ class TestRunRotationWithHistory:
                     enabled=True,
                     min_picks=1,
                     max_picks=2,
-                    collections=["Action 1", "Action 2", "Action 3"]
+                    collections=[cr("Action 1"), cr("Action 2"), cr("Action 3")]
                 )
             ]
         )
@@ -72,14 +73,14 @@ class TestRunRotationWithHistory:
                     enabled=True,
                     min_picks=1,
                     max_picks=2,
-                    collections=["Action 1", "Action 2"]
+                    collections=[cr("Action 1"), cr("Action 2")]
                 ),
                 CollectionGroupConfig(
                     name="Comedy",
                     enabled=True,
                     min_picks=1,
                     max_picks=2,
-                    collections=["Comedy 1", "Comedy 2"]
+                    collections=[cr("Comedy 1"), cr("Comedy 2")]
                 ),
             ]
         )
@@ -112,14 +113,15 @@ class TestRunRotationWithHistory:
                     min_picks=1,
                     max_picks=2,
                     min_gap_rotations=3,  # Must wait 3 rotations
-                    collections=["Action 1", "Action 2", "Action 3"]
+                    collections=[cr("Action 1"), cr("Action 2"), cr("Action 3")]
                 )
             ]
         )
 
         # Simulate that "Action 1" was used in rotation 5
+        ref_action1 = cr("Action 1")
         usage_map = {
-            "Action 1": MockCollectionUsage("Action 1", 5)
+            ref_action1: MockCollectionUsage("Action 1", 5)
         }
 
         # Current rotation is 6, gap is only 1 (needs 3)
@@ -133,7 +135,7 @@ class TestRunRotationWithHistory:
         )
 
         # Action 1 should not be selected due to gap rule
-        assert "Action 1" not in result.selected_collections
+        assert ref_action1 not in result.selected_collections
 
     def test_inactive_group_skipped(self):
         """Test that inactive groups are skipped"""
@@ -150,7 +152,7 @@ class TestRunRotationWithHistory:
                     date_range=DateRange(start="12-01", end="12-26"),
                     min_picks=1,
                     max_picks=2,
-                    collections=["Christmas 1", "Christmas 2"]
+                    collections=[cr("Christmas 1"), cr("Christmas 2")]
                 ),
                 CollectionGroupConfig(
                     name="Summer",
@@ -158,7 +160,7 @@ class TestRunRotationWithHistory:
                     date_range=DateRange(start="06-01", end="08-31"),
                     min_picks=1,
                     max_picks=2,
-                    collections=["Summer 1", "Summer 2"]
+                    collections=[cr("Summer 1"), cr("Summer 2")]
                 ),
             ]
         )
@@ -196,14 +198,14 @@ class TestRunRotationWithHistory:
                     enabled=True,
                     min_picks=1,
                     max_picks=2,
-                    collections=["Movie 1", "Movie 2"]
+                    collections=[cr("Movie 1"), cr("Movie 2")]
                 ),
                 CollectionGroupConfig(
                     name="Disabled",
                     enabled=False,
                     min_picks=1,
                     max_picks=2,
-                    collections=["Movie 3", "Movie 4"]
+                    collections=[cr("Movie 3"), cr("Movie 4")]
                 ),
             ]
         )
@@ -219,8 +221,8 @@ class TestRunRotationWithHistory:
 
         disabled_result = next(r for r in result.groups if r.group_name == "Disabled")
         assert disabled_result.active is False
-        assert "Movie 3" not in result.selected_collections
-        assert "Movie 4" not in result.selected_collections
+        assert cr("Movie 3") not in result.selected_collections
+        assert cr("Movie 4") not in result.selected_collections
 
     def test_min_picks_requirement(self):
         """Test that min_picks is respected when possible"""
@@ -236,7 +238,7 @@ class TestRunRotationWithHistory:
                     enabled=True,
                     min_picks=2,  # Require at least 2
                     max_picks=3,
-                    collections=["Action 1", "Action 2", "Action 3", "Action 4"]
+                    collections=[cr("Action 1"), cr("Action 2"), cr("Action 3"), cr("Action 4")]
                 )
             ]
         )
@@ -300,14 +302,14 @@ class TestRunRotationWithHistory:
                     enabled=True,
                     min_picks=1,
                     max_picks=2,
-                    collections=["Shared Movie", "Movie 1"]
+                    collections=[cr("Shared Movie"), cr("Movie 1")]
                 ),
                 CollectionGroupConfig(
                     name="Group2",
                     enabled=True,
                     min_picks=1,
                     max_picks=2,
-                    collections=["Shared Movie", "Movie 2"]
+                    collections=[cr("Shared Movie"), cr("Movie 2")]
                 ),
             ]
         )
@@ -322,7 +324,7 @@ class TestRunRotationWithHistory:
         )
 
         # "Shared Movie" should only appear once
-        assert result.selected_collections.count("Shared Movie") <= 1
+        assert result.selected_collections.count(cr("Shared Movie")) <= 1
 
     def test_blacklisted_collections_never_selected(self):
         """Test that blacklisted collections are filtered from all groups"""
@@ -339,7 +341,7 @@ class TestRunRotationWithHistory:
                     enabled=True,
                     min_picks=2,
                     max_picks=3,
-                    collections=["Good Movie", "Blocked Movie", "Another Movie", "Another Blocked"]
+                    collections=[cr("Good Movie"), cr("Blocked Movie"), cr("Another Movie"), cr("Another Blocked")]
                 )
             ]
         )
@@ -354,11 +356,11 @@ class TestRunRotationWithHistory:
         )
 
         # Blacklisted collections should never be selected
-        assert "Blocked Movie" not in result.selected_collections
-        assert "Another Blocked" not in result.selected_collections
+        assert cr("Blocked Movie") not in result.selected_collections
+        assert cr("Another Blocked") not in result.selected_collections
         # Only non-blacklisted collections should be available
         for collection in result.selected_collections:
-            assert collection in ["Good Movie", "Another Movie"]
+            assert collection in [cr("Good Movie"), cr("Another Movie")]
 
     def test_blacklist_with_all_collections_blocked(self):
         """Test that group is skipped when all collections are blacklisted"""
@@ -375,7 +377,7 @@ class TestRunRotationWithHistory:
                     enabled=True,
                     min_picks=1,
                     max_picks=2,
-                    collections=["Movie 1", "Movie 2"]  # All blacklisted
+                    collections=[cr("Movie 1"), cr("Movie 2")]  # All blacklisted
                 )
             ]
         )
@@ -408,14 +410,14 @@ class TestRunRotationWithHistory:
                     enabled=True,
                     min_picks=1,
                     max_picks=2,
-                    collections=["Action 1", "Blocked Everywhere"]
+                    collections=[cr("Action 1"), cr("Blocked Everywhere")]
                 ),
                 CollectionGroupConfig(
                     name="Comedy",
                     enabled=True,
                     min_picks=1,
                     max_picks=2,
-                    collections=["Comedy 1", "Blocked Everywhere"]
+                    collections=[cr("Comedy 1"), cr("Blocked Everywhere")]
                 ),
             ]
         )
@@ -430,6 +432,6 @@ class TestRunRotationWithHistory:
         )
 
         # Blocked collection should not appear from any group
-        assert "Blocked Everywhere" not in result.selected_collections
+        assert cr("Blocked Everywhere") not in result.selected_collections
         # Other collections should still be selected
         assert len(result.selected_collections) >= 2

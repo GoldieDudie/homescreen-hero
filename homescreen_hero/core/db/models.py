@@ -11,6 +11,7 @@ from sqlalchemy import (
     String,
     Text,
     JSON,
+    UniqueConstraint,
 )
 
 from .base import Base
@@ -33,11 +34,13 @@ class RotationRecord(Base):
 
 
 class CollectionUsage(Base):
-    # Tracks how often each collection has been used and in which rotation
+    # Tracks how often each (library, collection) pair has been used and in which rotation
     __tablename__ = "collection_usage"
+    __table_args__ = (UniqueConstraint("library_name", "collection_name", name="uq_collection_usage_lib_name"),)
 
     id = Column(Integer, primary_key=True, index=True)
-    collection_name = Column(String, nullable=False, unique=True, index=True)
+    library_name = Column(String, nullable=False, default="", index=True)
+    collection_name = Column(String, nullable=False, index=True)
 
     last_rotation_id = Column(Integer, nullable=True)
     last_rotated_at = Column(DateTime, nullable=True)
@@ -339,9 +342,10 @@ class CollectionAnalytics(Base):
 class PinnedCollection(Base):
     # Collections permanently pinned to the homescreen (don't count against max_collections)
     __tablename__ = "pinned_collections"
+    __table_args__ = (UniqueConstraint("library_name", "collection_name", name="uq_pinned_collections_lib_name"),)
 
     id = Column(Integer, primary_key=True, index=True)
-    collection_name = Column(String, nullable=False, unique=True, index=True)
+    collection_name = Column(String, nullable=False, index=True)
     library_name = Column(String, nullable=False)
     display_order = Column(Integer, nullable=False, default=0, index=True)
     pinned_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -394,9 +398,11 @@ class User(Base):
 class CollectionDisplayOrder(Base):
     # Tracks the display order of active collections on the homescreen
     __tablename__ = "collection_display_order"
+    __table_args__ = (UniqueConstraint("library_name", "collection_name", name="uq_collection_display_order_lib_name"),)
 
     id = Column(Integer, primary_key=True, index=True)
-    collection_name = Column(String, nullable=False, unique=True, index=True)
+    library_name = Column(String, nullable=False, default="", index=True)
+    collection_name = Column(String, nullable=False, index=True)
     display_order = Column(Integer, nullable=False, default=0, index=True)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 

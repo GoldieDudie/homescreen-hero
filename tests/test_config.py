@@ -4,6 +4,7 @@ Tests for configuration schema and validation
 import pytest
 from pydantic import ValidationError
 from homescreen_hero.core.config.schema import (
+    CollectionRef,
     DateRange,
     PlexLibraryConfig,
     PlexSettings,
@@ -11,6 +12,7 @@ from homescreen_hero.core.config.schema import (
     CollectionGroupConfig,
     AppConfig,
 )
+from tests.conftest import cr
 
 
 class TestDateRange:
@@ -121,7 +123,7 @@ class TestCollectionGroupConfig:
             max_picks=3,
             weight=2,
             min_gap_rotations=5,
-            collections=["Action Movies", "Superhero Collection"]
+            collections=[cr("Action Movies"), cr("Superhero Collection")],
         )
         assert group.name == "Action"
         assert group.enabled is True
@@ -134,7 +136,7 @@ class TestCollectionGroupConfig:
     def test_default_values(self):
         group = CollectionGroupConfig(
             name="Test",
-            collections=["Test Collection"]
+            collections=[cr("Test Collection")],
         )
         assert group.enabled is True
         assert group.min_picks == 0
@@ -146,22 +148,26 @@ class TestCollectionGroupConfig:
         group = CollectionGroupConfig(
             name="Christmas",
             date_range=DateRange(start="12-01", end="12-26"),
-            collections=["Christmas Movies"]
+            collections=[cr("Christmas Movies")],
         )
         assert group.date_range is not None
         assert group.date_range.start == "12-01"
 
     def test_collection_selection_defaults_to_random(self):
-        group = CollectionGroupConfig(name="Test", collections=["Test Collection"])
+        group = CollectionGroupConfig(name="Test", collections=[cr("Test Collection")])
         assert group.collection_selection == "random"
 
     def test_collection_selection_null_migrates_to_random(self):
-        group = CollectionGroupConfig(name="Test", collection_selection=None, collections=["Test Collection"])
+        group = CollectionGroupConfig(name="Test", collection_selection=None, collections=[cr("Test Collection")])
         assert group.collection_selection == "random"
+
+    def test_bare_string_collections_rejected(self):
+        with pytest.raises(ValidationError):
+            CollectionGroupConfig(name="Test", collections=["bare string"])
 
     def test_requires_name(self):
         with pytest.raises(ValidationError):
-            CollectionGroupConfig(collections=["Test Collection"])
+            CollectionGroupConfig(collections=[cr("Test Collection")])
 
 
 class TestAppConfig:
@@ -178,7 +184,7 @@ class TestAppConfig:
             groups=[
                 CollectionGroupConfig(
                     name="Action",
-                    collections=["Action Movies"]
+                    collections=[cr("Action Movies")],
                 )
             ]
         )

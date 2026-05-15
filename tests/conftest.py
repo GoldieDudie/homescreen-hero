@@ -5,11 +5,17 @@ import pytest
 from datetime import date
 from homescreen_hero.core.config.schema import (
     AppConfig,
+    CollectionRef,
     RotationSettings,
     PlexSettings,
     PlexLibraryConfig,
     CollectionGroupConfig,
 )
+
+
+def cr(name: str, library: str = "Movies") -> CollectionRef:
+    """Shorthand for creating a CollectionRef in tests."""
+    return CollectionRef(library=library, name=name)
 
 
 @pytest.fixture
@@ -38,7 +44,11 @@ def sample_config():
                 max_picks=2,
                 weight=1,
                 min_gap_rotations=3,
-                collections=["Action Movies", "Superhero Collection", "Die Hard Series"]
+                collections=[
+                    cr("Action Movies"),
+                    cr("Superhero Collection"),
+                    cr("Die Hard Series"),
+                ],
             ),
             CollectionGroupConfig(
                 name="Comedy",
@@ -47,7 +57,10 @@ def sample_config():
                 max_picks=1,
                 weight=1,
                 min_gap_rotations=2,
-                collections=["Comedy Classics", "Stand-up Specials"]
+                collections=[
+                    cr("Comedy Classics"),
+                    cr("Stand-up Specials"),
+                ],
             ),
         ]
     )

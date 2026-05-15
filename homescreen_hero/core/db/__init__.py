@@ -44,7 +44,7 @@ from .sync_status import (
 )
 from .pinning import (
     get_display_order,
-    get_pinned_collection_names,
+    get_pinned_refs,
     get_pinned_collections,
     get_pinned_visibility_map,
     is_collection_pinned,
@@ -85,7 +85,7 @@ __all__ = (
     "get_sync_status",
     "record_sync_result",
     "get_display_order",
-    "get_pinned_collection_names",
+    "get_pinned_refs",
     "get_pinned_collections",
     "get_pinned_visibility_map",
     "is_collection_pinned",

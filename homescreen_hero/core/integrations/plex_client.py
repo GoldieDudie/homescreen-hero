@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Set
+from collections import defaultdict
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 import requests
 import urllib3
@@ -13,7 +14,7 @@ from plexapi.myplex import MyPlexAccount
 # skip cert verification for local Plex connections (still encrypted).
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-from ..config.schema import AppConfig
+from ..config.schema import AppConfig, CollectionRef
 
 logger = logging.getLogger(__name__)
 
@@ -71,42 +72,45 @@ def get_collection_item_count(collection: object) -> int:
     return getattr(collection, "childCount", 0)
 
 
-def get_configured_collection_names(
+def get_configured_collections(
     config: AppConfig,
-    smart_group_collections: Dict[str, List[str]] | None = None,
-) -> Set[str]:
-    # Build the set of all collection names referenced in your groups and integration sources
-    names: Set[str] = set()
+    smart_group_collections: Optional[Dict[str, List[CollectionRef]]] = None,
+) -> Set[CollectionRef]:
+    # Build the set of all CollectionRefs referenced in groups and integration sources.
+    refs: Set[CollectionRef] = set()
 
-    # Add collections from groups (use resolved smart group collections when available)
     for group in config.groups:
         if group.smart and smart_group_collections and group.name in smart_group_collections:
-            names.update(smart_group_collections[group.name])
+            refs.update(smart_group_collections[group.name])
         else:
-            for name in group.collections:
-                names.add(name)
+            refs.update(group.collections)
 
-    # Add collections from Trakt sources
+    # Integration sources: name is the collection name, plex_library is the library.
     if config.trakt and config.trakt.enabled and config.trakt.sources:
         for source in config.trakt.sources:
-            names.add(source.name)
+            refs.add(CollectionRef(library=source.plex_library, name=source.name))
 
-    # Add collections from Letterboxd sources
     if config.letterboxd and config.letterboxd.sources:
         for source in config.letterboxd.sources:
-            names.add(source.name)
+            refs.add(CollectionRef(library=source.plex_library, name=source.name))
 
-    # Add collections from MDBList sources
     if config.mdblist and config.mdblist.enabled and config.mdblist.sources:
         for source in config.mdblist.sources:
-            names.add(source.name)
+            refs.add(CollectionRef(library=source.plex_library, name=source.name))
 
-    # Add collections from AniList sources
     if config.anilist and config.anilist.sources:
         for source in config.anilist.sources:
-            names.add(source.name)
+            refs.add(CollectionRef(library=source.plex_library, name=source.name))
 
-    return names
+    if config.tmdb and config.tmdb.enabled and config.tmdb.sources:
+        for source in config.tmdb.sources:
+            refs.add(CollectionRef(library=source.plex_library, name=source.name))
+
+    if config.mal and config.mal.enabled and config.mal.sources:
+        for source in config.mal.sources:
+            refs.add(CollectionRef(library=source.plex_library, name=source.name))
+
+    return refs
 
 
 # Currently unused — auto-delete functionality is disabled in service.py
@@ -176,8 +180,9 @@ def cleanup_deleted_integration_sources(
             group_collections.add(name)
 
     # Get pinned collections - users explicitly want these preserved
-    from ..db import get_pinned_collection_names
-    pinned_collections = get_pinned_collection_names()
+    from ..db import get_pinned_refs
+    pinned_refs = get_pinned_refs()
+    pinned_collections = {r.name for r in pinned_refs}
 
     logger.info(f"Cleanup check - Previously rotated: {sorted(previously_rotated)}")
     logger.info(f"Cleanup check - Integration sources: {sorted(current_integration_sources)}")
@@ -253,57 +258,55 @@ def cleanup_deleted_integration_sources(
 def apply_home_screen_selection(
     server: PlexServer,
     config: AppConfig,
-    selected_collection_names: Iterable[str],
-    collection_visibility: Dict[str, Dict[str, bool]],
+    selected_collections: Iterable[CollectionRef],
+    collection_visibility: Dict[CollectionRef, Dict[str, bool]],
     *,
     dry_run: bool = False,
-    smart_group_collections: Dict[str, List[str]] | None = None,
-    collection_sort: Dict[str, str] | None = None,
-) -> List[str]:
-    # Apply the chosen collections to the Plex Home screen
+    smart_group_collections: Optional[Dict[str, List[CollectionRef]]] = None,
+    collection_sort: Optional[Dict[CollectionRef, str]] = None,
+) -> List[CollectionRef]:
+    # Apply the chosen collections to the Plex Home screen.
     #
     # Strategy:
-    #   - Build the union of all config-defined collection names
-    #   - Also include previously rotated collections (from CollectionUsage table)
+    #   - Build the union of all configured + previously rotated + selected collection names
     #   - Fetch those collections from all enabled Plex libraries
-    #   - For each:
-    #       - If in selected_collection_names -> apply visibility settings from collection_visibility
-    #       - Else -> disable all visibility (home=False, shared=False, recommended=False)
+    #   - For each collection name and its library instances:
+    #       - If a CollectionRef for that name is selected → enable visibility on the matching
+    #         library instance, disable all other instances for that name
+    #       - Else → disable all instances
     #
-    # Args:
-    #   collection_visibility: Dict mapping collection name to visibility settings
-    #       e.g. {"Christmas Classics": {"home": True, "shared": True, "recommended": False}}
-    #
-    # Returns a list of collection titles that were (or would be) set to show on Home
+    # Returns the list of CollectionRefs that were (or would be) set to show on Home.
 
-    # Import here to avoid circular dependency
     from ..db.history import get_rotation_history_context
 
-    # Get enabled libraries
     enabled_libraries = [lib.name for lib in config.plex.libraries if lib.enabled]
 
     if not enabled_libraries:
         logger.warning("No enabled libraries configured for rotation")
         return []
 
-    selected_set = set(selected_collection_names)
-    configured_names = get_configured_collection_names(config, smart_group_collections)
+    selected_set: Set[CollectionRef] = set(selected_collections)
 
-    # Get all collections that have ever been rotated to ensure we clean them up if removed
+    # Group selected refs by name so we can match the right library instance below.
+    # Multiple refs with the same name (different libraries) are all supported.
+    selected_refs_by_name: Dict[str, Set[CollectionRef]] = defaultdict(set)
+    for ref in selected_set:
+        selected_refs_by_name[ref.name].add(ref)
+
+    configured_refs = get_configured_collections(config, smart_group_collections)
+    configured_name_strings: Set[str] = {r.name for r in configured_refs}
+
     _, usage_map = get_rotation_history_context()
-    previously_rotated_names = set(usage_map.keys())
+    previously_rotated_names: Set[str] = {r.name for r in usage_map.keys()}
 
-    # Process configured, previously rotated, AND currently selected collections
-    # (auto-rotate can select collections that aren't in groups or history yet)
-    all_names_to_process = configured_names | previously_rotated_names | selected_set
+    # Process all names we care about (configured + rotated history + currently selected)
+    all_names_to_process: Set[str] = (
+        configured_name_strings
+        | previously_rotated_names
+        | {r.name for r in selected_set}
+    )
 
-    # Fetch all collection instances per library.
-    # Keyed as {name: [(library_name, collection_obj), ...]} so that collections
-    # with the same name in multiple libraries (e.g. 4K + 1080p) are all processed.
-    # Previously we did `all_collections.update(...)` which caused the last library
-    # to silently overwrite earlier ones, leaving same-named collections in other
-    # libraries at whatever visibility they happened to have — causing "ghost" promoted
-    # collections after rotation.
+    # Fetch all instances per library: {name: [(library_name, collection_obj), ...]}
     all_instances: Dict[str, List] = {}
     for library_name in enabled_libraries:
         logger.info("Fetching collections from library: %s", library_name)
@@ -315,27 +318,23 @@ def apply_home_screen_selection(
             logger.error("Failed to fetch collections from library '%s': %s", library_name, e)
             continue
 
-    applied: List[str] = []
+    applied: List[CollectionRef] = []
 
     logger.info(
         "Applying home screen selection to %d total collections (%d configured, %d previously rotated) across %d libraries (dry_run=%s)",
         len(all_names_to_process),
-        len(configured_names),
+        len(configured_refs),
         len(previously_rotated_names),
         len(enabled_libraries),
         dry_run,
     )
 
-    # Get pinned collections to ensure they come first in the applied order.
-    # pinned_library stores the intended library for each pinned name so we can
-    # promote only that library's instance and suppress others.
     from ..db import get_pinned_collections
-    pinned_collections = get_pinned_collections()
-    pinned_order = {p.collection_name: p.display_order for p in pinned_collections}
-    pinned_library = {p.collection_name: p.library_name for p in pinned_collections}
-    pinned_names = set(pinned_order.keys())
+    pinned_db = get_pinned_collections()
+    pinned_order: Dict[str, int] = {p.collection_name: p.display_order for p in pinned_db}
+    pinned_library: Dict[str, str] = {p.collection_name: p.library_name for p in pinned_db}
+    pinned_names: Set[str] = set(pinned_order.keys())
 
-    # Sort: pinned first (by pin order), then non-pinned (alphabetically)
     def sort_key(name: str) -> tuple:
         if name in pinned_names:
             return (0, pinned_order[name], name)
@@ -344,86 +343,88 @@ def apply_home_screen_selection(
     for name in sorted(all_names_to_process, key=sort_key):
         instances = all_instances.get(name)
         if not instances:
-            # Collection not found in any enabled Plex library
-            if name in configured_names:
-                logger.warning(
-                    "Configured collection not found in any enabled Plex library: %s",
-                    name,
-                )
+            if name in configured_name_strings:
+                logger.warning("Configured collection not found in any enabled Plex library: %s", name)
             continue
 
-        if name in selected_set:
-            # Get visibility settings for this collection
-            visibility = collection_visibility.get(name, {
-                "home": True,
-                "shared": False,
-                "recommended": False
-            })
-            applied.append(name)
+        selected_name_refs = selected_refs_by_name.get(name)
 
+        if selected_name_refs:
             for lib, coll in instances:
                 hub = coll.visibility()
-                # Pinned collections are library-scoped: only promote the intended
-                # library's instance; suppress all others with the same name.
+
+                # Find the CollectionRef that matches this specific library instance.
+                # Refs with library="" (legacy migrated records) match the first instance.
+                matching_ref = next(
+                    (r for r in selected_name_refs if r.library == lib),
+                    None,
+                )
+                if matching_ref is None and any(r.library == "" for r in selected_name_refs):
+                    # Legacy ref with no library info — match the first available instance
+                    if lib == instances[0][0]:
+                        matching_ref = next(r for r in selected_name_refs if r.library == "")
+
+                # Pinned collections override: use the pinned library setting
                 if name in pinned_names:
                     is_pinned_lib = lib == pinned_library.get(name)
                     if is_pinned_lib:
-                        logger.info(
-                            "Enabling visibility for pinned collection '%s' (lib=%s): home=%s, shared=%s, recommended=%s",
-                            name, lib,
-                            visibility.get("home", True),
-                            visibility.get("shared", False),
-                            visibility.get("recommended", False),
-                        )
-                        if not dry_run:
-                            hub.updateVisibility(
-                                home=visibility.get("home", True),
-                                shared=visibility.get("shared", False),
-                                recommended=visibility.get("recommended", False),
+                        matching_ref = next((r for r in selected_name_refs), None)
+                        if matching_ref:
+                            visibility = collection_visibility.get(matching_ref, {"home": True, "shared": False, "recommended": False})
+                            logger.info(
+                                "Enabling visibility for pinned collection '%s' (lib=%s): home=%s, shared=%s, recommended=%s",
+                                name, lib,
+                                visibility.get("home", True),
+                                visibility.get("shared", False),
+                                visibility.get("recommended", False),
                             )
+                            if not dry_run:
+                                hub.updateVisibility(
+                                    home=visibility.get("home", True),
+                                    shared=visibility.get("shared", False),
+                                    recommended=visibility.get("recommended", False),
+                                )
+                        continue
                     else:
                         logger.debug("Suppressing non-pinned library instance of '%s' (lib=%s)", name, lib)
                         if not dry_run:
                             hub.updateVisibility(home=False, shared=False, recommended=False)
+                        continue
+
+                if matching_ref is not None:
+                    visibility = collection_visibility.get(matching_ref, {"home": True, "shared": False, "recommended": False})
+                    logger.info(
+                        "Enabling visibility for collection '%s' (lib=%s): home=%s, shared=%s, recommended=%s",
+                        name, lib,
+                        visibility.get("home", True),
+                        visibility.get("shared", False),
+                        visibility.get("recommended", False),
+                    )
+                    if not dry_run:
+                        hub.updateVisibility(
+                            home=visibility.get("home", True),
+                            shared=visibility.get("shared", False),
+                            recommended=visibility.get("recommended", False),
+                        )
+                        if collection_sort and matching_ref in collection_sort:
+                            try:
+                                coll.sortUpdate(sort=collection_sort[matching_ref])
+                                logger.debug("Set sort order for '%s' to '%s'", name, collection_sort[matching_ref])
+                            except Exception:
+                                logger.warning("Failed to update sort for '%s' (may be a smart collection)", name)
                 else:
-                    # Non-pinned selected: promote only the FIRST instance (canonical
-                    # library, i.e. first enabled library in config order that has this
-                    # collection). Suppress all additional instances so a collection with
-                    # the same name in Movies + Movies IMAX doesn't appear twice.
-                    # Use pin to a specific library if you need a non-first instance.
-                    is_first = (lib == instances[0][0])
-                    if is_first:
-                        logger.info(
-                            "Enabling visibility for collection '%s' (lib=%s): home=%s, shared=%s, recommended=%s",
-                            name, lib,
-                            visibility.get("home", True),
-                            visibility.get("shared", False),
-                            visibility.get("recommended", False),
-                        )
-                        if not dry_run:
-                            hub.updateVisibility(
-                                home=visibility.get("home", True),
-                                shared=visibility.get("shared", False),
-                                recommended=visibility.get("recommended", False),
-                            )
-                            # Apply collection sort if configured for this collection's group
-                            if collection_sort and name in collection_sort:
-                                try:
-                                    coll.sortUpdate(sort=collection_sort[name])
-                                    logger.debug("Set sort order for '%s' to '%s'", name, collection_sort[name])
-                                except Exception:
-                                    logger.warning("Failed to update sort for '%s' (may be a smart collection)", name)
-                    else:
-                        logger.debug(
-                            "Suppressing duplicate library instance of '%s' (lib=%s, canonical lib=%s)",
-                            name, lib, instances[0][0],
-                        )
-                        if not dry_run:
-                            hub.updateVisibility(home=False, shared=False, recommended=False)
+                    # This library has an instance but no CollectionRef selected it — suppress
+                    logger.debug("Suppressing unselected library instance of '%s' (lib=%s)", name, lib)
+                    if not dry_run:
+                        hub.updateVisibility(home=False, shared=False, recommended=False)
+
+            # Track applied refs (all selected refs for this name that had instances)
+            for ref in selected_name_refs:
+                if any(lib == ref.library for lib, _ in instances) or (ref.library == "" and instances):
+                    applied.append(ref)
         else:
-            # Not selected: disable ALL library instances so no "ghost" promoted
-            # collections linger from a previous rotation.
-            if name in previously_rotated_names and name not in configured_names:
+            # Not selected: disable ALL library instances
+            if name in previously_rotated_names and name not in configured_name_strings:
                 logger.info("Disabling visibility for previously managed collection (removed from config): %s", name)
             else:
                 logger.debug("Disabling visibility for collection: %s", name)
@@ -440,19 +441,19 @@ def apply_home_screen_selection(
     if dry_run:
         logger.info("Dry run — no changes were sent to Plex")
 
-    # Reorder collections on the homescreen using group display settings.
-    # Only reorder when at least one group has an explicit collection_order configured.
-    # Without an explicit order, calling reorder would move managed collections to
-    # position 0 (via `hub.move(after=None)`), displacing pre-existing Plex collections
-    # that the user ordered manually outside of homescreen-hero.
     needs_reorder = any(g.collection_order is not None for g in config.groups)
     if applied and not dry_run and needs_reorder:
         from ..rotation import order_collections_for_display
+        pinned_ref_order = {
+            CollectionRef(library=p.library_name, name=p.collection_name): p.display_order
+            for p in pinned_db
+        }
+        pinned_ref_set = {CollectionRef(library=p.library_name, name=p.collection_name) for p in pinned_db}
         ordered_applied = order_collections_for_display(
             applied,
             config,
-            pinned_names=pinned_names,
-            pinned_order=pinned_order,
+            pinned_names=pinned_ref_set,
+            pinned_order=pinned_ref_order,
             smart_group_collections=smart_group_collections,
         )
         reorder_homescreen_collections(server, config, ordered_applied)
@@ -589,12 +590,14 @@ def _reorder_library_hubs(
 def reorder_homescreen_collections(
     server: PlexServer,
     config: AppConfig,
-    ordered_collection_names: List[str],
+    ordered_collections: List[CollectionRef],
     *,
     dry_run: bool = False,
 ) -> List[str]:
     # Reorder collections on the Plex homescreen using ManagedHub.move().
     # Plex keeps libraries separate, so we reorder within each library.
+    # Hub titles are collection names (strings), so we extract ref.name for API calls.
+    ordered_names = [r.name for r in ordered_collections]
     enabled_libraries = [lib.name for lib in config.plex.libraries if lib.enabled]
 
     library_orders: Dict[str, List[str]] = {}
@@ -603,39 +606,26 @@ def reorder_homescreen_collections(
         try:
             hubs = _get_managed_hubs_for_library(server, library_name)
             total_hubs += len(hubs)
-            target_order = _get_target_hub_order_for_library(
-                hubs,
-                ordered_collection_names,
-            )
+            target_order = _get_target_hub_order_for_library(hubs, ordered_names)
             if target_order:
                 library_orders[library_name] = target_order
         except Exception as e:
-            logger.warning(
-                "Could not get managed hubs for library %s: %s", library_name, e
-            )
+            logger.warning("Could not get managed hubs for library %s: %s", library_name, e)
 
     logger.debug(
         "Found %d managed hubs for reordering, requested order: %s",
         total_hubs,
-        ordered_collection_names,
+        ordered_names,
     )
 
     if dry_run:
-        logger.info("Dry run - would reorder collections: %s", ordered_collection_names)
-        return ordered_collection_names
+        logger.info("Dry run - would reorder collections: %s", ordered_names)
+        return ordered_names
 
-    # Reorder within each library
     applied_order: List[str] = []
     for library_name, target_order in library_orders.items():
-        logger.debug(
-            "Reordering %d collections in '%s': %s",
-            len(target_order),
-            library_name,
-            target_order,
-        )
-        applied_order.extend(
-            _reorder_library_hubs(server, library_name, target_order)
-        )
+        logger.debug("Reordering %d collections in '%s': %s", len(target_order), library_name, target_order)
+        applied_order.extend(_reorder_library_hubs(server, library_name, target_order))
 
     if applied_order:
         logger.info("Reordered %d collections on homescreen", len(applied_order))

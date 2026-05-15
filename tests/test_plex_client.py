@@ -2,6 +2,7 @@ import logging
 
 from homescreen_hero.core.config.schema import (
     AppConfig,
+    CollectionRef,
     PlexLibraryConfig,
     PlexSettings,
     RotationSettings,
@@ -73,6 +74,10 @@ def _make_config(*library_names: str) -> AppConfig:
     )
 
 
+def _ref(name: str, library: str = "Movies") -> CollectionRef:
+    return CollectionRef(library=library, name=name)
+
+
 def test_reorder_homescreen_collections_matches_requested_order(monkeypatch):
     monkeypatch.setattr(plex_client.time, "sleep", lambda _seconds: None)
 
@@ -83,7 +88,7 @@ def test_reorder_homescreen_collections_matches_requested_order(monkeypatch):
     applied = plex_client.reorder_homescreen_collections(
         server,
         config,
-        ["Alpha", "Beta", "Gamma"],
+        [_ref("Alpha"), _ref("Beta"), _ref("Gamma")],
     )
 
     assert applied == ["Alpha", "Beta", "Gamma"]
@@ -105,7 +110,7 @@ def test_reorder_homescreen_collections_retries_when_first_pass_misorders(monkey
         applied = plex_client.reorder_homescreen_collections(
             server,
             config,
-            ["Alpha", "Beta", "Gamma"],
+            [_ref("Alpha"), _ref("Beta"), _ref("Gamma")],
         )
 
     assert applied == ["Alpha", "Beta", "Gamma"]
@@ -124,7 +129,7 @@ def test_reorder_homescreen_collections_handles_each_library_separately(monkeypa
     applied = plex_client.reorder_homescreen_collections(
         server,
         config,
-        ["Movie A", "Show A", "Movie B", "Show B"],
+        [_ref("Movie A"), _ref("Show A", "Shows"), _ref("Movie B"), _ref("Show B", "Shows")],
     )
 
     assert applied == ["Movie A", "Movie B", "Show A", "Show B"]

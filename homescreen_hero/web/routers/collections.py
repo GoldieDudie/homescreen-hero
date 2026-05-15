@@ -15,7 +15,7 @@ from homescreen_hero.core.db.history import init_db
 from homescreen_hero.core.db.tools import list_rotations
 from homescreen_hero.core.db.pinning import (
     get_pinned_collections,
-    get_pinned_collection_names,
+    get_pinned_refs,
     is_collection_pinned,
     pin_collection,
     unpin_collection,
@@ -239,7 +239,7 @@ def get_active_collections(
     # Get pinning info from database (with display order)
     pinned_collections = get_pinned_collections()
     pinned_order_map = {p.collection_name: p.display_order for p in pinned_collections}
-    pinned_names = set(pinned_order_map.keys())
+    pinned_names = {p.collection_name for p in pinned_collections}
 
     # Get actual order from Plex's managed hubs (returns in homescreen order)
     plex_order_map: dict[str, int] = {}

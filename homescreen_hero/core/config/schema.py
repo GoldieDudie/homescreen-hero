@@ -3,6 +3,16 @@ from typing import Any, ClassVar, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+class CollectionRef(BaseModel):
+    """Identifies a collection by its library and name — the canonical collection identity."""
+    model_config = ConfigDict(frozen=True)
+    library: str
+    name: str
+
+    def __str__(self) -> str:
+        return f"{self.library}/{self.name}"
+
+
 class DateRange(BaseModel):
     # Represents a yearly date window like 11-20 to 12-26.
     start: str = Field(..., description="Start date in MM-DD format, e.g. '11-20'")
@@ -227,9 +237,9 @@ class CollectionGroupConfig(BaseModel):
         default=None,
         description="Plex usernames who should see this group's collections. None = everyone.",
     )
-    collections: List[str] = Field(
+    collections: List[CollectionRef] = Field(
         default_factory=list,
-        description="List of Plex collection names belonging to this group (ignored when smart=True)",
+        description="List of {library, name} collection references for this group (ignored when smart=True)",
     )
 
     @model_validator(mode="after")
@@ -240,11 +250,19 @@ class CollectionGroupConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def migrate_legacy_collection_selection(cls, data):
+    def migrate_legacy_fields(cls, data):
         if not isinstance(data, dict):
             return data
         if data.get("collection_selection") is None:
             data["collection_selection"] = "random"
+        # Reject bare-string collections — require {library, name} format
+        for item in data.get("collections", []):
+            if isinstance(item, str):
+                raise ValueError(
+                    f"Collection '{item}' in group must specify a library. "
+                    f"Update config.yaml: {{library: 'LibraryName', name: '{item}'}} "
+                    f"or run `hsh migrate-config` to auto-update."
+                )
         return data
 
 
@@ -499,11 +517,11 @@ class GroupSelectionResult(BaseModel):
     min_picks: int
     max_picks: int
 
-    available_collections: List[str] = Field(
+    available_collections: List[CollectionRef] = Field(
         default_factory=list,
         description="Collections considered for this group BEFORE sampling",
     )
-    chosen_collections: List[str] = Field(
+    chosen_collections: List[CollectionRef] = Field(
         default_factory=list,
         description="Collections actually selected from this group",
     )
@@ -517,7 +535,7 @@ class GroupSelectionResult(BaseModel):
 
 class RotationResult(BaseModel):
     # Full explanation of a rotation decision.
-    selected_collections: List[str]
+    selected_collections: List[CollectionRef]
     groups: List[GroupSelectionResult]
     max_global: int
     remaining_global: int
@@ -531,7 +549,7 @@ class RotationResult(BaseModel):
 class RotationExecution(BaseModel):
     # Represents one actual execution of a rotation against Plex
     rotation: RotationResult
-    applied_collections: List[str]
+    applied_collections: List[CollectionRef]
     dry_run: bool
     simulation_id: Optional[int] = None
 
@@ -546,6 +564,7 @@ class RotationRecordOut(BaseModel):
 
 
 class CollectionUsageOut(BaseModel):
+    library_name: str
     collection_name: str
     times_used: int
     last_rotation_id: Optional[int] = None

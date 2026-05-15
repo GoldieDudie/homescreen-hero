@@ -17,7 +17,7 @@ from .integrations import (
 )
 from .integrations.plex_client import get_library_collections
 from .config.loader import load_config
-from .config.schema import AppConfig, RotationExecution, RotationResult
+from .config.schema import AppConfig, CollectionRef, RotationExecution, RotationResult
 from .rotation import run_rotation_with_history, run_auto_rotation_with_history, build_collection_visibility_map, build_visibility_map_from_rotation_result, build_collection_sort_map
 from .smart_groups import build_collection_metadata, resolve_smart_rules
 from .db import (
@@ -28,38 +28,22 @@ from .db import (
     create_simulation,
     get_simulation_by_id,
     mark_simulation_applied,
-    get_pinned_collection_names,
+    get_pinned_refs,
 )
 
 
 logger = logging.getLogger(__name__)
 
 
-def _build_collection_library_map(server, config: AppConfig) -> Dict[str, str]:
-    # Build a mapping from collection name to library name.
-    # Used to enforce per-library limits during rotation.
-    coll_to_lib: Dict[str, str] = {}
-    for lib_config in config.plex.libraries:
-        if lib_config.enabled:
-            try:
-                collections_map = get_library_collections(server, lib_config.name)
-                for coll_name in collections_map.keys():
-                    coll_to_lib[coll_name] = lib_config.name
-            except Exception as e:
-                logger.warning("Failed to get collections from library '%s': %s", lib_config.name, e)
-    return coll_to_lib
-
-
-def _resolve_smart_groups(server, config: AppConfig) -> Dict[str, List[str]]:
-    # Resolve all smart groups into concrete collection name lists.
-    # Returns a dict mapping group name -> resolved collection names.
+def _resolve_smart_groups(server, config: AppConfig) -> Dict[str, List[CollectionRef]]:
+    # Resolve all smart groups into concrete CollectionRef lists.
     smart_groups = [g for g in config.groups if g.smart]
     if not smart_groups:
         return {}
 
     logger.info("Resolving %d smart group(s)", len(smart_groups))
     metadata = build_collection_metadata(server, config)
-    result = {}
+    result: Dict[str, List[CollectionRef]] = {}
     for group in smart_groups:
         resolved = resolve_smart_rules(group.rules, metadata)
         result[group.name] = resolved
@@ -72,59 +56,43 @@ def _run_auto_rotation(
     config: AppConfig,
     max_rotation_id: int,
     usage_map: Dict,
-    pinned_names: set,
-    last_rotation_collections: List[str],
-    collection_library_map: Optional[Dict[str, str]] = None,
+    pinned: set,
+    last_rotation_collections: List[CollectionRef],
 ) -> RotationResult:
-    # Run auto-rotation mode: rotate through collections from selected libraries
     auto_rotate = config.rotation.auto_rotate
-
-    # Determine which libraries to use
-    if auto_rotate.libraries:
-        # Use explicitly configured libraries
-        library_names = auto_rotate.libraries
-    else:
-        # Fall back to all enabled libraries
-        library_names = [lib.name for lib in config.plex.libraries if lib.enabled]
+    library_names = auto_rotate.libraries or [lib.name for lib in config.plex.libraries if lib.enabled]
 
     if not library_names:
         raise ValueError("Auto-rotate enabled but no libraries specified or available")
 
     logger.info("Auto-rotate mode: fetching collections from libraries: %s", library_names)
 
-    # Pool collections from all selected libraries
-    all_collection_names: List[str] = []
+    all_collections: List[CollectionRef] = []
+    seen: set = set()
     for library_name in library_names:
         try:
             collections_map = get_library_collections(server, library_name)
-            all_collection_names.extend(collections_map.keys())
+            for coll_name in collections_map.keys():
+                ref = CollectionRef(library=library_name, name=coll_name)
+                if ref not in seen:
+                    seen.add(ref)
+                    all_collections.append(ref)
             logger.info("Found %d collections in library '%s'", len(collections_map), library_name)
         except Exception as e:
             logger.warning("Failed to get collections from library '%s': %s", library_name, e)
 
-    # Remove duplicates while preserving order
-    seen = set()
-    unique_collections = []
-    for name in all_collection_names:
-        if name not in seen:
-            seen.add(name)
-            unique_collections.append(name)
-    all_collection_names = unique_collections
-
-    logger.info("Total: %d unique collections across %d libraries", len(all_collection_names), len(library_names))
+    logger.info("Total: %d unique collections across %d libraries", len(all_collections), len(library_names))
 
     return run_auto_rotation_with_history(
-        all_collection_names,
+        all_collections,
         max_collections=config.rotation.max_collections,
-        # Auto-rotate has no groups, so collection selection is always random.
         collection_selection="random",
         blacklisted_collections=config.rotation.blacklisted_collections,
         allow_repeats=config.rotation.allow_repeats,
         last_rotation_collections=last_rotation_collections,
         max_rotation_id=max_rotation_id,
         usage_map=usage_map,
-        pinned_names=pinned_names,
-        collection_library_map=collection_library_map,
+        pinned=pinned,
         per_library_limits=config.rotation.per_library_limits,
     )
 
@@ -132,10 +100,9 @@ def _run_auto_rotation(
 def _sync_selected_collections(
     server,
     config: AppConfig,
-    selected_collections: List[str],
+    selected_collections: List[CollectionRef],
 ) -> None:
-    # Sync only the collections that were selected for rotation.
-    # Checks if each selected collection corresponds to a Trakt, Letterboxd, or MDBList source and syncs only those sources.
+    # Sync only integration sources whose collections were selected for rotation.
     from .integrations.trakt_sync import sync_single_trakt_source
     from .integrations.letterboxd_sync import sync_single_letterboxd_source
     from .integrations.mdblist_sync import sync_single_mdblist_source
@@ -144,37 +111,13 @@ def _sync_selected_collections(
     from .integrations.mal_sync import sync_single_mal_source
     from .db import record_sync_result
 
-    # Build a map of collection name -> source for quick lookup
-    trakt_sources = {}
-    letterboxd_sources = {}
-    mdblist_sources = {}
-    tmdb_sources = {}
-    anilist_sources = {}
-    mal_sources = {}
-
-    if config.trakt and config.trakt.enabled:
-        for source in config.trakt.sources:
-            trakt_sources[source.name] = source
-
-    if config.letterboxd and config.letterboxd.sources:
-        for source in config.letterboxd.sources:
-            letterboxd_sources[source.name] = source
-
-    if config.mdblist and config.mdblist.enabled:
-        for source in config.mdblist.sources:
-            mdblist_sources[source.name] = source
-
-    if config.tmdb and config.tmdb.enabled:
-        for source in config.tmdb.sources:
-            tmdb_sources[source.name] = source
-
-    if config.anilist and config.anilist.sources:
-        for source in config.anilist.sources:
-            anilist_sources[source.name] = source
-
-    if config.mal and config.mal.enabled:
-        for source in config.mal.sources:
-            mal_sources[source.name] = source
+    # Build name -> source maps for quick lookup (name is the collection name)
+    trakt_sources = {s.name: s for s in (config.trakt.sources if config.trakt and config.trakt.enabled else [])}
+    letterboxd_sources = {s.name: s for s in (config.letterboxd.sources if config.letterboxd else [])}
+    mdblist_sources = {s.name: s for s in (config.mdblist.sources if config.mdblist and config.mdblist.enabled else [])}
+    tmdb_sources = {s.name: s for s in (config.tmdb.sources if config.tmdb and config.tmdb.enabled else [])}
+    anilist_sources = {s.name: s for s in (config.anilist.sources if config.anilist else [])}
+    mal_sources = {s.name: s for s in (config.mal.sources if config.mal and config.mal.enabled else [])}
 
     def _sync_and_record(integration_type: str, source, sync_fn):
         try:
@@ -198,28 +141,28 @@ def _sync_selected_collections(
                 error_message=str(exc),
             )
 
-    # Sync only the selected collections
-    for collection_name in selected_collections:
-        if collection_name in trakt_sources:
-            logger.info(f"Syncing selected Trakt collection: {collection_name}")
-            _sync_and_record("trakt", trakt_sources[collection_name], sync_single_trakt_source)
-        elif collection_name in letterboxd_sources:
-            logger.info(f"Syncing selected Letterboxd collection: {collection_name}")
-            _sync_and_record("letterboxd", letterboxd_sources[collection_name], sync_single_letterboxd_source)
-        elif collection_name in mdblist_sources:
-            logger.info(f"Syncing selected MDBList collection: {collection_name}")
-            _sync_and_record("mdblist", mdblist_sources[collection_name], sync_single_mdblist_source)
-        elif collection_name in tmdb_sources:
-            logger.info(f"Syncing selected TMDb collection: {collection_name}")
-            _sync_and_record("tmdb", tmdb_sources[collection_name], sync_single_tmdb_source)
-        elif collection_name in anilist_sources:
-            logger.info(f"Syncing selected AniList collection: {collection_name}")
-            _sync_and_record("anilist", anilist_sources[collection_name], sync_single_anilist_source)
-        elif collection_name in mal_sources:
-            logger.info(f"Syncing selected MAL collection: {collection_name}")
-            _sync_and_record("mal", mal_sources[collection_name], sync_single_mal_source)
+    for ref in selected_collections:
+        name = ref.name
+        if name in trakt_sources:
+            logger.info("Syncing selected Trakt collection: %s", ref)
+            _sync_and_record("trakt", trakt_sources[name], sync_single_trakt_source)
+        elif name in letterboxd_sources:
+            logger.info("Syncing selected Letterboxd collection: %s", ref)
+            _sync_and_record("letterboxd", letterboxd_sources[name], sync_single_letterboxd_source)
+        elif name in mdblist_sources:
+            logger.info("Syncing selected MDBList collection: %s", ref)
+            _sync_and_record("mdblist", mdblist_sources[name], sync_single_mdblist_source)
+        elif name in tmdb_sources:
+            logger.info("Syncing selected TMDb collection: %s", ref)
+            _sync_and_record("tmdb", tmdb_sources[name], sync_single_tmdb_source)
+        elif name in anilist_sources:
+            logger.info("Syncing selected AniList collection: %s", ref)
+            _sync_and_record("anilist", anilist_sources[name], sync_single_anilist_source)
+        elif name in mal_sources:
+            logger.info("Syncing selected MAL collection: %s", ref)
+            _sync_and_record("mal", mal_sources[name], sync_single_mal_source)
         else:
-            logger.debug(f"Collection '{collection_name}' is not a synced source, skipping sync")
+            logger.debug("Collection '%s' is not a synced source, skipping sync", ref)
 
 
 def run_rotation_once(
@@ -237,141 +180,88 @@ def run_rotation_once(
 
     logger.info("Starting rotation (dry_run=%s)", dry_run)
 
-    # Ensure DB tables exist
     init_db()
-
-    # Connect to Plex
     server = get_plex_server(config)
-
-    # Build collection→library map for per-library limits
-    collection_library_map = _build_collection_library_map(server, config)
-
-    # Resolve smart groups into concrete collection lists
     smart_group_collections = _resolve_smart_groups(server, config)
-
-    # Check if auto-rotate mode is enabled
     use_auto_rotate = config.rotation.auto_rotate.enabled
 
-    # Determine sync strategy based on config
     if config.rotation.sync_all_on_rotation:
-        # Sync all Trakt, Letterboxd, and MDBList sources
-        # Errors are non-fatal: if sync fails, rotation continues with existing Plex collections
         logger.info("Syncing all integration sources")
-        try:
-            sync_all_trakt_sources(server, config)
-        except Exception as e:
-            logger.error("Trakt sync failed, continuing with rotation: %s", e)
-        try:
-            sync_all_letterboxd_sources(server, config)
-        except Exception as e:
-            logger.error("Letterboxd sync failed, continuing with rotation: %s", e)
-        try:
-            sync_all_mdblist_sources(server, config)
-        except Exception as e:
-            logger.error("MDBList sync failed, continuing with rotation: %s", e)
-        try:
-            sync_all_tmdb_sources(server, config)
-        except Exception as e:
-            logger.error("TMDb sync failed, continuing with rotation: %s", e)
-        try:
-            sync_all_anilist_sources(server, config)
-        except Exception as e:
-            logger.error("AniList sync failed, continuing with rotation: %s", e)
-        try:
-            sync_all_mal_sources(server, config)
-        except Exception as e:
-            logger.error("MAL sync failed, continuing with rotation: %s", e)
+        for sync_fn, name in [
+            (sync_all_trakt_sources, "Trakt"),
+            (sync_all_letterboxd_sources, "Letterboxd"),
+            (sync_all_mdblist_sources, "MDBList"),
+            (sync_all_tmdb_sources, "TMDb"),
+            (sync_all_anilist_sources, "AniList"),
+            (sync_all_mal_sources, "MAL"),
+        ]:
+            try:
+                sync_fn(server, config)
+            except Exception as e:
+                logger.error("%s sync failed, continuing with rotation: %s", name, e)
     else:
-        # First, select collections to determine which ones need syncing
         logger.info("Selective sync mode: will only sync collections selected for rotation")
         max_rotation_id, usage_map = get_rotation_history_context()
-        pinned_names = get_pinned_collection_names()
+        pinned = get_pinned_refs()
         last_rotation_collections = get_last_rotation_collections()
 
         if use_auto_rotate:
-            rotation_result = _run_auto_rotation(
-                server, config, max_rotation_id, usage_map, pinned_names, last_rotation_collections,
-                collection_library_map=collection_library_map,
-            )
+            rotation_result = _run_auto_rotation(server, config, max_rotation_id, usage_map, pinned, last_rotation_collections)
         else:
             rotation_result = run_rotation_with_history(
                 config,
                 max_rotation_id=max_rotation_id,
                 usage_map=usage_map,
                 last_rotation_collections=last_rotation_collections,
-                pinned_names=pinned_names,
-                collection_library_map=collection_library_map,
+                pinned=pinned,
                 smart_group_collections=smart_group_collections,
             )
 
-        # Now sync only the selected collections
         _sync_selected_collections(server, config, rotation_result.selected_collections)
 
-    # If we did a full sync, now select collections
     if config.rotation.sync_all_on_rotation:
         max_rotation_id, usage_map = get_rotation_history_context()
-        pinned_names = get_pinned_collection_names()
+        pinned = get_pinned_refs()
         last_rotation_collections = get_last_rotation_collections()
 
         if use_auto_rotate:
-            rotation_result = _run_auto_rotation(
-                server, config, max_rotation_id, usage_map, pinned_names, last_rotation_collections,
-                collection_library_map=collection_library_map,
-            )
+            rotation_result = _run_auto_rotation(server, config, max_rotation_id, usage_map, pinned, last_rotation_collections)
         else:
             rotation_result = run_rotation_with_history(
                 config,
                 max_rotation_id=max_rotation_id,
                 usage_map=usage_map,
                 last_rotation_collections=last_rotation_collections,
-                pinned_names=pinned_names,
+                pinned=pinned,
                 smart_group_collections=smart_group_collections,
-                collection_library_map=collection_library_map,
             )
 
-    # Build visibility map from group settings (or use auto-rotate config)
     if use_auto_rotate:
-        # For auto-rotate, apply visibility settings from config
         auto_rotate = config.rotation.auto_rotate
-        auto_visibility = {
-            "home": auto_rotate.visibility_home,
-            "shared": auto_rotate.visibility_shared,
-            "recommended": auto_rotate.visibility_recommended,
-        }
-        collection_visibility = {
-            name: auto_visibility.copy()
-            for name in rotation_result.selected_collections
-        }
+        auto_vis = {"home": auto_rotate.visibility_home, "shared": auto_rotate.visibility_shared, "recommended": auto_rotate.visibility_recommended}
+        collection_visibility = {ref: auto_vis.copy() for ref in rotation_result.selected_collections}
     else:
-        collection_visibility = build_visibility_map_from_rotation_result(
-            rotation_result, config, smart_group_collections
-        )
+        collection_visibility = build_visibility_map_from_rotation_result(rotation_result, config, smart_group_collections)
 
-    # Add pinned collection visibility (overrides group settings for pinned collections)
     from .db import get_pinned_visibility_map
-    pinned_visibility = get_pinned_visibility_map()
-    collection_visibility.update(pinned_visibility)
+    collection_visibility.update(get_pinned_visibility_map())
 
-    # Build sort map from group settings
     collection_sort = build_collection_sort_map(config, smart_group_collections)
 
-    # Apply the selection (or simulate if dry_run=True)
     applied = apply_home_screen_selection(
         server,
         config,
         rotation_result.selected_collections,
         collection_visibility,
-        dry_run=dry_run,  # controls whether Plex is actually changed
+        dry_run=dry_run,
         smart_group_collections=smart_group_collections,
         collection_sort=collection_sort,
     )
 
-    # Apply per-user targeting labels and sync filter settings
     if not dry_run:
         try:
             from .user_targeting import apply_rotation_targeting, sync_all_user_filters
             apply_rotation_targeting(server, config, applied, smart_group_collections)
-            # Sync user filter settings so Plex actually hides labeled collections
             sync_all_user_filters(config)
         except Exception as e:
             logger.error("Failed to apply user targeting: %s", e, exc_info=True)
@@ -389,25 +279,22 @@ def run_rotation_once(
         group_contributions=group_contributions or None,
     )
 
-    # Collect analytics after rotation if Tautulli is enabled
-    if not dry_run and config.tautulli and config.tautulli.enabled:
-        if config.tautulli.collect_on_rotation:
-            try:
-                from .integrations.tautulli_analytics import collect_analytics_for_collections
-                logger.info("Collecting analytics after rotation %d", rotation_id)
-                analytics_result = collect_analytics_for_collections(
-                    config=config,
-                    collection_names=rotation_result.selected_collections,
-                    rotation_id=rotation_id,
-                )
-                logger.info(
-                    "Analytics collection complete: %d succeeded, %d failed",
-                    len(analytics_result.get("collected", [])),
-                    len(analytics_result.get("failed", [])),
-                )
-            except Exception as e:
-                logger.error("Failed to collect analytics after rotation: %s", e, exc_info=True)
-                # Don't fail the rotation if analytics collection fails
+    if not dry_run and config.tautulli and config.tautulli.enabled and config.tautulli.collect_on_rotation:
+        try:
+            from .integrations.tautulli_analytics import collect_analytics_for_collections
+            logger.info("Collecting analytics after rotation %d", rotation_id)
+            analytics_result = collect_analytics_for_collections(
+                config=config,
+                collection_refs=rotation_result.selected_collections,
+                rotation_id=rotation_id,
+            )
+            logger.info(
+                "Analytics collection complete: %d succeeded, %d failed",
+                len(analytics_result.get("collected", [])),
+                len(analytics_result.get("failed", [])),
+            )
+        except Exception as e:
+            logger.error("Failed to collect analytics after rotation: %s", e, exc_info=True)
 
     execution = RotationExecution(
         rotation=rotation_result,
@@ -415,8 +302,8 @@ def run_rotation_once(
         dry_run=dry_run,
     )
 
-    logger.info("Selected collections: %s", rotation_result.selected_collections)
-    logger.info("Applied collections: %s", applied)
+    logger.info("Selected collections: %s", [str(r) for r in rotation_result.selected_collections])
+    logger.info("Applied collections: %s", [str(r) for r in applied])
     logger.info("Rotation complete (dry_run=%s)", dry_run)
 
     return execution
@@ -435,47 +322,34 @@ def simulate_rotation_once(
 
     logger.info("Simulating next rotation (no Plex write, no history write)")
 
-    pinned_names = get_pinned_collection_names()
+    pinned = get_pinned_refs()
     server = get_plex_server(config)
-    collection_library_map = _build_collection_library_map(server, config)
-
-    # Resolve smart groups into concrete collection lists
     smart_group_collections = _resolve_smart_groups(server, config)
 
-    # Check if auto-rotate mode is enabled
     if config.rotation.auto_rotate.enabled:
-        rotation_result = _run_auto_rotation(
-            server, config, max_rotation_id, usage_map, pinned_names, last_rotation_collections,
-            collection_library_map=collection_library_map,
-        )
+        rotation_result = _run_auto_rotation(server, config, max_rotation_id, usage_map, pinned, last_rotation_collections)
     else:
         rotation_result = run_rotation_with_history(
             config,
             max_rotation_id=max_rotation_id,
             usage_map=usage_map,
             last_rotation_collections=last_rotation_collections,
-            pinned_names=pinned_names,
-            collection_library_map=collection_library_map,
+            pinned=pinned,
             smart_group_collections=smart_group_collections,
         )
 
     simulation_id = create_simulation(rotation_result)
 
-    logger.info(
-        "Simulation %s created with collections: %s",
-        simulation_id,
-        rotation_result.selected_collections,
-    )
+    logger.info("Simulation %s created with collections: %s", simulation_id, [str(r) for r in rotation_result.selected_collections])
 
-    # Apply display ordering so simulation preview matches actual rotation order
     from .rotation import order_collections_for_display
     from .db import get_pinned_collections
-    pinned_collections = get_pinned_collections()
-    pinned_order = {p.collection_name: p.display_order for p in pinned_collections}
+    pinned_db = get_pinned_collections()
+    pinned_order = {CollectionRef(library=p.library_name, name=p.collection_name): p.display_order for p in pinned_db}
     ordered = order_collections_for_display(
         list(rotation_result.selected_collections),
         config,
-        pinned_names=pinned_names,
+        pinned_names=pinned,
         pinned_order=pinned_order,
         smart_group_collections=smart_group_collections,
     )
@@ -487,27 +361,26 @@ def simulate_rotation_once(
         if not gcfg or not group_result.chosen_collections:
             continue
         if gcfg.collection_order == "alpha":
-            group_result.chosen_collections = sorted(group_result.chosen_collections)
+            group_result.chosen_collections = sorted(group_result.chosen_collections, key=lambda r: (r.library, r.name))
         elif gcfg.collection_order == "custom" and not gcfg.smart:
             coll_list = gcfg.collections
             group_result.chosen_collections = sorted(
                 group_result.chosen_collections,
-                key=lambda c: coll_list.index(c) if c in coll_list else len(coll_list),
+                key=lambda r: coll_list.index(r) if r in coll_list else len(coll_list),
             )
 
     # Group by library to match how Plex displays collections per-library section
     enabled_libraries = [lib.name for lib in config.plex.libraries if lib.enabled]
-    library_grouped: list[str] = []
-    used = set()
+    library_grouped: List[CollectionRef] = []
+    used: set = set()
     for lib_name in enabled_libraries:
-        for name in ordered:
-            if name not in used and collection_library_map.get(name) == lib_name:
-                library_grouped.append(name)
-                used.add(name)
-    # Append any collections not found in a library (e.g. TV collections with only Movies enabled)
-    for name in ordered:
-        if name not in used:
-            library_grouped.append(name)
+        for ref in ordered:
+            if ref not in used and ref.library == lib_name:
+                library_grouped.append(ref)
+                used.add(ref)
+    for ref in ordered:
+        if ref not in used:
+            library_grouped.append(ref)
 
     execution = RotationExecution(
         rotation=rotation_result,
@@ -564,11 +437,17 @@ def apply_simulation(
 
     logger.info("Applying simulation %s", simulation_id)
 
-    # If available, reconstruct RotationResult
     if sim.rotation_snapshot:
         rotation_result = RotationResult(**sim.rotation_snapshot)
     else:
-        selected = list(sim.selected_collections or [])
+        selected_raw = list(sim.selected_collections or [])
+        # Handle both new {library, name} dicts and legacy bare strings
+        selected: List[CollectionRef] = []
+        for item in selected_raw:
+            if isinstance(item, dict):
+                selected.append(CollectionRef(library=item.get("library", ""), name=item["name"]))
+            else:
+                selected.append(CollectionRef(library="", name=str(item)))
         rotation_result = RotationResult(
             selected_collections=selected,
             groups=[],
@@ -577,33 +456,18 @@ def apply_simulation(
             today=date.today(),
         )
 
-    # Apply collections to Plex
     server = get_plex_server(config)
-
-    # Resolve smart groups for visibility mapping
     smart_group_collections = _resolve_smart_groups(server, config)
 
-    # Build visibility map (auto-rotate uses its own settings)
     if config.rotation.auto_rotate.enabled:
         auto_rotate = config.rotation.auto_rotate
-        auto_visibility = {
-            "home": auto_rotate.visibility_home,
-            "shared": auto_rotate.visibility_shared,
-            "recommended": auto_rotate.visibility_recommended,
-        }
-        collection_visibility = {
-            name: auto_visibility.copy()
-            for name in rotation_result.selected_collections
-        }
+        auto_vis = {"home": auto_rotate.visibility_home, "shared": auto_rotate.visibility_shared, "recommended": auto_rotate.visibility_recommended}
+        collection_visibility = {ref: auto_vis.copy() for ref in rotation_result.selected_collections}
     else:
-        collection_visibility = build_visibility_map_from_rotation_result(
-            rotation_result, config, smart_group_collections
-        )
+        collection_visibility = build_visibility_map_from_rotation_result(rotation_result, config, smart_group_collections)
 
-    # Add pinned collection visibility (overrides group settings for pinned collections)
     from .db import get_pinned_visibility_map
-    pinned_visibility = get_pinned_visibility_map()
-    collection_visibility.update(pinned_visibility)
+    collection_visibility.update(get_pinned_visibility_map())
 
     applied = apply_home_screen_selection(
         server,
@@ -614,7 +478,6 @@ def apply_simulation(
         smart_group_collections=smart_group_collections,
     )
 
-    # Apply per-user targeting labels and sync filter settings
     try:
         from .user_targeting import apply_rotation_targeting, sync_all_user_filters
         apply_rotation_targeting(server, config, applied, smart_group_collections)
@@ -622,7 +485,6 @@ def apply_simulation(
     except Exception as e:
         logger.error("Failed to apply user targeting: %s", e, exc_info=True)
 
-    # Record in db as a real rotation in history
     sim_group_contributions = {
         g.group_name: g.chosen_collections
         for g in rotation_result.groups

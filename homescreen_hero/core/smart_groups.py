@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from .config.schema import AppConfig, SmartGroupRule
+from .config.schema import AppConfig, CollectionRef, SmartGroupRule
 from .integrations.plex_client import get_collection_labels, get_collection_item_count
 from .poster_proxy import build_collection_poster_url
 
@@ -174,19 +174,19 @@ def _rule_has_values(rule: SmartGroupRule) -> bool:
 def resolve_smart_rules(
     rules: List[SmartGroupRule],
     metadata: List[CollectionMetadata],
-) -> List[str]:
+) -> List[CollectionRef]:
     # Evaluate rules against all collections. Rules are ANDed together.
-    # Returns list of matching collection names.
+    # Returns list of matching CollectionRefs (library + name).
     active_rules = [rule for rule in rules if _rule_has_values(rule)]
     if not active_rules:
-        return [coll.name for coll in metadata]
+        return [CollectionRef(library=coll.library, name=coll.name) for coll in metadata]
 
     matching = []
     for coll in metadata:
         if all(_matches_rule(rule, coll) for rule in active_rules):
-            matching.append(coll.name)
+            matching.append(CollectionRef(library=coll.library, name=coll.name))
 
-    logger.debug("Smart rules resolved to %d collections: %s", len(matching), matching)
+    logger.debug("Smart rules resolved to %d collections", len(matching))
     return matching
 
 
