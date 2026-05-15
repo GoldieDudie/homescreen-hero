@@ -8,6 +8,12 @@ from typing import Optional
 import yaml
 from dotenv import load_dotenv
 
+from .migration import (
+    MigrationError,
+    build_plex_resolver_from_raw,
+    migrate_collections,
+    needs_collection_migration,
+)
 from .schema import (
     AppConfig,
     MDBListSettings,
@@ -277,6 +283,58 @@ def _apply_env_overrides(config: AppConfig) -> AppConfig:
     return config
 
 
+def _auto_migrate_if_needed(raw_data: dict, config_path: Path) -> None:
+    # If config still uses bare-string collections, migrate in memory and rewrite the file.
+    # First tries integration source map (offline); falls back to Plex if needed.
+    if not needs_collection_migration(raw_data):
+        return
+
+    logger.warning(
+        "Detected legacy bare-string collections in %s — running auto-migration",
+        config_path,
+    )
+
+    resolver = None
+    try:
+        # Attempt offline migration first (integration sources only)
+        migrate_collections(raw_data, plex_resolver=None)
+        logger.info("Offline migration succeeded (all names resolved via integration sources)")
+    except MigrationError:
+        # Some names need Plex — connect and retry. Reset raw_data state by re-reading
+        # is not necessary because migrate_collections only converted entries that resolved;
+        # unresolved/ambiguous ones were left as strings.
+        logger.info("Offline migration incomplete; connecting to Plex to resolve remaining names")
+        resolver = build_plex_resolver_from_raw(raw_data)
+        if resolver is None:
+            raise
+        migrate_collections(raw_data, plex_resolver=resolver)
+        logger.info("Plex-assisted migration succeeded")
+
+    # Persist back to disk (with .bak) so subsequent loads are fast and new-format.
+    import shutil
+    bak_path = config_path.with_suffix(config_path.suffix + ".bak")
+    try:
+        shutil.copy2(config_path, bak_path)
+        logger.info("Original config backed up to %s", bak_path)
+    except Exception as exc:
+        logger.warning("Could not write backup %s: %s", bak_path, exc)
+
+    tmp_path = config_path.with_suffix(config_path.suffix + ".tmp")
+    try:
+        with tmp_path.open("w", encoding="utf-8") as f:
+            yaml.safe_dump(raw_data, f, sort_keys=False, allow_unicode=True)
+        os.replace(tmp_path, config_path)
+        logger.info("Migrated config written to %s", config_path)
+    except Exception as exc:
+        logger.error("Could not write migrated config %s: %s", config_path, exc)
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+        raise
+
+
 def _validate_config_dict(raw_data: dict) -> AppConfig:
     try:
         config = AppConfig.model_validate(raw_data)  # pydantic v2
@@ -387,6 +445,7 @@ def load_config(path: Optional[Path | str] = None, force_reload: bool = False) -
 
     logger.debug(f"Loading config from {config_path}")
     raw_data = _read_raw_config(config_path)
+    _auto_migrate_if_needed(raw_data, config_path)
     app_config = _validate_config_dict(raw_data)
     
     # Cache the result
