@@ -344,7 +344,10 @@ def apply_home_screen_selection(
     from ..db import get_pinned_collections
     pinned_db = get_pinned_collections()
     pinned_order: Dict[str, int] = {p.collection_name: p.display_order for p in pinned_db}
-    pinned_library: Dict[str, str] = {p.collection_name: p.library_name for p in pinned_db}
+    # Map name → set of libraries it's pinned in (same name can be pinned in multiple libraries)
+    pinned_libraries: Dict[str, Set[str]] = defaultdict(set)
+    for p in pinned_db:
+        pinned_libraries[p.collection_name].add(p.library_name)
     pinned_names: Set[str] = set(pinned_order.keys())
 
     def sort_key(name: str) -> tuple:
@@ -376,13 +379,16 @@ def apply_home_screen_selection(
                     if lib == instances[0][0]:
                         matching_ref = next(r for r in selected_name_refs if r.library == "")
 
-                # Pinned collections override: use the pinned library setting
+                # Pinned collections override: a name can be pinned in multiple libraries
                 if name in pinned_names:
-                    is_pinned_lib = lib == pinned_library.get(name)
+                    is_pinned_lib = lib in pinned_libraries.get(name, set())
                     if is_pinned_lib:
-                        matching_ref = next((r for r in selected_name_refs), None)
-                        if matching_ref:
-                            visibility = collection_visibility.get(matching_ref, {"home": True, "shared": False, "recommended": False})
+                        # Use the ref for this specific library to get the right visibility settings
+                        lib_ref = next((r for r in selected_name_refs if r.library == lib), None)
+                        if lib_ref is None:
+                            lib_ref = next((r for r in selected_name_refs), None)
+                        if lib_ref:
+                            visibility = collection_visibility.get(lib_ref, {"home": True, "shared": False, "recommended": False})
                             logger.info(
                                 "Enabling visibility for pinned collection '%s' (lib=%s): home=%s, shared=%s, recommended=%s",
                                 name, lib,
