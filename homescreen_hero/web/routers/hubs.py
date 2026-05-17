@@ -54,6 +54,16 @@ class LibraryHubsResponse(BaseModel):
     hubs: List[HubOut]
 
 
+class EnabledLibrary(BaseModel):
+    name: str
+    enabled: bool
+    type: Optional[str] = None  # "movie" | "show" — best-effort, may be None
+
+
+class EnabledLibrariesResponse(BaseModel):
+    libraries: List[EnabledLibrary]
+
+
 class SyncResponse(BaseModel):
     library_name: str
     hubs: List[HubOut]
@@ -122,6 +132,21 @@ def _rows_to_hubs(rows, plex_hub_by_title: Optional[Dict] = None) -> List[HubOut
 
 
 # ---- endpoints ----
+
+@router.get("", response_model=EnabledLibrariesResponse)
+def list_enabled_libraries(
+    _current_user: CurrentUser = Depends(require_admin),
+) -> EnabledLibrariesResponse:
+    config = load_config()
+    libs: List[EnabledLibrary] = []
+    for lib in config.plex.libraries:
+        libs.append(EnabledLibrary(
+            name=lib.name,
+            enabled=lib.enabled,
+            type=getattr(lib, "type", None),
+        ))
+    return EnabledLibrariesResponse(libraries=libs)
+
 
 @router.get("/{library_name}/hubs", response_model=LibraryHubsResponse)
 def get_library_hubs(

@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../utils/auth";
 import { DraggableWidget, DroppableSection, EditModeBanner } from "../components/dashboard";
 import { widgetRegistry } from "../widgets/registry";
-import ActiveCollectionsCard from "../components/ActiveCollectionsCard";
+import LibraryHubsCard from "../components/LibraryHubsCard";
 import AnalyticsCard from "../components/AnalyticsCard";
 import MostActiveUsersCard from "../components/MostActiveUsersCard";
 import ActiveStreamsCard from "../components/ActiveStreamsCard";
@@ -540,7 +540,7 @@ export default function Dashboard() {
                     />
                 );
             case "active-collections":
-                return <ActiveCollectionsCard key={widgetId} refreshKey={activeRefreshKey} />;
+                return <LibraryHubsCard key={widgetId} refreshKey={activeRefreshKey} />;
             case "analytics":
                 return <AnalyticsCard key={widgetId} loading={healthLoading} />;
             case "most-active-users":

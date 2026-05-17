@@ -11,9 +11,13 @@ from .db import (
     HUB_TYPE_COLLECTION,
     HUB_TYPE_EXTERNAL,
     HUB_TYPE_SMART_HUB,
+    PIN_BOTTOM,
+    PIN_TOP,
     delete_hub,
     get_library_hub_order,
+    get_pinned_collections,
     set_library_hub_order,
+    set_pin,
     slot_in_hub,
     upsert_hub,
 )
@@ -66,6 +70,45 @@ def _classify_hub(hub, configured_keys: set[Tuple[str, str]], library_name: str)
     return HUB_TYPE_EXTERNAL
 
 
+def _migrate_legacy_pins_into_hub_order(library_name: str, current_titles: set[str]) -> None:
+    # One-shot: when LibraryHubOrder is first populated for a library, port over
+    # the pin metadata from the legacy PinnedCollection table. The new model allows
+    # only 1 top + 1 bottom per library, so we pick the smallest display_order from
+    # each side (earliest-pinned wins).
+    legacy = [p for p in get_pinned_collections() if p.library_name == library_name]
+    if not legacy:
+        return
+
+    legacy_tops = sorted(
+        [p for p in legacy if p.pin_position == PIN_TOP],
+        key=lambda p: p.display_order,
+    )
+    legacy_bottoms = sorted(
+        [p for p in legacy if p.pin_position == PIN_BOTTOM],
+        key=lambda p: p.display_order,
+    )
+
+    winner_top = next((p for p in legacy_tops if p.collection_name in current_titles), None)
+    winner_bottom = next((p for p in legacy_bottoms if p.collection_name in current_titles), None)
+
+    if winner_top is not None:
+        set_pin(library_name, winner_top.collection_name, PIN_TOP)
+        if len(legacy_tops) > 1:
+            dropped = [p.collection_name for p in legacy_tops if p is not winner_top]
+            logger.info(
+                "Legacy pin migration for '%s': kept top='%s', dropped extras=%s",
+                library_name, winner_top.collection_name, dropped,
+            )
+    if winner_bottom is not None:
+        set_pin(library_name, winner_bottom.collection_name, PIN_BOTTOM)
+        if len(legacy_bottoms) > 1:
+            dropped = [p.collection_name for p in legacy_bottoms if p is not winner_bottom]
+            logger.info(
+                "Legacy pin migration for '%s': kept bottom='%s', dropped extras=%s",
+                library_name, winner_bottom.collection_name, dropped,
+            )
+
+
 def sync_library_hub_order(
     server: PlexServer,
     config: AppConfig,
@@ -92,6 +135,7 @@ def sync_library_hub_order(
 
     existing_rows = get_library_hub_order(library_name)
     existing_titles = {r.hub_title for r in existing_rows}
+    is_first_sync = not existing_rows
 
     # 1) Remove DB rows for hubs that no longer exist in Plex
     for row in existing_rows:
@@ -131,7 +175,11 @@ def sync_library_hub_order(
                 group_name,
             )
 
-    # 3) Push to Plex if requested
+    # 3) Legacy-pin migration on first sync only
+    if is_first_sync:
+        _migrate_legacy_pins_into_hub_order(library_name, set(plex_hub_by_title.keys()))
+
+    # 4) Push to Plex if requested
     if push_to_plex:
         ordered_rows = get_library_hub_order(library_name)
         target_titles = [r.hub_title for r in ordered_rows]
