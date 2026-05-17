@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useBlocker, useNavigate } from "react-router-dom";
 import {
     DndContext,
     closestCenter,
@@ -14,14 +14,21 @@ import {
     SortableContext,
     sortableKeyboardCoordinates,
     useSortable,
-    horizontalListSortingStrategy,
+    verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Pin, Home, Users, Star } from "lucide-react";
+import { GripVertical, Layers, Pin, ChevronRight } from "lucide-react";
 import { fetchWithAuth } from "../utils/api";
-import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
 import { useTheme } from "../utils/theme";
 
+// ── Types ──────────────────────────────────────────────────────────────────
+
+interface CollectionRef {
+    library: string;
+    name: string;
+}
+
+// Legacy export — kept so DashboardPage import doesn't break
 export type ActiveCollection = {
     title: string;
     poster_url?: string | null;
@@ -33,581 +40,625 @@ export type ActiveCollection = {
     display_order?: number;
 };
 
-// Visibility options type for pin popover
-type VisibilityOptions = {
-    home: boolean;
-    shared: boolean;
-    recommended: boolean;
-};
+interface ActiveCollectionOut {
+    title: string;
+    library?: string | null;
+    poster_url?: string | null;
+    promoted_to_own_home: boolean;
+    promoted_to_shared: boolean;
+    promoted_to_recommended: boolean;
+    is_pinned: boolean;
+    display_order: number;
+}
 
-const refKey = (c: ActiveCollection) => `${c.library ?? ""}::${c.title}`;
+interface DashboardGroupItem {
+    type: "group";
+    group_name: string;
+    group_index: number;
+    collections: CollectionRef[];
+    active_collections: ActiveCollectionOut[];
+    display_order: number;
+    promoted_to_own_home: boolean;
+    promoted_to_shared: boolean;
+    promoted_to_recommended: boolean;
+}
 
-// Sortable collection card component
-function SortableCollectionCard({
-    collection,
-    index,
-    onClick,
-    onPinWithVisibility,
-    onUnpin,
-    isPinning,
-    animate,
-    cinematic,
+interface DashboardIndividualItem {
+    type: "individual";
+    title: string;
+    library?: string | null;
+    poster_url?: string | null;
+    promoted_to_own_home: boolean;
+    promoted_to_shared: boolean;
+    promoted_to_recommended: boolean;
+    is_pinned: boolean;
+    display_order: number;
+}
+
+type DashboardItem = DashboardGroupItem | DashboardIndividualItem;
+
+interface DashboardLibraryRow {
+    name: string;
+    items: DashboardItem[];
+}
+
+interface DashboardCollectionsResponse {
+    libraries: DashboardLibraryRow[];
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function itemId(item: DashboardItem): string {
+    return item.type === "group"
+        ? `group::${item.group_name}`
+        : `individual::${item.library ?? ""}::${item.title}`;
+}
+
+// ── VisibilityCheckbox ─────────────────────────────────────────────────────
+
+function VisibilityCheckbox({
+    checked,
+    onChange,
+    disabled,
 }: {
-    collection: ActiveCollection;
-    index: number;
-    onClick: () => void;
-    onPinWithVisibility: (visibility: VisibilityOptions) => void;
-    onUnpin: () => void;
-    isPinning: boolean;
-    animate: boolean;
-    cinematic?: boolean;
+    checked: boolean;
+    onChange: (v: boolean) => void;
+    disabled?: boolean;
 }) {
-    const [popoverOpen, setPopoverOpen] = useState(false);
-    const [visibility, setVisibility] = useState<VisibilityOptions>({
-        home: collection.promoted_to_own_home ?? true,
-        shared: collection.promoted_to_shared ?? false,
-        recommended: collection.promoted_to_recommended ?? false,
-    });
+    return (
+        <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(!checked)}
+            className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                checked
+                    ? "bg-primary border-primary"
+                    : "bg-transparent border-slate-600 hover:border-slate-400"
+            } ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+            aria-checked={checked}
+        >
+            {checked && (
+                <svg viewBox="0 0 10 8" className="w-2.5 h-2 fill-white">
+                    <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+            )}
+        </button>
+    );
+}
 
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({ id: refKey(collection) });
+// ── SortableRow ────────────────────────────────────────────────────────────
+
+function SortableGroupRow({
+    item,
+    onVisibilityChange,
+    dirty,
+}: {
+    item: DashboardGroupItem;
+    onVisibilityChange: (home: boolean, shared: boolean, rec: boolean) => void;
+    dirty: boolean;
+}) {
+    const navigate = useNavigate();
+    const id = itemId(item);
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
     const style = {
         transform: CSS.Transform.toString(transform),
-        transition: transition ?? "transform 200ms ease",
-        animationDelay: animate ? `${index * 0.1}s` : undefined,
+        transition: transition ?? "transform 150ms ease",
     };
 
-    const handlePin = () => {
-        onPinWithVisibility(visibility);
-        setPopoverOpen(false);
-    };
+    const activeNames = item.active_collections.map(c => c.title).join(" · ");
 
-    const handleUnpin = () => {
-        onUnpin();
-        setPopoverOpen(false);
-    };
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={`flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors ${isDragging ? "opacity-50 bg-white/5" : ""} ${dirty ? "bg-primary/5" : ""}`}
+        >
+            {/* Drag handle */}
+            <button
+                {...attributes}
+                {...listeners}
+                className="text-slate-600 hover:text-slate-400 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+                onClick={e => e.stopPropagation()}
+            >
+                <GripVertical size={14} />
+            </button>
 
-    // Reset visibility state when popover opens
-    const handleOpenChange = (open: boolean) => {
-        if (open) {
-            setVisibility({
-                home: collection.promoted_to_own_home ?? true,
-                shared: collection.promoted_to_shared ?? false,
-                recommended: collection.promoted_to_recommended ?? false,
-            });
-        }
-        setPopoverOpen(open);
+            {/* Name */}
+            <button
+                type="button"
+                onClick={() => navigate("/groups")}
+                className="flex items-center gap-2 flex-1 min-w-0 text-left group/name"
+            >
+                {dirty && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" title="Unsaved" />}
+                <Layers size={13} className="text-slate-500 shrink-0" />
+                <span className="text-sm text-slate-200 truncate group-hover/name:text-white transition-colors">
+                    {item.group_name}
+                </span>
+                {activeNames && (
+                    <span className="text-[10px] text-slate-500 truncate hidden sm:block">
+                        {activeNames}
+                    </span>
+                )}
+            </button>
+
+            {/* Visibility checkboxes — 64px cells to align with header labels */}
+            <div className="flex items-center shrink-0">
+                <div className="w-16 flex justify-center">
+                    <VisibilityCheckbox
+                        checked={item.promoted_to_own_home}
+                        onChange={v => onVisibilityChange(v, item.promoted_to_shared, item.promoted_to_recommended)}
+                    />
+                </div>
+                <div className="w-16 flex justify-center">
+                    <VisibilityCheckbox
+                        checked={item.promoted_to_shared}
+                        onChange={v => onVisibilityChange(item.promoted_to_own_home, v, item.promoted_to_recommended)}
+                    />
+                </div>
+                <div className="w-16 flex justify-center">
+                    <VisibilityCheckbox
+                        checked={item.promoted_to_recommended}
+                        onChange={v => onVisibilityChange(item.promoted_to_own_home, item.promoted_to_shared, v)}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function SortableIndividualRow({
+    item,
+    onVisibilityChange,
+    dirty,
+}: {
+    item: DashboardIndividualItem;
+    onVisibilityChange: (home: boolean, shared: boolean, rec: boolean) => void;
+    dirty: boolean;
+}) {
+    const navigate = useNavigate();
+    const id = itemId(item);
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition: transition ?? "transform 150ms ease",
     };
 
     return (
         <div
             ref={setNodeRef}
             style={style}
-            className={`${cinematic ? "w-36 sm:w-44" : "w-28 sm:w-32"} shrink-0 text-left transition-opacity duration-200 ${animate ? "animate-fade-in" : ""} ${isDragging ? "opacity-50 z-50" : ""}`}
+            className={`flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors ${isDragging ? "opacity-50 bg-white/5" : ""} ${dirty ? "bg-primary/5" : ""}`}
         >
-            <div className={`group relative aspect-[2/3] rounded-xl overflow-hidden bg-slate-800 shadow-md transition-all duration-300 ${
-                cinematic
-                    ? "hover:shadow-xl hover:shadow-primary/30"
-                    : "hover:shadow-xl hover:shadow-primary/20 ring-1 ring-slate-700/50 hover:ring-slate-600"
-            }`}>
-                {/* Drag handle */}
-                <button
-                    {...attributes}
-                    {...listeners}
-                    className="absolute top-1 left-1 z-20 p-1 rounded bg-black/60 text-white/70 hover:text-white hover:bg-black/80 cursor-grab active:cursor-grabbing transition-all opacity-0 group-hover:opacity-100"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <GripVertical size={14} />
-                </button>
+            {/* Drag handle */}
+            <button
+                {...attributes}
+                {...listeners}
+                className="text-slate-600 hover:text-slate-400 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+                onClick={e => e.stopPropagation()}
+            >
+                <GripVertical size={14} />
+            </button>
 
-                {/* Pin button with popover */}
-                <Popover open={popoverOpen} onOpenChange={handleOpenChange}>
-                    <PopoverTrigger asChild>
-                        <button
-                            disabled={isPinning}
-                            className={`absolute top-1 right-1 z-20 p-1 rounded transition-all ${
-                                collection.is_pinned
-                                    ? "bg-primary/80 text-white"
-                                    : "bg-black/60 text-white/70 hover:text-white hover:bg-black/80 opacity-0 group-hover:opacity-100"
-                            } ${isPinning ? "opacity-50 cursor-wait" : ""}`}
-                            title={collection.is_pinned ? "Edit pin settings" : "Pin collection"}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <Pin size={14} className={collection.is_pinned ? "fill-current" : ""} />
-                        </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                        align="end"
-                        className="w-44 p-2.5 bg-slate-900/90 backdrop-blur-md border-slate-700/50"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="space-y-1.5">
-                            {/* My Home checkbox */}
-                            <label className="flex items-center gap-2 px-1.5 py-1 rounded-md cursor-pointer hover:bg-white/5 transition-colors">
-                                <input
-                                    type="checkbox"
-                                    checked={visibility.home}
-                                    onChange={(e) => setVisibility(v => ({ ...v, home: e.target.checked }))}
-                                    className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-800/50 text-primary focus:ring-1 focus:ring-primary/50 focus:ring-offset-0"
-                                />
-                                <Home size={12} className="text-slate-500" />
-                                <span className="text-xs text-slate-300">My Home</span>
-                            </label>
+            {/* Name */}
+            <button
+                type="button"
+                onClick={() => {
+                    if (item.library) navigate(`/collections/${encodeURIComponent(item.library)}/${encodeURIComponent(item.title)}`);
+                }}
+                className="flex items-center gap-2 flex-1 min-w-0 text-left group/name"
+            >
+                {dirty && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" title="Unsaved" />}
+                {item.is_pinned && <Pin size={11} className="text-primary fill-current shrink-0" />}
+                <span className="text-sm text-slate-200 truncate group-hover/name:text-white transition-colors">
+                    {item.title}
+                </span>
+            </button>
 
-                            {/* Shared checkbox */}
-                            <label className="flex items-center gap-2 px-1.5 py-1 rounded-md cursor-pointer hover:bg-white/5 transition-colors">
-                                <input
-                                    type="checkbox"
-                                    checked={visibility.shared}
-                                    onChange={(e) => setVisibility(v => ({ ...v, shared: e.target.checked }))}
-                                    className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-800/50 text-primary focus:ring-1 focus:ring-primary/50 focus:ring-offset-0"
-                                />
-                                <Users size={12} className="text-slate-500" />
-                                <span className="text-xs text-slate-300">Shared</span>
-                            </label>
-
-                            {/* Recommended checkbox */}
-                            <label className="flex items-center gap-2 px-1.5 py-1 rounded-md cursor-pointer hover:bg-white/5 transition-colors">
-                                <input
-                                    type="checkbox"
-                                    checked={visibility.recommended}
-                                    onChange={(e) => setVisibility(v => ({ ...v, recommended: e.target.checked }))}
-                                    className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-800/50 text-primary focus:ring-1 focus:ring-primary/50 focus:ring-offset-0"
-                                />
-                                <Star size={12} className="text-slate-500" />
-                                <span className="text-xs text-slate-300">Recommended</span>
-                            </label>
-
-                            <div className="pt-1.5 flex gap-1.5">
-                                {collection.is_pinned ? (
-                                    <>
-                                        <button
-                                            onClick={handleUnpin}
-                                            disabled={isPinning}
-                                            className="flex-1 px-2 py-1 text-[10px] font-medium rounded-md border border-slate-600/50 text-slate-400 hover:bg-slate-800/50 hover:text-white transition-colors disabled:opacity-50"
-                                        >
-                                            Unpin
-                                        </button>
-                                        <button
-                                            onClick={handlePin}
-                                            disabled={isPinning || (!visibility.home && !visibility.shared && !visibility.recommended)}
-                                            className="flex-1 px-2 py-1 text-[10px] font-medium rounded-md bg-primary/90 hover:bg-primary text-white transition-colors disabled:opacity-50"
-                                        >
-                                            Update
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button
-                                        onClick={handlePin}
-                                        disabled={isPinning || (!visibility.home && !visibility.shared && !visibility.recommended)}
-                                        className="w-full px-2 py-1 text-[10px] font-medium rounded-md bg-primary/90 hover:bg-primary text-white transition-colors disabled:opacity-50"
-                                    >
-                                        Pin
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </PopoverContent>
-                </Popover>
-
-                {/* Clickable poster area */}
-                <button
-                    onClick={onClick}
-                    disabled={!collection.library}
-                    className="absolute inset-0 w-full h-full cursor-pointer disabled:cursor-default"
-                >
-                    <div
-                        className={`absolute inset-0 bg-cover bg-center ${cinematic ? "" : "transition-transform duration-700 ease-out group-hover:scale-110"}`}
-                        style={{
-                            backgroundImage: collection.poster_url
-                                ? `url('${collection.poster_url}')`
-                                : "none",
-                        }}
+            {/* Visibility checkboxes — 64px cells to align with header labels */}
+            <div className="flex items-center shrink-0">
+                <div className="w-16 flex justify-center">
+                    <VisibilityCheckbox
+                        checked={item.promoted_to_own_home}
+                        onChange={v => onVisibilityChange(v, item.promoted_to_shared, item.promoted_to_recommended)}
                     />
-                    {!collection.poster_url && (
-                        <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs font-medium">
-                            No Poster
-                        </div>
-                    )}
-                    {cinematic ? (
-                        <>
-                            {/* Base gradient always visible for bottom readability */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                            {/* Dark overlay fades in on hover */}
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                        </>
-                    ) : (
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-70 group-hover:opacity-50 transition-opacity duration-300" />
-                    )}
-                </button>
-
-                {/* Plex-style orange border overlay on hover */}
-                {cinematic && (
-                    <div className="absolute inset-0 rounded-xl border-[1.5px] border-transparent group-hover:border-primary/90 transition-colors duration-200 pointer-events-none z-30" />
-                )}
-
-                {/* Library pill overlaid on poster (cinematic only) */}
-                {cinematic && collection.library && (
-                    <span className="absolute bottom-2 left-2 z-20 text-[10px] px-2 py-0.5 rounded-full bg-black/60 text-slate-300 font-medium backdrop-blur-sm pointer-events-none">
-                        {collection.library}
-                    </span>
-                )}
-            </div>
-
-            <div className="mt-2.5">
-                <div className="flex items-center gap-1">
-                    {collection.is_pinned && (
-                        <Pin size={10} className="text-primary fill-current shrink-0" />
-                    )}
-                    <div className="text-sm font-semibold truncate text-white group-hover:text-primary transition-colors">
-                        {collection.title}
-                    </div>
                 </div>
-
-                {!cinematic && collection.library && (
-                    <span className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-300 font-medium">
-                        {collection.library}
-                    </span>
-                )}
+                <div className="w-16 flex justify-center">
+                    <VisibilityCheckbox
+                        checked={item.promoted_to_shared}
+                        onChange={v => onVisibilityChange(item.promoted_to_own_home, v, item.promoted_to_recommended)}
+                    />
+                </div>
+                <div className="w-16 flex justify-center">
+                    <VisibilityCheckbox
+                        checked={item.promoted_to_recommended}
+                        onChange={v => onVisibilityChange(item.promoted_to_own_home, item.promoted_to_shared, v)}
+                    />
+                </div>
             </div>
         </div>
     );
 }
 
-export default function ActiveCollectionsCard({
-    collections,
-    loading,
+// ── LibrarySection ─────────────────────────────────────────────────────────
+
+function LibrarySection({
+    row,
+    expanded,
+    onToggleExpand,
+    dirtyIds,
+    onItemsReordered,
+    onGroupVisibility,
+    onIndividualVisibility,
 }: {
-    collections: ActiveCollection[];
-    loading?: boolean;
+    row: DashboardLibraryRow;
+    expanded: boolean;
+    onToggleExpand: () => void;
+    dirtyIds: Set<string>;
+    onItemsReordered: (libraryName: string, newItems: DashboardItem[]) => void;
+    onGroupVisibility: (item: DashboardGroupItem, home: boolean, shared: boolean, rec: boolean) => void;
+    onIndividualVisibility: (item: DashboardIndividualItem, home: boolean, shared: boolean, rec: boolean) => void;
 }) {
-    const navigate = useNavigate();
-    const { accent } = useTheme();
-    const cinematic = accent === "plex-orange";
-    const [visibilityFilter, setVisibilityFilter] = useState<"all" | "my_home" | "shared" | "recommended">("my_home");
-    const [libraryFilter, setLibraryFilter] = useState<string>("all");
-    const [localCollections, setLocalCollections] = useState<ActiveCollection[]>([]);
-    const [pinningCollection, setPinningCollection] = useState<string | null>(null);
-    const hasAnimated = useRef(false);
-
-    // Sync local state with props
-    useMemo(() => {
-        setLocalCollections(collections);
-    }, [collections]);
-
-    // Mark animation as complete after initial render
-    useEffect(() => {
-        if (collections.length > 0 && !hasAnimated.current) {
-            const timer = setTimeout(() => {
-                hasAnimated.current = true;
-            }, collections.length * 100 + 300); // Wait for all animations to complete
-            return () => clearTimeout(timer);
-        }
-    }, [collections.length]);
-
-    // Sensors for drag and drop
     const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 8,
-            },
-        }),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
+        useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
     );
 
-    const availableLibraries = useMemo(() => {
-        const libs = new Set<string>();
-        localCollections.forEach(c => { if (c.library) libs.add(c.library); });
-        return Array.from(libs).sort();
-    }, [localCollections]);
-
-    const filteredCollections = useMemo(() => {
-        let base = localCollections;
-        if (libraryFilter !== "all") {
-            base = base.filter(c => c.library === libraryFilter);
-        }
-        if (visibilityFilter === "all") {
-            return base;
-        } else if (visibilityFilter === "my_home") {
-            return base.filter(c => c.promoted_to_own_home);
-        } else if (visibilityFilter === "shared") {
-            return base.filter(c => c.promoted_to_shared);
-        } else if (visibilityFilter === "recommended") {
-            return base.filter(c => c.promoted_to_recommended);
-        }
-        return base;
-    }, [localCollections, visibilityFilter, libraryFilter]);
-
-    const visibilityCounts = useMemo(() => {
-        const base = libraryFilter === "all"
-            ? localCollections
-            : localCollections.filter(c => c.library === libraryFilter);
-        return {
-            all: base.length,
-            my_home: base.filter(c => c.promoted_to_own_home).length,
-            shared: base.filter(c => c.promoted_to_shared).length,
-            recommended: base.filter(c => c.promoted_to_recommended).length,
-        };
-    }, [localCollections, libraryFilter]);
-
-    const handleCollectionClick = (collection: ActiveCollection) => {
-        if (collection.library) {
-            navigate(
-                `/collections/${encodeURIComponent(collection.library)}/${encodeURIComponent(collection.title)}`
-            );
-        }
-    };
-
-    const handleDragEnd = async (event: DragEndEvent) => {
+    const handleDragEnd = useCallback(async (event: DragEndEvent) => {
         const { active, over } = event;
-
         if (!over || active.id === over.id) return;
 
-        // Find items in the full list (not just filtered) to compute correct order
-        const activeItem = localCollections.find(c => refKey(c) === active.id);
-        const overItem = localCollections.find(c => refKey(c) === over.id);
+        const activeIdx = row.items.findIndex(i => itemId(i) === active.id);
+        const overIdx = row.items.findIndex(i => itemId(i) === over.id);
+        if (activeIdx === -1 || overIdx === -1) return;
 
-        if (!activeItem || !overItem) return;
+        const reordered = arrayMove([...row.items], activeIdx, overIdx);
+        onItemsReordered(row.name, reordered);
 
-        const activeIdx = localCollections.indexOf(activeItem);
-        const overIdx = localCollections.indexOf(overItem);
+        const orderedRefs: CollectionRef[] = reordered.flatMap(item => {
+            if (item.type === "group") {
+                return item.active_collections
+                    .filter(c => c.library)
+                    .map(c => ({ library: c.library as string, name: c.title }));
+            }
+            return item.library ? [{ library: item.library, name: item.title }] : [];
+        });
 
-        // Compute the full reordered list
-        const reorderedCollections = arrayMove([...localCollections], activeIdx, overIdx);
-
-        // Optimistically update local state
-        setLocalCollections(reorderedCollections);
-
-        // Send full reordered list to backend (not just the filtered subset)
         try {
-            const orderedRefs = reorderedCollections
-                .filter(c => c.library)
-                .map(c => ({ library: c.library as string, name: c.title }));
-            const response = await fetchWithAuth("/api/collections/reorder", {
+            const r = await fetchWithAuth("/api/collections/reorder", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ordered_collections: orderedRefs }),
             });
-
-            if (!response.ok) {
-                throw new Error("Failed to reorder collections");
-            }
-        } catch (error) {
-            console.error("Failed to reorder collections:", error);
-            // Revert to original order on failure
-            setLocalCollections(collections);
+            if (!r.ok) throw new Error("Reorder failed");
+        } catch {
+            onItemsReordered(row.name, row.items);
         }
-    };
+    }, [row, onItemsReordered]);
 
-    const handlePinWithVisibility = async (collection: ActiveCollection, visibility: VisibilityOptions) => {
-        if (!collection.library || pinningCollection) return;
+    if (row.items.length === 0) return null;
 
-        setPinningCollection(refKey(collection));
+    return (
+        <div>
+            {/* Section header */}
+            <button
+                type="button"
+                onClick={onToggleExpand}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors group/header"
+            >
+                <ChevronRight
+                    size={13}
+                    className={`text-slate-500 transition-transform duration-150 shrink-0 ${expanded ? "rotate-90" : ""}`}
+                />
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    {row.name}
+                </span>
+                <span className="text-xs text-slate-600 font-normal ml-1">{row.items.length}</span>
+            </button>
 
+            {/* Expanded rows */}
+            {expanded && (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext
+                        items={row.items.map(itemId)}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        <div className="ml-5">
+                            {row.items.map(item =>
+                                item.type === "group" ? (
+                                    <SortableGroupRow
+                                        key={itemId(item)}
+                                        item={item}
+                                        onVisibilityChange={(h, s, r) => onGroupVisibility(item, h, s, r)}
+                                        dirty={dirtyIds.has(itemId(item))}
+                                    />
+                                ) : (
+                                    <SortableIndividualRow
+                                        key={itemId(item)}
+                                        item={item}
+                                        onVisibilityChange={(h, s, r) => onIndividualVisibility(item, h, s, r)}
+                                        dirty={dirtyIds.has(itemId(item))}
+                                    />
+                                )
+                            )}
+                        </div>
+                    </SortableContext>
+                </DndContext>
+            )}
+        </div>
+    );
+}
+
+// ── ActiveCollectionsCard ──────────────────────────────────────────────────
+
+export default function ActiveCollectionsCard({ refreshKey }: { refreshKey?: number }) {
+    const { accent } = useTheme();
+    const cinematic = accent === "plex-orange";
+
+    const [libraries, setLibraries] = useState<DashboardLibraryRow[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [expandedLibs, setExpandedLibs] = useState<Record<string, boolean>>({});
+    const [pending, setPending] = useState<Record<string, { home: boolean; shared: boolean; rec: boolean; kind: "group" | "individual" }>>({});
+    const [saving, setSaving] = useState(false);
+
+    const fetchDashboard = useCallback(async () => {
+        setLoading(true);
         try {
-            const response = await fetchWithAuth("/api/collections/toggle-pin", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    collection_name: collection.title,
-                    library: collection.library,
-                    home: visibility.home,
-                    shared: visibility.shared,
-                    recommended: visibility.recommended,
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error("Failed to pin collection");
-            }
-
-            // Optimistically update local state with new visibility
-            // Don't re-sort - keep current position, backend will assign pin order
-            setLocalCollections(prev =>
-                prev.map(c =>
-                    refKey(c) === refKey(collection)
-                        ? {
-                            ...c,
-                            is_pinned: true,
-                            promoted_to_own_home: visibility.home,
-                            promoted_to_shared: visibility.shared,
-                            promoted_to_recommended: visibility.recommended,
-                        }
-                        : c
-                )
-            );
-        } catch (error) {
-            console.error("Failed to pin collection:", error);
+            const r = await fetchWithAuth("/api/collections/dashboard");
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data: DashboardCollectionsResponse = await r.json();
+            setLibraries(data.libraries ?? []);
+        } catch (e) {
+            console.error("Failed to fetch dashboard collections:", e);
         } finally {
-            setPinningCollection(null);
+            setLoading(false);
         }
-    };
+    }, []);
 
-    const handleUnpin = async (collection: ActiveCollection) => {
-        if (!collection.library || pinningCollection) return;
+    useEffect(() => {
+        void fetchDashboard();
+        setPending({});
+    }, [fetchDashboard, refreshKey]);
 
-        setPinningCollection(refKey(collection));
+    const handleItemsReordered = useCallback((libraryName: string, newItems: DashboardItem[]) => {
+        setLibraries(prev =>
+            prev.map(lib => lib.name === libraryName ? { ...lib, items: newItems } : lib)
+        );
+    }, []);
 
+    // Merge pending edits over server state for rendering + counts
+    const effectiveLibraries = useMemo(() => libraries.map(lib => ({
+        ...lib,
+        items: lib.items.map(i => {
+            const p = pending[itemId(i)];
+            if (!p) return i;
+            return { ...i, promoted_to_own_home: p.home, promoted_to_shared: p.shared, promoted_to_recommended: p.rec };
+        }),
+    })), [libraries, pending]);
+
+    const stagePending = useCallback((
+        item: DashboardItem,
+        home: boolean,
+        shared: boolean,
+        rec: boolean,
+    ) => {
+        const key = itemId(item);
+        const original = {
+            home: item.promoted_to_own_home,
+            shared: item.promoted_to_shared,
+            rec: item.promoted_to_recommended,
+        };
+        setPending(prev => {
+            const next = { ...prev };
+            // If toggling back to server state, drop the entry
+            if (home === original.home && shared === original.shared && rec === original.rec) {
+                delete next[key];
+            } else {
+                next[key] = { home, shared, rec, kind: item.type };
+            }
+            return next;
+        });
+    }, []);
+
+    const handleGroupVisibility = useCallback((item: DashboardGroupItem, h: boolean, s: boolean, r: boolean) => {
+        stagePending(item, h, s, r);
+    }, [stagePending]);
+
+    const handleIndividualVisibility = useCallback((item: DashboardIndividualItem, h: boolean, s: boolean, r: boolean) => {
+        if (!item.library) return;
+        stagePending(item, h, s, r);
+    }, [stagePending]);
+
+    const dirtyIds = useMemo(() => new Set(Object.keys(pending)), [pending]);
+    const dirtyCount = dirtyIds.size;
+
+    // Warn on browser tab close / refresh while changes are pending
+    useEffect(() => {
+        if (dirtyCount === 0) return;
+        const handler = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = "";
+        };
+        window.addEventListener("beforeunload", handler);
+        return () => window.removeEventListener("beforeunload", handler);
+    }, [dirtyCount]);
+
+    // Confirm on in-app navigation while changes are pending
+    const blocker = useBlocker(dirtyCount > 0);
+    useEffect(() => {
+        if (blocker.state !== "blocked") return;
+        const ok = window.confirm(
+            `You have ${dirtyCount} unsaved change${dirtyCount === 1 ? "" : "s"} to active collections. Discard and continue?`
+        );
+        if (ok) {
+            setPending({});
+            blocker.proceed();
+        } else {
+            blocker.reset();
+        }
+    }, [blocker, dirtyCount]);
+
+    const handleSave = useCallback(async () => {
+        if (dirtyCount === 0) return;
+        setSaving(true);
         try {
-            const response = await fetchWithAuth("/api/collections/toggle-pin", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    collection_name: collection.title,
-                    library: collection.library,
-                }),
+            // Find each pending change's source item and fire the right API
+            const all = libraries.flatMap(lib => lib.items);
+            const tasks = Object.entries(pending).map(async ([key, p]) => {
+                const item = all.find(i => itemId(i) === key);
+                if (!item) return;
+                if (item.type === "group" && p.kind === "group") {
+                    const r = await fetchWithAuth(`/api/admin/config/groups/${item.group_index}/visibility`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ visibility_home: p.home, visibility_shared: p.shared, visibility_recommended: p.rec }),
+                    });
+                    if (!r.ok) throw new Error(`Group save failed: ${item.group_name}`);
+                } else if (item.type === "individual" && p.kind === "individual" && item.library) {
+                    const r = await fetchWithAuth("/api/collections/toggle-pin", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            collection_name: item.title,
+                            library: item.library,
+                            home: p.home || undefined,
+                            shared: p.shared || undefined,
+                            recommended: p.rec || undefined,
+                        }),
+                    });
+                    if (!r.ok) throw new Error(`Pin save failed: ${item.title}`);
+                }
             });
-
-            if (!response.ok) {
-                throw new Error("Failed to unpin collection");
-            }
-
-            // Remove from local state since it's no longer on homescreen
-            setLocalCollections(prev => prev.filter(c => refKey(c) !== refKey(collection)));
-        } catch (error) {
-            console.error("Failed to unpin collection:", error);
+            await Promise.all(tasks);
+            setPending({});
+            await fetchDashboard();
+        } catch (e) {
+            console.error("Save failed:", e);
         } finally {
-            setPinningCollection(null);
+            setSaving(false);
         }
-    };
+    }, [pending, libraries, dirtyCount, fetchDashboard]);
+
+    const handleCancel = useCallback(() => setPending({}), []);
+
+    const toggleLib = useCallback((name: string) => {
+        setExpandedLibs(prev => ({ ...prev, [name]: !prev[name] }));
+    }, []);
+
+    const expandAll = useCallback(() => {
+        setExpandedLibs(Object.fromEntries(libraries.map(l => [l.name, true])));
+    }, [libraries]);
+
+    const collapseAll = useCallback(() => setExpandedLibs({}), []);
+
+    const allExpanded = libraries.length > 0 && libraries.every(l => expandedLibs[l.name]);
+
+    const counts = useMemo(() => {
+        const all = effectiveLibraries.flatMap(lib => lib.items);
+        return {
+            all: all.length,
+            my_home: all.filter(i => i.promoted_to_own_home).length,
+            shared: all.filter(i => i.promoted_to_shared).length,
+            recommended: all.filter(i => i.promoted_to_recommended).length,
+        };
+    }, [effectiveLibraries]);
+
+    // Column headers — same 64px cells as checkbox rows
+    const colHeaders = (
+        <div className="flex items-center shrink-0 text-[10px] font-semibold text-slate-500 uppercase tracking-wider select-none">
+            <span className="w-16 text-center">Home</span>
+            <span className="w-16 text-center">Shared</span>
+            <span className="w-16 text-center">Rec</span>
+        </div>
+    );
+
     return (
         <div className={cinematic ? "py-2" : "rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 via-slate-900/50 to-slate-900/50 shadow-lg shadow-primary/5 px-5 py-4 transition-all duration-300 hover:bg-slate-800/30"}>
-            <div className="flex items-center justify-between mb-3">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-3 gap-4">
                 <div>
                     <h3 className="text-lg font-bold text-white tracking-tight">Active Collections</h3>
-                    <p className="text-sm text-slate-400 mt-0.5">
-                        Currently featured on your Plex home screen
-                    </p>
+                    <p className="text-sm text-slate-400 mt-0.5">Currently featured on your Plex home screen</p>
                 </div>
-
-                {/* Filter Tabs - Segmented Control */}
-                <div className="flex p-1 rounded-lg border border-slate-700/50 bg-slate-800/30">
-                    <button
-                        type="button"
-                        onClick={() => setVisibilityFilter("my_home")}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
-                            visibilityFilter === "my_home"
-                                ? "bg-[#374151] text-white shadow-sm"
-                                : "text-slate-400 hover:text-white"
-                        }`}
-                    >
-                        My Home {!loading && `(${visibilityCounts.my_home})`}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setVisibilityFilter("shared")}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
-                            visibilityFilter === "shared"
-                                ? "bg-[#374151] text-white shadow-sm"
-                                : "text-slate-400 hover:text-white"
-                        }`}
-                    >
-                        Shared {!loading && `(${visibilityCounts.shared})`}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setVisibilityFilter("recommended")}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
-                            visibilityFilter === "recommended"
-                                ? "bg-[#374151] text-white shadow-sm"
-                                : "text-slate-400 hover:text-white"
-                        }`}
-                    >
-                        Recommended {!loading && `(${visibilityCounts.recommended})`}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setVisibilityFilter("all")}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
-                            visibilityFilter === "all"
-                                ? "bg-[#374151] text-white shadow-sm"
-                                : "text-slate-400 hover:text-white"
-                        }`}
-                    >
-                        All {!loading && visibilityCounts.all > 0 && `(${visibilityCounts.all})`}
-                    </button>
-                </div>
+                {!loading && counts.all > 0 && (
+                    <div className="text-xs text-slate-400 pt-1 shrink-0 tabular-nums">
+                        <span className="text-slate-200 font-semibold">{counts.my_home}</span> on Home
+                        <span className="text-slate-600 mx-2">·</span>
+                        <span className="text-slate-200 font-semibold">{counts.shared}</span> Shared
+                        <span className="text-slate-600 mx-2">·</span>
+                        <span className="text-slate-200 font-semibold">{counts.recommended}</span> Rec
+                        <span className="text-slate-600 mx-2">·</span>
+                        <span className="text-slate-200 font-semibold">{counts.all}</span> Total
+                    </div>
+                )}
             </div>
 
-            {availableLibraries.length > 1 && (
-                <div className="flex flex-wrap gap-1.5 mb-4">
+            {/* Toolbar: expand/collapse all + save/cancel */}
+            {!loading && libraries.length > 0 && (
+                <div className="flex items-center justify-between mb-2 px-1">
                     <button
                         type="button"
-                        onClick={() => setLibraryFilter("all")}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${
-                            libraryFilter === "all"
-                                ? "bg-primary/20 text-primary border border-primary/40"
-                                : "bg-slate-800/40 text-slate-400 border border-slate-700/50 hover:text-white"
-                        }`}
+                        onClick={allExpanded ? collapseAll : expandAll}
+                        className="text-xs text-slate-400 hover:text-white transition-colors"
                     >
-                        All libraries
+                        {allExpanded ? "Collapse all" : "Expand all"}
                     </button>
-                    {availableLibraries.map(lib => (
-                        <button
-                            key={lib}
-                            type="button"
-                            onClick={() => setLibraryFilter(lib)}
-                            className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${
-                                libraryFilter === lib
-                                    ? "bg-primary/20 text-primary border border-primary/40"
-                                    : "bg-slate-800/40 text-slate-400 border border-slate-700/50 hover:text-white"
-                            }`}
-                        >
-                            {lib}
-                        </button>
-                    ))}
+                    {dirtyCount > 0 && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400 tabular-nums">
+                                {dirtyCount} unsaved
+                            </span>
+                            <button
+                                type="button"
+                                onClick={handleCancel}
+                                disabled={saving}
+                                className="px-3 py-1 text-xs font-semibold rounded-md text-slate-300 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="px-3 py-1 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+                            >
+                                {saving ? "Saving…" : "Save"}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
             {loading ? (
-                <div className={`flex ${cinematic ? "gap-5" : "gap-4"} overflow-x-auto pb-2 scrollbar-hover-only`}>
-                    {Array.from({ length: 8 }).map((_, i) => (
-                        <div key={i} className={`${cinematic ? "w-36 sm:w-44" : "w-28 sm:w-32"} shrink-0`}>
-                            <div className="aspect-[2/3] rounded-xl bg-slate-800/60 animate-pulse" />
-                            <div className="h-3 mt-2 rounded bg-slate-800/60 animate-pulse" />
-                        </div>
+                <div className="space-y-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="h-8 rounded-lg bg-slate-800/60 animate-pulse" />
                     ))}
                 </div>
-            ) : filteredCollections.length === 0 ? (
-                <div className="text-sm text-slate-400 py-4">
-                    No active collections {visibilityFilter !== "all" ? "in this category" : "yet"}.
-                </div>
+            ) : libraries.length === 0 ? (
+                <div className="text-sm text-slate-400 py-4">No active collections yet.</div>
             ) : (
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                >
-                    <SortableContext
-                        items={filteredCollections.map(c => refKey(c))}
-                        strategy={horizontalListSortingStrategy}
-                    >
-                        <div className={`flex ${cinematic ? "gap-5" : "gap-4"} overflow-x-auto px-2 py-2 -mx-2 -my-2 scrollbar-hover-only`}>
-                            {filteredCollections.map((c, index) => (
-                                <SortableCollectionCard
-                                    key={refKey(c)}
-                                    collection={c}
-                                    index={index}
-                                    onClick={() => handleCollectionClick(c)}
-                                    onPinWithVisibility={(visibility) => handlePinWithVisibility(c, visibility)}
-                                    onUnpin={() => handleUnpin(c)}
-                                    isPinning={pinningCollection === refKey(c)}
-                                    animate={!hasAnimated.current}
-                                    cinematic={cinematic}
-                                />
-                            ))}
-                        </div>
-                    </SortableContext>
-                </DndContext>
+                <>
+                    {/* Column headers — right-aligned to match checkbox columns */}
+                    <div className="flex items-center justify-end mb-1 px-2">
+                        {colHeaders}
+                    </div>
+                    <div className="space-y-0.5">
+                        {effectiveLibraries.map(lib => (
+                            <LibrarySection
+                                key={lib.name}
+                                row={lib}
+                                expanded={!!expandedLibs[lib.name]}
+                                onToggleExpand={() => toggleLib(lib.name)}
+                                dirtyIds={dirtyIds}
+                                onItemsReordered={handleItemsReordered}
+                                onGroupVisibility={handleGroupVisibility}
+                                onIndividualVisibility={handleIndividualVisibility}
+                            />
+                        ))}
+                    </div>
+                </>
             )}
         </div>
     );

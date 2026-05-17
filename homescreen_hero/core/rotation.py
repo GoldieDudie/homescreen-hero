@@ -223,14 +223,17 @@ def run_rotation_with_history(
             group_results.append(result)
             continue
 
-        max_for_group = min(group.max_picks, remaining_global, len(available))
+        # Smart groups with pick_all_matching bypass min/max_picks (still subject to global cap)
+        pick_all = group.smart and group.pick_all_matching
+        effective_max = len(available) if pick_all else group.max_picks
+        max_for_group = min(effective_max, remaining_global, len(available))
 
         if max_for_group <= 0:
             result.reason_skipped = "max_picks for this group or global cap prevented any selection"
             group_results.append(result)
             continue
 
-        min_for_group = min(group.min_picks, max_for_group)
+        min_for_group = max_for_group if pick_all else min(group.min_picks, max_for_group)
 
         if min_for_group == max_for_group:
             k = max_for_group
@@ -481,14 +484,17 @@ def run_rotation_dry(
             group_results.append(result)
             continue
 
-        max_for_group = min(group.max_picks, remaining_global, len(available))
+        # Smart groups with pick_all_matching bypass min/max_picks (still subject to global cap)
+        pick_all = group.smart and group.pick_all_matching
+        effective_max = len(available) if pick_all else group.max_picks
+        max_for_group = min(effective_max, remaining_global, len(available))
 
         if max_for_group <= 0:
             result.reason_skipped = "max_picks for this group or global cap prevented any selection"
             group_results.append(result)
             continue
 
-        min_for_group = min(group.min_picks, max_for_group)
+        min_for_group = max_for_group if pick_all else min(group.min_picks, max_for_group)
 
         if min_for_group == max_for_group:
             k = max_for_group

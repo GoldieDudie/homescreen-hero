@@ -233,6 +233,10 @@ class CollectionGroupConfig(BaseModel):
         default_factory=list,
         description="Smart group filter rules (only used when smart=True)",
     )
+    pick_all_matching: bool = Field(
+        default=False,
+        description="Smart groups only: bypass max_picks and pick every matching collection (still subject to global max_collections cap).",
+    )
     target_users: Optional[List[str]] = Field(
         default=None,
         description="Plex usernames who should see this group's collections. None = everyone.",

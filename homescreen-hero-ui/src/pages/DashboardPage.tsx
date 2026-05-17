@@ -4,7 +4,6 @@ import type { DragStartEvent, DragOverEvent } from "@dnd-kit/core";
 import { Lock, Unlock, ChevronDown, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../utils/auth";
-import type { ActiveCollection } from "../components/ActiveCollectionsCard";
 import { DraggableWidget, DroppableSection, EditModeBanner } from "../components/dashboard";
 import { widgetRegistry } from "../widgets/registry";
 import ActiveCollectionsCard from "../components/ActiveCollectionsCard";
@@ -100,8 +99,7 @@ export default function Dashboard() {
 
     const [pendingUserCount, setPendingUserCount] = useState(0);
 
-    const [activeCollections, setActiveCollections] = useState<ActiveCollection[]>([]);
-    const [activeLoading, setActiveLoading] = useState(true);
+    const [activeRefreshKey, setActiveRefreshKey] = useState(0);
     const [tautulliEnabled, setTautulliEnabled] = useState<boolean>(false);
     const [seerrEnabled, setSeerrEnabled] = useState<boolean>(false);
     const [schedulerStatus, setSchedulerStatus] = useState<{
@@ -270,20 +268,6 @@ export default function Dashboard() {
     };
 
 
-    const loadActiveCollections = async () => {
-        setActiveLoading(true);
-
-        try {
-            const response = await fetchWithAuth("/api/collections/active");
-            const payload = await response.json();
-            setActiveCollections(payload.collections ?? []);
-        } catch (e) {
-            setError(String(e));
-        } finally {
-            setActiveLoading(false);
-        }
-    };
-
     const loadSchedulerStatus = async () => {
         try {
             const response = await fetchWithAuth("/api/rotate/scheduler-status");
@@ -339,7 +323,6 @@ export default function Dashboard() {
     };
 
     useEffect(() => {
-        void loadActiveCollections();
         void loadSchedulerStatus();
         void loadTautulliConfig();
         void loadSeerrConfig();
@@ -359,7 +342,7 @@ export default function Dashboard() {
         setError(null);
         setHistoryLoading(true);
         void loadHealth();
-        void loadActiveCollections();
+        setActiveRefreshKey(k => k + 1);
         void loadSchedulerStatus();
         fetchWithAuth("/api/history/all?limit=50")
             .then(async (r) => {
@@ -418,7 +401,7 @@ export default function Dashboard() {
             const payload: RotationExecution = await r.json();
             setSimulation(payload);
             setShowSimulationModal(true);
-            void loadActiveCollections();
+            setActiveRefreshKey(k => k + 1);
         } catch (e) {
             setError(String(e));
         } finally {
@@ -440,7 +423,7 @@ export default function Dashboard() {
             await r.json();
             setShowSimulationModal(false);
             refresh();
-            void loadActiveCollections();
+            setActiveRefreshKey(k => k + 1);
         } catch (e) {
             setError(String(e));
         } finally {
@@ -465,7 +448,7 @@ export default function Dashboard() {
 
             completeStep("run-rotation");
             refresh();
-            void loadActiveCollections();
+            setActiveRefreshKey(k => k + 1);
         } catch (e) {
             setError(String(e));
             setToast({
@@ -492,7 +475,7 @@ export default function Dashboard() {
                 type: "success"
             });
 
-            void loadActiveCollections();
+            setActiveRefreshKey(k => k + 1);
         } catch (e) {
             setError(String(e));
             setToast({
@@ -557,7 +540,7 @@ export default function Dashboard() {
                     />
                 );
             case "active-collections":
-                return <ActiveCollectionsCard key={widgetId} collections={activeCollections} loading={activeLoading} />;
+                return <ActiveCollectionsCard key={widgetId} refreshKey={activeRefreshKey} />;
             case "analytics":
                 return <AnalyticsCard key={widgetId} loading={healthLoading} />;
             case "most-active-users":

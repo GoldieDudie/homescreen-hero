@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Annotated, List, Literal, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import logging
 import random
 import requests
@@ -9,9 +9,9 @@ import tempfile
 import os
 
 from homescreen_hero.core.config.loader import load_config
-from homescreen_hero.core.config.schema import CollectionRef, HealthResponse
+from homescreen_hero.core.config.schema import CollectionGroupConfig, CollectionRef, HealthResponse
 from homescreen_hero.core.auth import CurrentUser, get_current_user, require_admin
-from homescreen_hero.core.db.history import init_db
+from homescreen_hero.core.db.history import init_db, get_last_rotation_attribution
 from homescreen_hero.core.db.tools import list_rotations
 from homescreen_hero.core.db.pinning import (
     get_pinned_collections,
@@ -48,6 +48,45 @@ class ActiveCollectionOut(BaseModel):
 
 class ActiveCollectionsResponse(BaseModel):
     collections: List[ActiveCollectionOut]
+
+
+class DashboardGroupItem(BaseModel):
+    type: Literal["group"] = "group"
+    group_name: str
+    group_index: int  # index in config.groups list, for PATCH /api/admin/config/groups/{index}/visibility
+    collections: List[CollectionRef]  # full group list for mosaic (all libraries)
+    active_collections: List[ActiveCollectionOut]  # active subset in this library row
+    display_order: int = 0
+    promoted_to_own_home: bool = False
+    promoted_to_shared: bool = False
+    promoted_to_recommended: bool = False
+
+
+class DashboardIndividualItem(BaseModel):
+    type: Literal["individual"] = "individual"
+    title: str
+    library: Optional[str] = None
+    poster_url: Optional[str] = None
+    promoted_to_own_home: bool = False
+    promoted_to_shared: bool = False
+    promoted_to_recommended: bool = False
+    is_pinned: bool = False
+    display_order: int = 0
+
+
+DashboardItem = Annotated[
+    Union[DashboardGroupItem, DashboardIndividualItem],
+    Field(discriminator="type"),
+]
+
+
+class DashboardLibraryRow(BaseModel):
+    name: str
+    items: List[DashboardItem]
+
+
+class DashboardCollectionsResponse(BaseModel):
+    libraries: List[DashboardLibraryRow]
 
 
 class PinnedCollectionOut(BaseModel):
@@ -302,6 +341,140 @@ def get_active_collections(
     ))
 
     return ActiveCollectionsResponse(collections=out)
+
+
+# Return active collections grouped by library, with homescreen-hero group cards aggregated.
+@router.get("/dashboard", response_model=DashboardCollectionsResponse)
+def get_dashboard_collections(
+    _current_user: CurrentUser = Depends(require_admin),
+) -> DashboardCollectionsResponse:
+    init_db()
+    config = load_config()
+    server = get_plex_server(config)
+
+    # Build lookup: (library, name) -> all (index, group) pairs that contain this collection
+    groups_by_ref: dict[tuple[str, str], list[tuple[int, CollectionGroupConfig]]] = {}
+    for idx, group in enumerate(config.groups):
+        for ref in group.collections:
+            groups_by_ref.setdefault((ref.library, ref.name), []).append((idx, group))
+
+    # Pinning info
+    pinned_collections = get_pinned_collections()
+    pinned_order_map: dict[tuple[str, str], int] = {
+        (p.library_name, p.collection_name): p.display_order for p in pinned_collections
+    }
+    pinned_refs: set[tuple[str, str]] = set(pinned_order_map.keys())
+
+    # Plex managed hub order (per library)
+    plex_order_map: dict[tuple[str, str], int] = {}
+    for section in server.library.sections():
+        try:
+            for idx, hub in enumerate(section.managedHubs()):
+                if hasattr(hub, "title"):
+                    plex_order_map[(section.title, hub.title)] = idx
+        except Exception as e:
+            logger.warning(f"Could not get managed hubs for section {section.title}: {e}")
+
+    # Collect active collections per library
+    library_active: dict[str, list[ActiveCollectionOut]] = {}
+    for section in server.library.sections():
+        try:
+            for col in section.collections():
+                try:
+                    hub = col.visibility()
+                    promoted_own = getattr(hub, "promotedToOwnHome", False)
+                    promoted_shared = getattr(hub, "promotedToSharedHome", False)
+                    promoted_recommended = getattr(hub, "promotedToRecommended", False)
+
+                    if promoted_own or promoted_shared or promoted_recommended:
+                        poster_url = build_collection_poster_url(server, col)
+                        is_pinned = (section.title, col.title) in pinned_refs
+                        display_order = plex_order_map.get((section.title, col.title), 9999)
+
+                        item = ActiveCollectionOut(
+                            title=col.title,
+                            poster_url=poster_url,
+                            library=section.title,
+                            promoted_to_own_home=promoted_own,
+                            promoted_to_shared=promoted_shared,
+                            promoted_to_recommended=promoted_recommended,
+                            is_pinned=is_pinned,
+                            display_order=display_order,
+                        )
+                        library_active.setdefault(section.title, []).append(item)
+                except Exception as e:
+                    logger.warning(f"Could not get visibility for collection {col.title}: {e}")
+        except Exception as e:
+            logger.error(f"Error retrieving collections from section {section.title}: {e}")
+
+    # Attribute collections to the group that actually selected them in the most
+    # recent rotation. Falls back to config-membership lookup for collections that
+    # have no rotation attribution (e.g. pinned collections, or unattributed legacy).
+    rotation_attribution = get_last_rotation_attribution()  # (library, name) -> group_name
+    group_by_name: dict[str, tuple[int, CollectionGroupConfig]] = {
+        g.name: (idx, g) for idx, g in enumerate(config.groups)
+    }
+
+    # Build library rows: group cards + individual cards
+    libraries: list[DashboardLibraryRow] = []
+    for lib_name, active_cols in library_active.items():
+        def best_group(col: ActiveCollectionOut) -> tuple[int, CollectionGroupConfig] | None:
+            # 1. Prefer rotation-time attribution (authoritative)
+            attributed_name = rotation_attribution.get((col.library or "", col.title))
+            if attributed_name and attributed_name in group_by_name:
+                return group_by_name[attributed_name]
+            # 2. Fall back to config membership — if collection belongs to exactly
+            #    one group, use it. If multiple, leave as individual (no good guess).
+            candidates = groups_by_ref.get((col.library or "", col.title), [])
+            if len(candidates) == 1:
+                return candidates[0]
+            return None
+
+        group_accum: dict[str, dict] = {}  # group_name -> {idx, group, active_cols}
+        individual_items: list[DashboardIndividualItem] = []
+
+        for col in active_cols:
+            result = best_group(col)
+            if result:
+                g_idx, group = result
+                if group.name not in group_accum:
+                    group_accum[group.name] = {"idx": g_idx, "group": group, "cols": []}
+                group_accum[group.name]["cols"].append(col)
+            else:
+                individual_items.append(DashboardIndividualItem(
+                    title=col.title,
+                    library=col.library,
+                    poster_url=col.poster_url,
+                    promoted_to_own_home=col.promoted_to_own_home,
+                    promoted_to_shared=col.promoted_to_shared,
+                    promoted_to_recommended=col.promoted_to_recommended,
+                    is_pinned=col.is_pinned,
+                    display_order=col.display_order,
+                ))
+
+        group_items: list[DashboardGroupItem] = []
+        for data in group_accum.values():
+            active = data["cols"]
+            g: CollectionGroupConfig = data["group"]
+            group_items.append(DashboardGroupItem(
+                group_name=g.name,
+                group_index=data["idx"],
+                collections=g.collections,
+                active_collections=active,
+                display_order=min(c.display_order for c in active),
+                promoted_to_own_home=any(c.promoted_to_own_home for c in active),
+                promoted_to_shared=any(c.promoted_to_shared for c in active),
+                promoted_to_recommended=any(c.promoted_to_recommended for c in active),
+            ))
+
+        all_items: list[DashboardItem] = sorted(  # type: ignore[assignment]
+            group_items + individual_items,
+            key=lambda x: x.display_order,
+        )
+        libraries.append(DashboardLibraryRow(name=lib_name, items=all_items))
+
+    libraries.sort(key=lambda x: x.name)
+    return DashboardCollectionsResponse(libraries=libraries)
 
 
 # Return all collections from the Plex library with their metadata, including active status.

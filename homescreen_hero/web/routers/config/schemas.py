@@ -127,6 +127,12 @@ class GroupTargetUsersPayload(BaseModel):
     target_users: Optional[List[str]] = None
 
 
+class GroupVisibilityPayload(BaseModel):
+    visibility_home: bool
+    visibility_shared: bool
+    visibility_recommended: bool
+
+
 # Incoming payload for rotation settings updates.
 class RotationConfigSaveRequest(RotationSettings):
     pass

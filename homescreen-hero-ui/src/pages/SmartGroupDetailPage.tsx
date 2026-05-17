@@ -52,6 +52,7 @@ type SmartGroupForm = {
     rules: SmartGroupRule[];
     min_picks: number;
     max_picks: number;
+    pick_all_matching: boolean;
     weight: number;
     min_gap_rotations: number;
     display_order: number;
@@ -134,6 +135,7 @@ const emptyForm: SmartGroupForm = {
     rules: [{ field: "library", operator: "is", values: [] }],
     min_picks: 0,
     max_picks: 1,
+    pick_all_matching: false,
     weight: 1,
     min_gap_rotations: 0,
     display_order: 0,
@@ -884,15 +886,19 @@ export default function SmartGroupDetailPage() {
                             {/* Pick range slider */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-xs text-slate-400">Collections to select</label>
+                                    <div className="flex items-center gap-1.5">
+                                        <label className="text-xs text-slate-400">Collections to select</label>
+                                        <InfoTooltip text="How many matching collections to pick per rotation. The actual count is a random value between Min and Max (subject to the global cap)." />
+                                    </div>
                                     <span className="text-xs font-medium text-slate-300 tabular-nums">
-                                        Min: {form.min_picks} / Max: {form.max_picks}
+                                        {form.pick_all_matching ? "All matching" : `Min: ${form.min_picks} / Max: ${form.max_picks}`}
                                     </span>
                                 </div>
                                 <Slider
                                     min={0}
-                                    max={10}
+                                    max={50}
                                     step={1}
+                                    disabled={form.pick_all_matching}
                                     value={[Number(form.min_picks), Number(form.max_picks)]}
                                     onValueChange={([min, max]) => {
                                         setForm((p) => ({ ...p, min_picks: min, max_picks: max }));
@@ -900,19 +906,31 @@ export default function SmartGroupDetailPage() {
                                 />
                                 <div className="flex justify-between text-[10px] text-slate-600">
                                     <span>0</span>
-                                    <span>5</span>
-                                    <span>10</span>
+                                    <span>25</span>
+                                    <span>50</span>
                                 </div>
+                                {/* Pick-all-matching toggle */}
+                                <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={!!form.pick_all_matching}
+                                        onChange={(e) => setForm((p) => ({ ...p, pick_all_matching: e.target.checked }))}
+                                        className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary focus:ring-offset-0"
+                                    />
+                                    <span className="text-xs text-slate-300">Pick all matching collections</span>
+                                    <InfoTooltip text="Ignore Min/Max and pick every collection the smart rules match. Still subject to the global max_collections cap." />
+                                </label>
                             </div>
 
                             {/* Weight & Min gap */}
                             <div className="flex items-center gap-4">
                                 {([
-                                    { key: "weight" as const, label: "Weight", min: 1 },
-                                    { key: "min_gap_rotations" as const, label: "Min gap", min: 0 },
-                                ]).map(({ key, label, min }) => (
+                                    { key: "weight" as const, label: "Weight", min: 1, tooltip: "Priority when Group order is 'Weighted'. Higher weight = picks first when slots are scarce. Ignored otherwise." },
+                                    { key: "min_gap_rotations" as const, label: "Min gap", min: 0, tooltip: "Minimum number of rotations before a collection from this group can be reused. 0 = no gap." },
+                                ]).map(({ key, label, min, tooltip }) => (
                                     <div key={key} className="flex items-center gap-2">
                                         <label className="text-xs text-slate-400 whitespace-nowrap">{label}</label>
+                                        <InfoTooltip text={tooltip} />
                                         <div className="flex items-center rounded-md border border-slate-700 bg-slate-900 overflow-hidden">
                                             <button type="button" disabled={Number(form[key]) <= min} onClick={() => handleNumberChange(key, String(Math.max(min, Number(form[key]) - 1)))} className="flex items-center justify-center h-7 w-7 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                                                 <Minus className="h-3 w-3" />
@@ -934,13 +952,14 @@ export default function SmartGroupDetailPage() {
                             <div className="flex items-center gap-2">
                                 <Eye className="h-4 w-4 text-primary" />
                                 <label className="text-base font-medium text-white">Visibility</label>
+                                <InfoTooltip text="If none of these are enabled, picks from this group are promoted nowhere and will not appear on Plex." />
                             </div>
-                            <p className="text-xs text-slate-400">Control where collections from this group appear on Plex.</p>
+                            <p className="text-xs text-slate-400">Control where collections from this group appear on Plex. Pick at least one.</p>
                             <div className="grid grid-cols-3 gap-2">
                                 {([
-                                    { key: "visibility_home" as const, label: "Home", icon: Home },
-                                    { key: "visibility_shared" as const, label: "Shared", icon: Share2 },
-                                    { key: "visibility_recommended" as const, label: "Library", icon: Compass },
+                                    { key: "visibility_home" as const, label: "Home", icon: Home, tip: "Admin's Home tab on Plex." },
+                                    { key: "visibility_shared" as const, label: "Shared", icon: Share2, tip: "Shared users' Home pages." },
+                                    { key: "visibility_recommended" as const, label: "Library", icon: Compass, tip: "The library's Recommended row." },
                                 ]).map(({ key, label, icon: Icon }) => {
                                     const isSelected = form[key];
                                     return (

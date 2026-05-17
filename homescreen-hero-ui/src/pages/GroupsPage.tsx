@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { fetchWithAuth } from "../utils/api";
 import { useNavigate } from "react-router-dom";
+import { InfoTooltip } from "../components/ui/info-tooltip";
 import {
     Check,
     CheckCircle2,
@@ -1183,7 +1184,10 @@ export default function GroupsPage() {
 
                         {/* Group Order */}
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-white">Group Order</label>
+                            <div className="flex items-center gap-1.5">
+                                <label className="text-sm font-medium text-white">Group Order</label>
+                                <InfoTooltip text="Determines which group gets first dibs on slots when the global cap is tight. Weighted uses each group's Weight value; Display Order uses the list order on this page; Random shuffles each rotation." />
+                            </div>
                             <p className="text-xs text-slate-400">
                                 How groups are ordered for processing during rotation.
                             </p>

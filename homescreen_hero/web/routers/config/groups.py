@@ -28,6 +28,7 @@ from .schemas import (
     ConfigSaveResponse,
     CollectionGroupPayload,
     GroupTargetUsersPayload,
+    GroupVisibilityPayload,
     GroupValidationResult,
     CollectionSourcesResponse,
     GroupReorderRequest,
@@ -193,6 +194,40 @@ def set_group_target_users(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.patch("/groups/{index}/visibility", response_model=ConfigSaveResponse)
+def patch_group_visibility(
+    index: int,
+    payload: GroupVisibilityPayload,
+    current_user: CurrentUser = Depends(require_admin),
+) -> ConfigSaveResponse:
+    # Update only the three visibility flags on a group without touching the rest of its config
+    try:
+        data = load_config_mapping()
+        groups = load_group_list(data)
+
+        if index < 0 or index >= len(groups):
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        groups[index]["visibility_home"] = payload.visibility_home
+        groups[index]["visibility_shared"] = payload.visibility_shared
+        groups[index]["visibility_recommended"] = payload.visibility_recommended
+
+        config_path = get_config_path()
+        save_config_mapping({**data, "groups": groups})
+
+        name = groups[index].get("name", index)
+        return ConfigSaveResponse(
+            ok=True,
+            path=str(config_path),
+            env_override=CONFIG_ENV_VAR in os.environ,
+            message=f"Visibility for '{name}' updated.",
+        )
+    except HTTPException:
+        raise
     except Exception as exc:  # pragma: no cover - defensive
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

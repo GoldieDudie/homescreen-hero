@@ -260,6 +260,27 @@ def get_recent_rotations(limit: int = 10) -> List[RotationRecord]:
         return list(rows)
 
 
+def get_last_rotation_attribution() -> Dict[Tuple[str, str], str]:
+    # Map (library, collection_name) -> group_name from the most recent rotation
+    # that recorded group_contributions. Returns empty dict if none found.
+    with session_scope() as db:
+        stmt = (
+            select(RotationRecord)
+            .where(RotationRecord.group_contributions.isnot(None))
+            .order_by(RotationRecord.id.desc())
+            .limit(1)
+        )
+        record = db.execute(stmt).scalar_one_or_none()
+        if record is None or not record.group_contributions:
+            return {}
+        attribution: Dict[Tuple[str, str], str] = {}
+        for group_name, refs in record.group_contributions.items():
+            for r in refs:
+                if isinstance(r, dict) and "name" in r:
+                    attribution[(r.get("library", ""), r["name"])] = group_name
+        return attribution
+
+
 def get_last_rotation_collections() -> List[CollectionRef]:
     # Get the collections from the most recent rotation (for allow_repeats logic).
     # Handles both new {library, name} dicts and legacy bare-string records.
