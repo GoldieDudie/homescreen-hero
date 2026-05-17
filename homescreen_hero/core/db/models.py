@@ -7,11 +7,13 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Index,
     Integer,
     String,
     Text,
     JSON,
     UniqueConstraint,
+    text,
 )
 
 from .base import Base
@@ -406,6 +408,35 @@ class CollectionDisplayOrder(Base):
     library_name = Column(String, nullable=False, default="", index=True)
     collection_name = Column(String, nullable=False, index=True)
     display_order = Column(Integer, nullable=False, default=0, index=True)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class LibraryHubOrder(Base):
+    # Per-library hub order: canonical source of truth for what HSH wants Plex to show.
+    # Mirrors the full hub list from Plex's library.managedHubs() (collections + smart hubs + externals).
+    # Partial unique index enforces max 1 pin_position="top" and 1 ="bottom" per library.
+    __tablename__ = "library_hub_order"
+    __table_args__ = (
+        UniqueConstraint("library_name", "hub_title", name="uq_library_hub_order_lib_title"),
+        Index(
+            "uq_library_hub_order_pin_slot",
+            "library_name",
+            "pin_position",
+            unique=True,
+            sqlite_where=text("pin_position IS NOT NULL"),
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    library_name = Column(String, nullable=False, index=True)
+    hub_title = Column(String, nullable=False)
+    position = Column(Integer, nullable=False, default=0, index=True)
+    # collection | smart_hub | external
+    hub_type = Column(String, nullable=False, default="collection")
+    # Group name from config.groups[].name, if hub belongs to an HSH-managed group
+    group_name = Column(String, nullable=True)
+    # "top" | "bottom" | null
+    pin_position = Column(String, nullable=True)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 

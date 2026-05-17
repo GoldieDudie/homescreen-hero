@@ -35,6 +35,31 @@ from .db import (
 logger = logging.getLogger(__name__)
 
 
+def _sync_hub_order_post_rotation(
+    server,
+    config: AppConfig,
+    smart_group_collections: Optional[Dict[str, List[CollectionRef]]],
+) -> None:
+    # After rotation visibility is applied, reconcile per-library hub order with Plex:
+    # slot-in newly active hubs into LibraryHubOrder, remove stale ones, push the
+    # full ordered list to Plex (respecting pin top/bottom).
+    from .hub_sync import sync_library_hub_order
+
+    for lib in config.plex.libraries:
+        if not lib.enabled:
+            continue
+        try:
+            sync_library_hub_order(
+                server,
+                config,
+                lib.name,
+                smart_group_collections=smart_group_collections,
+                push_to_plex=True,
+            )
+        except Exception as e:
+            logger.error("Hub order sync failed for library '%s': %s", lib.name, e, exc_info=True)
+
+
 def _resolve_smart_groups(server, config: AppConfig) -> Dict[str, List[CollectionRef]]:
     # Resolve all smart groups into concrete CollectionRef lists.
     smart_groups = [g for g in config.groups if g.smart]
@@ -259,6 +284,8 @@ def run_rotation_once(
     )
 
     if not dry_run:
+        _sync_hub_order_post_rotation(server, config, smart_group_collections)
+
         try:
             from .user_targeting import apply_rotation_targeting, sync_all_user_filters
             apply_rotation_targeting(server, config, applied, smart_group_collections)
@@ -479,6 +506,8 @@ def apply_simulation(
         dry_run=False,
         smart_group_collections=smart_group_collections,
     )
+
+    _sync_hub_order_post_rotation(server, config, smart_group_collections)
 
     try:
         from .user_targeting import apply_rotation_targeting, sync_all_user_filters

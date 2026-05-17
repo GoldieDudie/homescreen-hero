@@ -16,6 +16,7 @@ from .version import router as version_router
 from .library_stats import router as library_stats_router
 from .user_targeting import router as user_targeting_router
 from .poster_backup import router as poster_backup_router
+from .hubs import router as hubs_router
 
 __all__ = [
     "analytics_router",
@@ -25,6 +26,7 @@ __all__ = [
     "config_router",
     "health_router",
     "history_router",
+    "hubs_router",
     "integrations_router",
     "library_stats_router",
     "logs_router",

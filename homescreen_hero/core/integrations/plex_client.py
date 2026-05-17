@@ -473,30 +473,10 @@ def apply_home_screen_selection(
     if dry_run:
         logger.info("Dry run — no changes were sent to Plex")
 
-    # Reorder needs to run whenever something dictates an order: a group has collection_order set,
-    # OR any collection is pinned (pins have explicit display_order + top/bottom positioning).
-    needs_reorder = any(g.collection_order is not None for g in config.groups) or bool(pinned_db)
-    if applied and not dry_run and needs_reorder:
-        from ..rotation import order_collections_for_display
-        pinned_ref_order = {
-            CollectionRef(library=p.library_name, name=p.collection_name): p.display_order
-            for p in pinned_db
-        }
-        pinned_ref_set = {CollectionRef(library=p.library_name, name=p.collection_name) for p in pinned_db}
-        pinned_positions = {
-            CollectionRef(library=p.library_name, name=p.collection_name): p.pin_position
-            for p in pinned_db
-        }
-        ordered_applied = order_collections_for_display(
-            applied,
-            config,
-            pinned_names=pinned_ref_set,
-            pinned_order=pinned_ref_order,
-            smart_group_collections=smart_group_collections,
-            pinned_positions=pinned_positions,
-        )
-        reorder_homescreen_collections(server, config, ordered_applied)
-
+    # Ordering is no longer applied here. The service layer calls
+    # hub_sync.sync_library_hub_order(...) per library after rotation; that path
+    # uses LibraryHubOrder as the canonical per-library order (slot-in algorithm
+    # for new hubs, pin top/bottom enforced, full-list reorder to Plex).
     return applied
 
 
@@ -670,6 +650,128 @@ def reorder_homescreen_collections(
         logger.info("Reordered %d collections on homescreen", len(applied_order))
 
     return applied_order
+
+
+def get_managed_hub_titles(server: PlexServer, library_name: str) -> List[str]:
+    # Return current ordered list of managed hub titles for a library.
+    # Includes user collections, smart hubs (e.g. Recently Added), and any other managed hub.
+    try:
+        return [hub.title for hub in _get_managed_hubs_for_library(server, library_name)]
+    except Exception as e:
+        logger.warning("Could not list managed hubs for '%s': %s", library_name, e)
+        return []
+
+
+def reorder_library_hubs_full(
+    server: PlexServer,
+    library_name: str,
+    target_hub_titles: List[str],
+    *,
+    dry_run: bool = False,
+) -> Tuple[List[str], List[str]]:
+    # Full-list reorder for a single library. target_hub_titles is the desired ORDER
+    # of all hubs we want to position in this library. Hubs present in Plex but missing
+    # from target_hub_titles are left untouched (drift to end). Hubs in target that
+    # don't exist in Plex are skipped silently.
+    #
+    # Returns (final_hub_order_in_plex, list_of_error_messages).
+    if not target_hub_titles:
+        return ([], [])
+
+    errors: List[str] = []
+
+    try:
+        hubs = _get_managed_hubs_for_library(server, library_name)
+    except Exception as e:
+        msg = f"Could not load managed hubs for '{library_name}': {e}"
+        logger.warning(msg)
+        return ([], [msg])
+
+    hub_by_title = {hub.title: hub for hub in hubs}
+    target_present = [t for t in target_hub_titles if t in hub_by_title]
+    missing_in_plex = [t for t in target_hub_titles if t not in hub_by_title]
+    if missing_in_plex:
+        logger.debug(
+            "reorder_library_hubs_full: %d titles in target not found as hubs in '%s': %s",
+            len(missing_in_plex),
+            library_name,
+            missing_in_plex,
+        )
+
+    current_order = [hub.title for hub in hubs if hub.title in set(target_present)]
+    if current_order == target_present:
+        logger.debug("Hub order already matches target for '%s'", library_name)
+        return (current_order, [])
+
+    if dry_run:
+        logger.info(
+            "Dry run reorder for '%s': would target %d hubs: %s",
+            library_name,
+            len(target_present),
+            target_present,
+        )
+        return (target_present, [])
+
+    final_order: List[str] = current_order
+    for attempt in range(1, _REORDER_MAX_ATTEMPTS + 1):
+        # Refresh hub instances each attempt (Plex may invalidate)
+        hubs = _get_managed_hubs_for_library(server, library_name)
+        hub_by_title = {hub.title: hub for hub in hubs}
+
+        first_title = target_present[0]
+        first_hub = hub_by_title.get(first_title)
+        if first_hub is None:
+            errors.append(f"First target hub '{first_title}' vanished in '{library_name}'")
+            break
+
+        try:
+            first_hub.move(after=None)
+            logger.debug("Moved '%s' to top in '%s'", first_title, library_name)
+        except Exception as e:
+            errors.append(f"Failed to move '{first_title}' to top in '{library_name}': {e}")
+            logger.warning(errors[-1])
+            break
+
+        prev_hub = first_hub
+        for title in target_present[1:]:
+            hub = hub_by_title.get(title)
+            if hub is None:
+                continue
+            try:
+                time.sleep(_REORDER_MOVE_DELAY_SECONDS)
+                hub.move(after=prev_hub)
+                prev_hub = hub
+            except Exception as e:
+                # Smart hubs and some managed hubs may not support move().
+                # Log + continue — that hub stays where Plex puts it.
+                errors.append(f"Could not move '{title}' in '{library_name}': {e}")
+                logger.warning(errors[-1])
+
+        time.sleep(_REORDER_SETTLE_DELAY_SECONDS)
+        hubs_after = _get_managed_hubs_for_library(server, library_name)
+        final_order = [h.title for h in hubs_after if h.title in set(target_present)]
+        if final_order == target_present:
+            logger.debug(
+                "Verified hub order for '%s' on attempt %d/%d",
+                library_name,
+                attempt,
+                _REORDER_MAX_ATTEMPTS,
+            )
+            return (final_order, errors)
+
+        logger.warning(
+            "Hub order mismatch for '%s' after attempt %d/%d. Target=%s Current=%s",
+            library_name,
+            attempt,
+            _REORDER_MAX_ATTEMPTS,
+            target_present,
+            final_order,
+        )
+
+    errors.append(
+        f"Hub order did not converge for '{library_name}' after {_REORDER_MAX_ATTEMPTS} attempts"
+    )
+    return (final_order, errors)
 
 
 # Home user functions for watch history copying

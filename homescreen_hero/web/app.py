@@ -19,6 +19,7 @@ from homescreen_hero.web.routers import (
     config_router,
     health_router,
     history_router,
+    hubs_router,
     logs_router,
     rotation_router,
     collections_router,
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(library_stats_router, prefix="/api")
     app.include_router(user_targeting_router, prefix="/api")
     app.include_router(poster_backup_router, prefix="/api")
+    app.include_router(hubs_router, prefix="/api")
 
     # Frontend (serve only if build exists)
     logger.info(

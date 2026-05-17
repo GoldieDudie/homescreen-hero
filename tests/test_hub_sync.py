@@ -1,0 +1,349 @@
+import os
+import pytest
+
+os.environ["HOMESCREEN_HERO_DB"] = "sqlite:///:memory:"
+
+
+@pytest.fixture(autouse=True)
+def fresh_db():
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from homescreen_hero.core.db import base as base_module
+    from homescreen_hero.core.db.base import Base
+
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(bind=engine)
+    base_module._engine = engine
+    base_module.SessionLocal = sessionmaker(
+        bind=engine, autoflush=False, autocommit=False, expire_on_commit=False, future=True
+    )
+    yield
+    engine.dispose()
+
+
+# ---- Plex fake objects ----
+
+class FakeHub:
+    def __init__(self, section, title: str, deletable: bool = True,
+                 fail_first_move: bool = False, raise_on_move: bool = False):
+        self.section = section
+        self.title = title
+        self.identifier = title.replace(" ", "_")
+        self.deletable = deletable
+        self.promotedToOwnHome = False
+        self.promotedToSharedHome = False
+        self.promotedToRecommended = False
+        self.fail_first_move = fail_first_move
+        self.raise_on_move = raise_on_move
+        self.move_calls = 0
+
+    def move(self, after=None):
+        self.move_calls += 1
+        if self.raise_on_move:
+            raise Exception("Hub does not support move")
+        if self.fail_first_move and self.move_calls == 1:
+            raise Exception("Simulated transient Plex API failure")
+        hubs = self.section._hubs
+        hubs.remove(self)
+        if after is None:
+            hubs.insert(0, self)
+            return
+        after_index = hubs.index(after)
+        hubs.insert(after_index + 1, self)
+
+    def updateVisibility(self, home=None, shared=None, recommended=None):
+        if home is not None:
+            self.promotedToOwnHome = home
+        if shared is not None:
+            self.promotedToSharedHome = shared
+        if recommended is not None:
+            self.promotedToRecommended = recommended
+
+
+class FakeSection:
+    def __init__(self, name, hub_specs):
+        # hub_specs: list of (title, deletable) or just title (deletable=True default)
+        self.title = name
+        self._hubs = []
+        for spec in hub_specs:
+            if isinstance(spec, tuple):
+                title, deletable = spec
+            else:
+                title, deletable = spec, True
+            self._hubs.append(FakeHub(self, title, deletable=deletable))
+
+    def managedHubs(self):
+        return list(self._hubs)
+
+
+class FakeLibraryManager:
+    def __init__(self, sections):
+        self._sections = sections
+
+    def section(self, name):
+        return self._sections[name]
+
+
+class FakeServer:
+    def __init__(self, sections):
+        self.library = FakeLibraryManager(sections)
+
+
+def _make_config(*library_names):
+    from homescreen_hero.core.config.schema import (
+        AppConfig, PlexSettings, PlexLibraryConfig, RotationSettings,
+    )
+    return AppConfig(
+        plex=PlexSettings(
+            base_url="http://localhost:32400",
+            token="test-token",
+            libraries=[PlexLibraryConfig(name=n, enabled=True) for n in library_names],
+        ),
+        rotation=RotationSettings(enabled=True, max_collections=10),
+        groups=[],
+    )
+
+
+def _make_config_with_group(library_name, group_name, collection_names):
+    from homescreen_hero.core.config.schema import (
+        AppConfig, PlexSettings, PlexLibraryConfig, RotationSettings,
+        CollectionGroupConfig, CollectionRef,
+    )
+    return AppConfig(
+        plex=PlexSettings(
+            base_url="http://localhost:32400",
+            token="test-token",
+            libraries=[PlexLibraryConfig(name=library_name, enabled=True)],
+        ),
+        rotation=RotationSettings(enabled=True, max_collections=10),
+        groups=[
+            CollectionGroupConfig(
+                name=group_name,
+                enabled=True,
+                min_picks=1,
+                max_picks=10,
+                collections=[
+                    CollectionRef(library=library_name, name=n) for n in collection_names
+                ],
+            ),
+        ],
+    )
+
+
+# ---- reorder_library_hubs_full tests ----
+
+def test_reorder_full_list_matches_target(monkeypatch):
+    from homescreen_hero.core.integrations import plex_client
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection("Movies", ["C", "A", "B", "D"])
+    server = FakeServer({"Movies": section})
+
+    final, errors = plex_client.reorder_library_hubs_full(
+        server, "Movies", ["A", "B", "C", "D"]
+    )
+
+    assert final == ["A", "B", "C", "D"]
+    assert errors == []
+    assert [h.title for h in section.managedHubs()] == ["A", "B", "C", "D"]
+
+
+def test_reorder_skips_unknown_titles_in_target(monkeypatch):
+    from homescreen_hero.core.integrations import plex_client
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection("Movies", ["A", "B"])
+    server = FakeServer({"Movies": section})
+
+    final, errors = plex_client.reorder_library_hubs_full(
+        server, "Movies", ["B", "GhostHub", "A"]
+    )
+
+    assert final == ["B", "A"]
+    assert errors == []
+
+
+def test_reorder_smart_hub_raises_on_move(monkeypatch):
+    from homescreen_hero.core.integrations import plex_client
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection("Movies", ["A", "B"])
+    # Mark B as non-movable smart hub
+    section._hubs[1].raise_on_move = True
+    server = FakeServer({"Movies": section})
+
+    final, errors = plex_client.reorder_library_hubs_full(
+        server, "Movies", ["B", "A"]
+    )
+
+    # B couldn't be moved to top — chain breaks on first move
+    assert any("Failed to move 'B'" in e for e in errors)
+
+
+def test_reorder_no_op_when_already_correct(monkeypatch):
+    from homescreen_hero.core.integrations import plex_client
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection("Movies", ["A", "B", "C"])
+    server = FakeServer({"Movies": section})
+
+    final, errors = plex_client.reorder_library_hubs_full(
+        server, "Movies", ["A", "B", "C"]
+    )
+
+    assert final == ["A", "B", "C"]
+    assert errors == []
+    # No moves happened (early exit)
+    assert all(h.move_calls == 0 for h in section._hubs)
+
+
+def test_reorder_dry_run_returns_target_without_modifying(monkeypatch):
+    from homescreen_hero.core.integrations import plex_client
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection("Movies", ["C", "B", "A"])
+    server = FakeServer({"Movies": section})
+
+    final, errors = plex_client.reorder_library_hubs_full(
+        server, "Movies", ["A", "B", "C"], dry_run=True
+    )
+
+    assert final == ["A", "B", "C"]
+    assert errors == []
+    # No hubs were moved
+    assert all(h.move_calls == 0 for h in section._hubs)
+    assert [h.title for h in section.managedHubs()] == ["C", "B", "A"]
+
+
+# ---- sync_library_hub_order tests ----
+
+def test_sync_adds_all_hubs_on_first_run(monkeypatch):
+    from homescreen_hero.core.hub_sync import sync_library_hub_order
+    from homescreen_hero.core.db import get_library_hub_order
+
+    section = FakeSection("Movies", ["A", "B", "C"])
+    server = FakeServer({"Movies": section})
+    config = _make_config("Movies")
+
+    result = sync_library_hub_order(server, config, "Movies")
+
+    assert result.added == ["A", "B", "C"]
+    assert result.removed == []
+    rows = get_library_hub_order("Movies")
+    assert [r.hub_title for r in rows] == ["A", "B", "C"]
+
+
+def test_sync_removes_stale_hubs():
+    from homescreen_hero.core.hub_sync import sync_library_hub_order
+    from homescreen_hero.core.db import slot_in_hub, get_library_hub_order, HUB_TYPE_COLLECTION
+
+    # Pre-seed DB with hubs that are no longer in Plex
+    slot_in_hub("Movies", "Stale1", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "Stale2", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "Survivor", HUB_TYPE_COLLECTION)
+
+    section = FakeSection("Movies", ["Survivor", "NewHub"])
+    server = FakeServer({"Movies": section})
+    config = _make_config("Movies")
+
+    result = sync_library_hub_order(server, config, "Movies")
+
+    assert set(result.removed) == {"Stale1", "Stale2"}
+    assert result.added == ["NewHub"]
+    rows = get_library_hub_order("Movies")
+    assert set(r.hub_title for r in rows) == {"Survivor", "NewHub"}
+
+
+def test_sync_classifies_hub_types_correctly():
+    from homescreen_hero.core.hub_sync import sync_library_hub_order
+    from homescreen_hero.core.db import (
+        get_library_hub_order, HUB_TYPE_COLLECTION, HUB_TYPE_SMART_HUB, HUB_TYPE_EXTERNAL,
+    )
+
+    # HSH-managed: "Action Movies" (configured)
+    # External: "User Custom" (deletable=True but not configured)
+    # Smart hub: "Recently Added Movies" (deletable=False)
+    section = FakeSection("Movies", [
+        ("Action Movies", True),
+        ("User Custom", True),
+        ("Recently Added Movies", False),
+    ])
+    server = FakeServer({"Movies": section})
+    config = _make_config_with_group("Movies", "Action", ["Action Movies"])
+
+    sync_library_hub_order(server, config, "Movies")
+
+    rows = {r.hub_title: r for r in get_library_hub_order("Movies")}
+    assert rows["Action Movies"].hub_type == HUB_TYPE_COLLECTION
+    assert rows["Action Movies"].group_name == "Action"
+    assert rows["User Custom"].hub_type == HUB_TYPE_EXTERNAL
+    assert rows["Recently Added Movies"].hub_type == HUB_TYPE_SMART_HUB
+
+
+def test_sync_does_not_affect_other_libraries(monkeypatch):
+    from homescreen_hero.core.hub_sync import sync_library_hub_order
+    from homescreen_hero.core.db import slot_in_hub, get_library_hub_order, HUB_TYPE_COLLECTION
+
+    # Pre-seed Movies IMAX with same-named hubs — they should be left alone
+    slot_in_hub("Movies IMAX", "Top 250", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies IMAX", "This Week Popular", HUB_TYPE_COLLECTION)
+
+    sections = {
+        "Movies": FakeSection("Movies", ["Top 250", "This Week Popular", "New"]),
+        "Movies IMAX": FakeSection("Movies IMAX", ["Top 250", "This Week Popular"]),
+    }
+    server = FakeServer(sections)
+    config = _make_config("Movies", "Movies IMAX")
+
+    sync_library_hub_order(server, config, "Movies")
+
+    # IMAX rows untouched
+    imax_rows = get_library_hub_order("Movies IMAX")
+    assert {r.hub_title for r in imax_rows} == {"Top 250", "This Week Popular"}
+    # Movies got the new one
+    movies_rows = get_library_hub_order("Movies")
+    assert {r.hub_title for r in movies_rows} == {"Top 250", "This Week Popular", "New"}
+
+
+def test_sync_push_to_plex_reorders_with_pins(monkeypatch):
+    from homescreen_hero.core.hub_sync import sync_library_hub_order
+    from homescreen_hero.core.db import (
+        slot_in_hub, set_pin, HUB_TYPE_COLLECTION, PIN_TOP, PIN_BOTTOM,
+    )
+    from homescreen_hero.core.integrations import plex_client
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    # Pre-seed DB with order A, B, C, D — pin D top, A bottom
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "B", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "C", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "D", HUB_TYPE_COLLECTION)
+    set_pin("Movies", "D", PIN_TOP)
+    set_pin("Movies", "A", PIN_BOTTOM)
+
+    # Plex hubs in different order — sync should push our order (with pins) to Plex
+    section = FakeSection("Movies", ["B", "C", "A", "D"])
+    server = FakeServer({"Movies": section})
+    config = _make_config("Movies")
+
+    sync_library_hub_order(server, config, "Movies", push_to_plex=True)
+
+    # Final Plex order: D (pinned top), B, C, A (pinned bottom)
+    assert [h.title for h in section.managedHubs()] == ["D", "B", "C", "A"]
+
+
+def test_sync_re_run_does_not_disrupt_order():
+    from homescreen_hero.core.hub_sync import sync_library_hub_order
+    from homescreen_hero.core.db import get_library_hub_order
+
+    section = FakeSection("Movies", ["A", "B", "C"])
+    server = FakeServer({"Movies": section})
+    config = _make_config("Movies")
+
+    sync_library_hub_order(server, config, "Movies")
+    first_order = [r.hub_title for r in get_library_hub_order("Movies")]
+
+    sync_library_hub_order(server, config, "Movies")
+    second_order = [r.hub_title for r in get_library_hub_order("Movies")]
+
+    assert first_order == second_order == ["A", "B", "C"]
