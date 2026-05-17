@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     DndContext,
     closestCenter,
@@ -700,7 +700,6 @@ export default function LibraryHubsCard({ refreshKey }: LibraryHubsCardProps) {
     const [libraries, setLibraries] = useState<LibraryConfig[]>([]);
     const [hubsByLibrary, setHubsByLibrary] = useState<Record<string, HubOut[]>>({});
     const [loading, setLoading] = useState(true);
-    const [syncing, setSyncing] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     const loadLibraries = useCallback(async () => {
@@ -787,26 +786,6 @@ export default function LibraryHubsCard({ refreshKey }: LibraryHubsCardProps) {
     useEffect(() => {
         refresh();
     }, [refresh, refreshKey]);
-
-    const handleManualSync = useCallback(
-        async (libName: string) => {
-            setSyncing(libName);
-            try {
-                const res = await fetchWithAuth(
-                    `/api/libraries/${encodeURIComponent(libName)}/hubs/sync`,
-                    { method: "POST" },
-                );
-                if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
-                const data: SyncResponse = await res.json();
-                setHubsByLibrary((prev) => ({ ...prev, [libName]: data.hubs }));
-            } catch (e: any) {
-                console.error(e);
-            } finally {
-                setSyncing(null);
-            }
-        },
-        [],
-    );
 
     return (
         <div className="rounded-2xl border border-slate-800/60 bg-slate-950/40 backdrop-blur-sm">
