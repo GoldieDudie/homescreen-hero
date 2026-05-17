@@ -12,6 +12,7 @@ from homescreen_hero.core.rotation import (
     _is_blacklisted,
     _get_ordered_groups,
     _select_collections_from_group,
+    order_collections_for_display,
     run_rotation_with_history,
     run_auto_rotation_with_history,
 )
@@ -825,3 +826,68 @@ class TestAutoRotationPerLibraryLimits:
 
         # Should select all 3 (1 from Movies, 2 from "Other" which has no limit)
         assert len(result.selected_collections) == 3
+
+
+class TestOrderCollectionsForDisplay:
+    """Tests for pin top/bottom positioning in display ordering."""
+
+    def _config(self) -> AppConfig:
+        return _make_test_config(groups=[])
+
+    def test_pinned_top_comes_before_unpinned(self):
+        config = self._config()
+        top_pin = cr("Top Pin", "Movies")
+        regular = cr("Regular", "Movies")
+        result = order_collections_for_display(
+            [regular, top_pin],
+            config,
+            pinned_names={top_pin},
+            pinned_order={top_pin: 0},
+            pinned_positions={top_pin: "top"},
+            rng=random.Random(0),
+        )
+        assert result == [top_pin, regular]
+
+    def test_pinned_bottom_comes_after_unpinned(self):
+        config = self._config()
+        bottom_pin = cr("Bottom Pin", "Movies")
+        regular = cr("Regular", "Movies")
+        result = order_collections_for_display(
+            [bottom_pin, regular],
+            config,
+            pinned_names={bottom_pin},
+            pinned_order={bottom_pin: 0},
+            pinned_positions={bottom_pin: "bottom"},
+            rng=random.Random(0),
+        )
+        assert result == [regular, bottom_pin]
+
+    def test_top_and_bottom_pins_sandwich_regular(self):
+        config = self._config()
+        top_pin = cr("Top", "Movies")
+        bottom_pin = cr("Bottom", "Movies")
+        regular = cr("Middle", "Movies")
+        result = order_collections_for_display(
+            [bottom_pin, regular, top_pin],
+            config,
+            pinned_names={top_pin, bottom_pin},
+            pinned_order={top_pin: 0, bottom_pin: 0},
+            pinned_positions={top_pin: "top", bottom_pin: "bottom"},
+            rng=random.Random(0),
+        )
+        assert result == [top_pin, regular, bottom_pin]
+
+    def test_missing_position_defaults_to_top(self):
+        # Back-compat: pins without a position entry should still go to top.
+        config = self._config()
+        pin = cr("Legacy Pin", "Movies")
+        regular = cr("Regular", "Movies")
+        result = order_collections_for_display(
+            [regular, pin],
+            config,
+            pinned_names={pin},
+            pinned_order={pin: 0},
+            pinned_positions={},  # no entry → default "top"
+            rng=random.Random(0),
+        )
+        assert result == [pin, regular]

@@ -48,10 +48,13 @@ type CollectionsCache = {
     version: number;
 };
 
+type PinPosition = "top" | "bottom";
+
 type VisibilityOptions = {
     home: boolean;
     shared: boolean;
     recommended: boolean;
+    position: PinPosition;
 };
 
 type ViewMode = "cards" | "list";
@@ -73,6 +76,7 @@ function PinPopover({
         home: true,
         shared: false,
         recommended: false,
+        position: "top",
     });
 
     const handlePin = () => {
@@ -87,7 +91,7 @@ function PinPopover({
 
     const handleOpenChange = (open: boolean) => {
         if (open) {
-            setVisibility({ home: true, shared: false, recommended: false });
+            setVisibility({ home: true, shared: false, recommended: false, position: "top" });
         }
         setPopoverOpen(open);
     };
@@ -146,6 +150,34 @@ function PinPopover({
                         <Star size={12} className="text-slate-500" />
                         <span className="text-xs text-slate-300">Recommended</span>
                     </label>
+
+                    <div className="pt-1 px-1.5">
+                        <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Position</div>
+                        <div className="flex rounded-md border border-slate-700/60 overflow-hidden">
+                            <button
+                                type="button"
+                                onClick={() => setVisibility(v => ({ ...v, position: "top" }))}
+                                className={`flex-1 px-2 py-1 text-[10px] font-medium transition-colors ${
+                                    visibility.position === "top"
+                                        ? "bg-primary/90 text-white"
+                                        : "bg-slate-800/40 text-slate-400 hover:text-slate-200"
+                                }`}
+                            >
+                                Top
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setVisibility(v => ({ ...v, position: "bottom" }))}
+                                className={`flex-1 px-2 py-1 text-[10px] font-medium transition-colors ${
+                                    visibility.position === "bottom"
+                                        ? "bg-primary/90 text-white"
+                                        : "bg-slate-800/40 text-slate-400 hover:text-slate-200"
+                                }`}
+                            >
+                                Bottom
+                            </button>
+                        </div>
+                    </div>
 
                     <div className="pt-1.5 flex gap-1.5">
                         {isPinned ? (
@@ -428,6 +460,7 @@ export default function CollectionsPage() {
                     home: visibility.home,
                     shared: visibility.shared,
                     recommended: visibility.recommended,
+                    pin_position: visibility.position,
                 }),
             });
 

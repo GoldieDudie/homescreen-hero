@@ -43,6 +43,7 @@ class ActiveCollectionOut(BaseModel):
     promoted_to_shared: bool = False
     promoted_to_recommended: bool = False
     is_pinned: bool = False
+    pin_position: Optional[str] = None  # "top" | "bottom" when is_pinned, else None
     display_order: int = 0
 
 
@@ -71,6 +72,7 @@ class DashboardIndividualItem(BaseModel):
     promoted_to_shared: bool = False
     promoted_to_recommended: bool = False
     is_pinned: bool = False
+    pin_position: Optional[str] = None  # "top" | "bottom" when is_pinned, else None
     display_order: int = 0
 
 
@@ -94,6 +96,7 @@ class PinnedCollectionOut(BaseModel):
     library_name: str
     display_order: int
     pinned_at: datetime
+    pin_position: str = "top"
 
 
 class PinnedCollectionsResponse(BaseModel):
@@ -108,6 +111,7 @@ class TogglePinRequest(BaseModel):
     home: Optional[bool] = None
     shared: Optional[bool] = None
     recommended: Optional[bool] = None
+    pin_position: Optional[Literal["top", "bottom"]] = None
 
 
 class TogglePinResponse(BaseModel):
@@ -118,6 +122,7 @@ class TogglePinResponse(BaseModel):
     home: Optional[bool] = None
     shared: Optional[bool] = None
     recommended: Optional[bool] = None
+    pin_position: Optional[str] = None
 
 
 class ReorderCollectionsRequest(BaseModel):
@@ -280,6 +285,9 @@ def get_active_collections(
     pinned_order_map: dict[tuple[str, str], int] = {
         (p.library_name, p.collection_name): p.display_order for p in pinned_collections
     }
+    pinned_position_map: dict[tuple[str, str], str] = {
+        (p.library_name, p.collection_name): p.pin_position for p in pinned_collections
+    }
     pinned_refs: set[tuple[str, str]] = set(pinned_order_map.keys())
 
     # Get actual order from Plex's managed hubs, keyed per (library, title)
@@ -320,6 +328,7 @@ def get_active_collections(
                                 promoted_to_shared=promoted_shared,
                                 promoted_to_recommended=promoted_recommended,
                                 is_pinned=is_pinned,
+                                pin_position=pinned_position_map.get((section.title, col.title)) if is_pinned else None,
                                 display_order=display_order,
                             )
                         )
@@ -363,6 +372,9 @@ def get_dashboard_collections(
     pinned_order_map: dict[tuple[str, str], int] = {
         (p.library_name, p.collection_name): p.display_order for p in pinned_collections
     }
+    pinned_position_map: dict[tuple[str, str], str] = {
+        (p.library_name, p.collection_name): p.pin_position for p in pinned_collections
+    }
     pinned_refs: set[tuple[str, str]] = set(pinned_order_map.keys())
 
     # Plex managed hub order (per library)
@@ -399,6 +411,7 @@ def get_dashboard_collections(
                             promoted_to_shared=promoted_shared,
                             promoted_to_recommended=promoted_recommended,
                             is_pinned=is_pinned,
+                            pin_position=pinned_position_map.get((section.title, col.title)) if is_pinned else None,
                             display_order=display_order,
                         )
                         library_active.setdefault(section.title, []).append(item)
@@ -449,6 +462,7 @@ def get_dashboard_collections(
                     promoted_to_shared=col.promoted_to_shared,
                     promoted_to_recommended=col.promoted_to_recommended,
                     is_pinned=col.is_pinned,
+                    pin_position=col.pin_position,
                     display_order=col.display_order,
                 ))
 
@@ -1348,12 +1362,14 @@ def toggle_pin_collection_endpoint(
         recommended = request.recommended if request.recommended is not None else False
 
         # Store pin with visibility settings (creates or updates)
-        pin_collection(
+        updated = pin_collection(
             ref,
             visibility_home=home,
             visibility_shared=shared,
             visibility_recommended=recommended,
+            pin_position=request.pin_position,
         )
+        applied_position = updated.pin_position
 
         # Also add the collection to the Plex homescreen with specified visibility
         try:
@@ -1378,6 +1394,7 @@ def toggle_pin_collection_endpoint(
             home=home,
             shared=shared,
             recommended=recommended,
+            pin_position=applied_position,
         )
 
 

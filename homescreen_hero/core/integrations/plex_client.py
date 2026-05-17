@@ -473,7 +473,9 @@ def apply_home_screen_selection(
     if dry_run:
         logger.info("Dry run — no changes were sent to Plex")
 
-    needs_reorder = any(g.collection_order is not None for g in config.groups)
+    # Reorder needs to run whenever something dictates an order: a group has collection_order set,
+    # OR any collection is pinned (pins have explicit display_order + top/bottom positioning).
+    needs_reorder = any(g.collection_order is not None for g in config.groups) or bool(pinned_db)
     if applied and not dry_run and needs_reorder:
         from ..rotation import order_collections_for_display
         pinned_ref_order = {
@@ -481,12 +483,17 @@ def apply_home_screen_selection(
             for p in pinned_db
         }
         pinned_ref_set = {CollectionRef(library=p.library_name, name=p.collection_name) for p in pinned_db}
+        pinned_positions = {
+            CollectionRef(library=p.library_name, name=p.collection_name): p.pin_position
+            for p in pinned_db
+        }
         ordered_applied = order_collections_for_display(
             applied,
             config,
             pinned_names=pinned_ref_set,
             pinned_order=pinned_ref_order,
             smart_group_collections=smart_group_collections,
+            pinned_positions=pinned_positions,
         )
         reorder_homescreen_collections(server, config, ordered_applied)
 

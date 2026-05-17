@@ -57,8 +57,10 @@ def pin_collection(
     visibility_home: bool = True,
     visibility_shared: bool = False,
     visibility_recommended: bool = False,
+    pin_position: Optional[str] = None,
 ) -> PinnedCollection:
-    # Pin a collection. If already pinned, update the order/visibility.
+    # Pin a collection. If already pinned, update order/visibility/position.
+    # pin_position=None means "don't change" on update, defaults to "top" on create.
     with session_scope() as db:
         stmt = select(PinnedCollection).where(
             and_(
@@ -74,8 +76,10 @@ def pin_collection(
             existing.visibility_home = visibility_home
             existing.visibility_shared = visibility_shared
             existing.visibility_recommended = visibility_recommended
-            logger.info("Updated pin for %s (home=%s, shared=%s, recommended=%s)",
-                        ref, visibility_home, visibility_shared, visibility_recommended)
+            if pin_position is not None:
+                existing.pin_position = pin_position
+            logger.info("Updated pin for %s (home=%s, shared=%s, recommended=%s, position=%s)",
+                        ref, visibility_home, visibility_shared, visibility_recommended, existing.pin_position)
             return existing
 
         if display_order is None:
@@ -88,14 +92,24 @@ def pin_collection(
             library_name=ref.library,
             display_order=display_order,
             pinned_at=datetime.utcnow(),
+            pin_position=pin_position or "top",
             visibility_home=visibility_home,
             visibility_shared=visibility_shared,
             visibility_recommended=visibility_recommended,
         )
         db.add(pinned)
-        logger.info("Pinned %s (order=%d, home=%s, shared=%s, recommended=%s)",
-                    ref, display_order, visibility_home, visibility_shared, visibility_recommended)
+        logger.info("Pinned %s (order=%d, position=%s, home=%s, shared=%s, recommended=%s)",
+                    ref, display_order, pinned.pin_position, visibility_home, visibility_shared, visibility_recommended)
         return pinned
+
+
+def get_pinned_position_map() -> Dict[CollectionRef, str]:
+    with session_scope() as db:
+        rows = db.execute(select(PinnedCollection)).scalars().all()
+        return {
+            CollectionRef(library=p.library_name, name=p.collection_name): p.pin_position
+            for p in rows
+        }
 
 
 def unpin_collection(ref: CollectionRef) -> bool:

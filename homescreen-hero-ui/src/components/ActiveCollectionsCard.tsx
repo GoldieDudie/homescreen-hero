@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useBlocker, useNavigate } from "react-router-dom";
 import {
     DndContext,
@@ -17,7 +17,8 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Layers, Pin, ChevronRight } from "lucide-react";
+import { GripVertical, Layers, Pin, ChevronRight, ArrowUpToLine, ArrowDownToLine, X } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
 import { fetchWithAuth } from "../utils/api";
 import { useTheme } from "../utils/theme";
 
@@ -37,6 +38,7 @@ export type ActiveCollection = {
     promoted_to_shared?: boolean;
     promoted_to_recommended?: boolean;
     is_pinned?: boolean;
+    pin_position?: "top" | "bottom" | null;
     display_order?: number;
 };
 
@@ -48,6 +50,7 @@ interface ActiveCollectionOut {
     promoted_to_shared: boolean;
     promoted_to_recommended: boolean;
     is_pinned: boolean;
+    pin_position?: "top" | "bottom" | null;
     display_order: number;
 }
 
@@ -72,6 +75,7 @@ interface DashboardIndividualItem {
     promoted_to_shared: boolean;
     promoted_to_recommended: boolean;
     is_pinned: boolean;
+    pin_position?: "top" | "bottom" | null;
     display_order: number;
 }
 
@@ -207,13 +211,83 @@ function SortableGroupRow({
     );
 }
 
+function PinPositionPopover({
+    position,
+    onSetPosition,
+    onUnpin,
+}: {
+    position: "top" | "bottom";
+    onSetPosition: (p: "top" | "bottom") => void;
+    onUnpin: () => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const apply = (fn: () => void) => {
+        fn();
+        setOpen(false);
+    };
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    title={position === "bottom" ? "Pinned to bottom" : "Pinned to top"}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-primary hover:text-primary/80 shrink-0 flex items-center px-1 py-0.5 rounded hover:bg-white/5"
+                >
+                    <Pin size={11} className="fill-current" />
+                    {position === "bottom"
+                        ? <ArrowDownToLine size={10} className="ml-0.5" />
+                        : <ArrowUpToLine size={10} className="ml-0.5" />}
+                </button>
+            </PopoverTrigger>
+            <PopoverContent
+                align="start"
+                className="w-44 p-1 bg-slate-900/95 backdrop-blur-md border-slate-700/60"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <button
+                    type="button"
+                    disabled={position === "top"}
+                    onClick={() => apply(() => onSetPosition("top"))}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-slate-200 hover:bg-white/5 disabled:opacity-40 disabled:cursor-default"
+                >
+                    <ArrowUpToLine size={12} className="text-slate-400" />
+                    Move to top
+                </button>
+                <button
+                    type="button"
+                    disabled={position === "bottom"}
+                    onClick={() => apply(() => onSetPosition("bottom"))}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-slate-200 hover:bg-white/5 disabled:opacity-40 disabled:cursor-default"
+                >
+                    <ArrowDownToLine size={12} className="text-slate-400" />
+                    Move to bottom
+                </button>
+                <div className="my-1 border-t border-slate-700/40" />
+                <button
+                    type="button"
+                    onClick={() => apply(onUnpin)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-rose-300 hover:bg-rose-500/10"
+                >
+                    <X size={12} />
+                    Unpin
+                </button>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
 function SortableIndividualRow({
     item,
     onVisibilityChange,
+    onSetPinPosition,
+    onUnpin,
     dirty,
 }: {
     item: DashboardIndividualItem;
     onVisibilityChange: (home: boolean, shared: boolean, rec: boolean) => void;
+    onSetPinPosition: (p: "top" | "bottom") => void;
+    onUnpin: () => void;
     dirty: boolean;
 }) {
     const navigate = useNavigate();
@@ -225,11 +299,13 @@ function SortableIndividualRow({
         transition: transition ?? "transform 150ms ease",
     };
 
+    const isBottomPin = item.is_pinned && item.pin_position === "bottom";
+
     return (
         <div
             ref={setNodeRef}
             style={style}
-            className={`flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors ${isDragging ? "opacity-50 bg-white/5" : ""} ${dirty ? "bg-primary/5" : ""}`}
+            className={`flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors ${isDragging ? "opacity-50 bg-white/5" : ""} ${dirty ? "bg-primary/5" : ""} ${isBottomPin ? "bg-slate-800/30" : ""}`}
         >
             {/* Drag handle */}
             <button
@@ -241,6 +317,15 @@ function SortableIndividualRow({
                 <GripVertical size={14} />
             </button>
 
+            {/* Pin position popover (only when pinned) */}
+            {item.is_pinned && (
+                <PinPositionPopover
+                    position={item.pin_position === "bottom" ? "bottom" : "top"}
+                    onSetPosition={onSetPinPosition}
+                    onUnpin={onUnpin}
+                />
+            )}
+
             {/* Name */}
             <button
                 type="button"
@@ -250,7 +335,6 @@ function SortableIndividualRow({
                 className="flex items-center gap-2 flex-1 min-w-0 text-left group/name"
             >
                 {dirty && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" title="Unsaved" />}
-                {item.is_pinned && <Pin size={11} className="text-primary fill-current shrink-0" />}
                 <span className="text-sm text-slate-200 truncate group-hover/name:text-white transition-colors">
                     {item.title}
                 </span>
@@ -291,6 +375,8 @@ function LibrarySection({
     onItemsReordered,
     onGroupVisibility,
     onIndividualVisibility,
+    onSetPinPosition,
+    onUnpin,
 }: {
     row: DashboardLibraryRow;
     expanded: boolean;
@@ -299,24 +385,41 @@ function LibrarySection({
     onItemsReordered: (libraryName: string, newItems: DashboardItem[]) => void;
     onGroupVisibility: (item: DashboardGroupItem, home: boolean, shared: boolean, rec: boolean) => void;
     onIndividualVisibility: (item: DashboardIndividualItem, home: boolean, shared: boolean, rec: boolean) => void;
+    onSetPinPosition: (item: DashboardIndividualItem, position: "top" | "bottom") => void;
+    onUnpin: (item: DashboardIndividualItem) => void;
 }) {
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
     );
 
+    // Render order: top-pinned, then unpinned, then bottom-pinned. Stable within each bucket.
+    const bucketOf = (i: DashboardItem) => {
+        if (i.type === "individual" && i.is_pinned) {
+            return i.pin_position === "bottom" ? 2 : 0;
+        }
+        return 1;
+    };
+    const sortedItems = useMemo(
+        () => [...row.items].sort((a, b) => bucketOf(a) - bucketOf(b)),
+        [row.items],
+    );
+
     const handleDragEnd = useCallback(async (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
 
-        const activeIdx = row.items.findIndex(i => itemId(i) === active.id);
-        const overIdx = row.items.findIndex(i => itemId(i) === over.id);
+        const activeIdx = sortedItems.findIndex(i => itemId(i) === active.id);
+        const overIdx = sortedItems.findIndex(i => itemId(i) === over.id);
         if (activeIdx === -1 || overIdx === -1) return;
 
-        const reordered = arrayMove([...row.items], activeIdx, overIdx);
-        onItemsReordered(row.name, reordered);
+        const reordered = arrayMove([...sortedItems], activeIdx, overIdx);
+        // Re-apply bucket sort so the order sent to the API matches what the UI will display
+        // (cross-bucket drags snap back; we must send the snapped-back order, not the raw drag order).
+        const normalized = [...reordered].sort((a, b) => bucketOf(a) - bucketOf(b));
+        onItemsReordered(row.name, normalized);
 
-        const orderedRefs: CollectionRef[] = reordered.flatMap(item => {
+        const orderedRefs: CollectionRef[] = normalized.flatMap(item => {
             if (item.type === "group") {
                 return item.active_collections
                     .filter(c => c.library)
@@ -361,27 +464,35 @@ function LibrarySection({
             {expanded && (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext
-                        items={row.items.map(itemId)}
+                        items={sortedItems.map(itemId)}
                         strategy={verticalListSortingStrategy}
                     >
                         <div className="ml-5">
-                            {row.items.map(item =>
-                                item.type === "group" ? (
-                                    <SortableGroupRow
-                                        key={itemId(item)}
-                                        item={item}
-                                        onVisibilityChange={(h, s, r) => onGroupVisibility(item, h, s, r)}
-                                        dirty={dirtyIds.has(itemId(item))}
-                                    />
-                                ) : (
-                                    <SortableIndividualRow
-                                        key={itemId(item)}
-                                        item={item}
-                                        onVisibilityChange={(h, s, r) => onIndividualVisibility(item, h, s, r)}
-                                        dirty={dirtyIds.has(itemId(item))}
-                                    />
-                                )
-                            )}
+                            {sortedItems.map((item, idx) => {
+                                const prevBucket = idx > 0 ? bucketOf(sortedItems[idx - 1]) : null;
+                                const currBucket = bucketOf(item);
+                                const showDivider = prevBucket !== null && prevBucket !== currBucket;
+                                return (
+                                    <React.Fragment key={itemId(item)}>
+                                        {showDivider && <div className="my-1 mx-2 border-t border-slate-800/60" />}
+                                        {item.type === "group" ? (
+                                            <SortableGroupRow
+                                                item={item}
+                                                onVisibilityChange={(h, s, r) => onGroupVisibility(item, h, s, r)}
+                                                dirty={dirtyIds.has(itemId(item))}
+                                            />
+                                        ) : (
+                                            <SortableIndividualRow
+                                                item={item}
+                                                onVisibilityChange={(h, s, r) => onIndividualVisibility(item, h, s, r)}
+                                                onSetPinPosition={(p) => onSetPinPosition(item, p)}
+                                                onUnpin={() => onUnpin(item)}
+                                                dirty={dirtyIds.has(itemId(item))}
+                                            />
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })}
                         </div>
                     </SortableContext>
                 </DndContext>
@@ -469,6 +580,55 @@ export default function ActiveCollectionsCard({ refreshKey }: { refreshKey?: num
         if (!item.library) return;
         stagePending(item, h, s, r);
     }, [stagePending]);
+
+    const handleSetPinPosition = useCallback(async (item: DashboardIndividualItem, next: "top" | "bottom") => {
+        if (!item.library) return;
+        // Optimistic: flip in local state, then refresh on success.
+        setLibraries(prev => prev.map(lib => lib.name !== item.library ? lib : {
+            ...lib,
+            items: lib.items.map(i => i.type === "individual" && i.title === item.title && i.library === item.library
+                ? { ...i, pin_position: next }
+                : i),
+        }));
+        try {
+            const r = await fetchWithAuth("/api/collections/toggle-pin", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    collection_name: item.title,
+                    library: item.library,
+                    home: item.promoted_to_own_home,
+                    shared: item.promoted_to_shared,
+                    recommended: item.promoted_to_recommended,
+                    pin_position: next,
+                }),
+            });
+            if (!r.ok) throw new Error("Failed to update pin position");
+            await fetchDashboard();
+        } catch (e) {
+            console.error(e);
+            await fetchDashboard();
+        }
+    }, [fetchDashboard]);
+
+    const handleUnpin = useCallback(async (item: DashboardIndividualItem) => {
+        if (!item.library) return;
+        try {
+            const r = await fetchWithAuth("/api/collections/toggle-pin", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    collection_name: item.title,
+                    library: item.library,
+                }),
+            });
+            if (!r.ok) throw new Error("Failed to unpin");
+        } catch (e) {
+            console.error(e);
+        } finally {
+            await fetchDashboard();
+        }
+    }, [fetchDashboard]);
 
     const dirtyIds = useMemo(() => new Set(Object.keys(pending)), [pending]);
     const dirtyCount = dirtyIds.size;
@@ -655,6 +815,8 @@ export default function ActiveCollectionsCard({ refreshKey }: { refreshKey?: num
                                 onItemsReordered={handleItemsReordered}
                                 onGroupVisibility={handleGroupVisibility}
                                 onIndividualVisibility={handleIndividualVisibility}
+                                onSetPinPosition={handleSetPinPosition}
+                                onUnpin={handleUnpin}
                             />
                         ))}
                     </div>

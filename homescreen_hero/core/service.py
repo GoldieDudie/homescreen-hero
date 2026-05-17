@@ -346,12 +346,14 @@ def simulate_rotation_once(
     from .db import get_pinned_collections
     pinned_db = get_pinned_collections()
     pinned_order = {CollectionRef(library=p.library_name, name=p.collection_name): p.display_order for p in pinned_db}
+    pinned_positions = {CollectionRef(library=p.library_name, name=p.collection_name): p.pin_position for p in pinned_db}
     ordered = order_collections_for_display(
         list(rotation_result.selected_collections),
         config,
         pinned_names=pinned,
         pinned_order=pinned_order,
         smart_group_collections=smart_group_collections,
+        pinned_positions=pinned_positions,
     )
 
     # Sort chosen_collections per group to match display ordering

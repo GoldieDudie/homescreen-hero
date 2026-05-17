@@ -639,20 +639,24 @@ def order_collections_for_display(
     pinned_names: Optional[Set[CollectionRef]] = None,
     pinned_order: Optional[Dict[CollectionRef, int]] = None,
     smart_group_collections: Optional[Dict[str, List[CollectionRef]]] = None,
+    pinned_positions: Optional[Dict[CollectionRef, str]] = None,
     rng: Optional[random.Random] = None,
 ) -> List[CollectionRef]:
     if rng is None:
         rng = random.Random()
     pinned_names = pinned_names or set()
     pinned_order = pinned_order or {}
+    pinned_positions = pinned_positions or {}
 
     coll_to_group = _build_collection_group_map(config, smart_group_collections)
     mode = config.display.group_display_mode
 
-    pinned = [r for r in collections if r in pinned_names]
+    pinned_top = [r for r in collections if r in pinned_names and pinned_positions.get(r, "top") != "bottom"]
+    pinned_bottom = [r for r in collections if r in pinned_names and pinned_positions.get(r, "top") == "bottom"]
     non_pinned = [r for r in collections if r not in pinned_names]
 
-    pinned.sort(key=lambda r: (pinned_order.get(r, 0), r.library, r.name))
+    pinned_top.sort(key=lambda r: (pinned_order.get(r, 0), r.library, r.name))
+    pinned_bottom.sort(key=lambda r: (pinned_order.get(r, 0), r.library, r.name))
 
     group_buckets: Dict[str, List[CollectionRef]] = {}
     ungrouped: List[CollectionRef] = []
@@ -698,6 +702,6 @@ def order_collections_for_display(
             ordered.extend(group_buckets[gn])
         ordered.extend(ungrouped)
 
-    result = pinned + ordered
+    result = pinned_top + ordered + pinned_bottom
     logger.debug("Display ordering (%s): %s", mode, [str(r) for r in result])
     return result
