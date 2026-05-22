@@ -480,13 +480,17 @@ def _get_managed_hubs_for_library(server: PlexServer, library_name: str) -> List
     return [hub for hub in library.managedHubs() if hasattr(hub, "title")]
 
 
-# Built-in Plex hubs that should always sit above user-managed hubs.
-# Identifiers (not titles) are stable across Plex versions.
-# movie.inprogress = Continue Watching (movie libraries)
-# tv.ondeck = On Deck / Continue Watching (show libraries)
-# Both exist in managedHubs() even when they're currently empty — they're
-# structural anchors, so moving "after" them reserves the position-1 slot.
-_TOP_ANCHOR_IDENTIFIERS = ("movie.inprogress", "tv.ondeck")
+# Built-in Plex hubs that represent "in-progress" content (Continue Watching /
+# On Deck variants). Identifiers vary by Plex version and library type. We anchor
+# our pin-top BELOW any of these so Continue Watching keeps the actual top slot.
+# Tried in order — first match wins.
+_TOP_ANCHOR_IDENTIFIERS = (
+    "movie.inprogress",
+    "tv.ondeck",
+    "tv.inprogress",
+    "tv.recentlyviewed",
+    "movie.recentlyviewed",
+)
 
 
 def move_hub_after(
@@ -524,55 +528,30 @@ def move_hub_after(
         if after_hub is None:
             return f"Anchor hub '{after_hub_title}' not found in '{library_name}'"
     else:
-        # Pin-to-top semantics: try to land our pin BELOW Plex's system hubs
-        # (Continue Watching, On Deck, Recently Added, etc.) which always sit
-        # at the top. Two-stage anchor resolution:
-        #   1. Explicit identifier match (movie.inprogress, tv.ondeck) — when
-        #      Plex exposes these structural hubs even when empty.
-        #   2. Transition detection — find where built-in hubs end and
-        #      user collections (custom.collection.*) begin; anchor at the
-        #      last built-in. Works for any library type / Plex version.
-        # Falls back to literal position 0 if neither anchor is identifiable.
-
+        # Pin-to-top semantics: anchor BELOW the in-progress / Continue Watching
+        # hub so it keeps position 0. We don't anchor below other built-ins
+        # (Recently Added, Top Rated, etc.) because the user expects their pin
+        # to sit ABOVE those.
         for candidate in _TOP_ANCHOR_IDENTIFIERS:
             if candidate in hub_by_identifier and hub_by_identifier[candidate] is not None:
                 after_hub = hub_by_identifier[candidate]
                 logger.info(
-                    "move_hub_after: anchoring '%s' after built-in '%s' in '%s'",
+                    "move_hub_after: anchoring '%s' after in-progress hub '%s' in '%s'",
                     hub_title, candidate, library_name,
                 )
                 break
-
-        if after_hub is None:
-            last_builtin_at_top = None
-            has_custom_after = False
-            for h in hubs:
-                ident = getattr(h, "identifier", "") or ""
-                if ident.startswith("custom.collection."):
-                    has_custom_after = True
-                    break
-                if h.title == hub_title:
-                    continue
-                last_builtin_at_top = h
-
-            if has_custom_after and last_builtin_at_top is not None:
-                after_hub = last_builtin_at_top
-                logger.info(
-                    "move_hub_after: anchoring '%s' after last built-in '%s' (id=%s) in '%s'",
-                    hub_title,
-                    last_builtin_at_top.title,
-                    getattr(last_builtin_at_top, "identifier", "?"),
-                    library_name,
-                )
-            else:
-                ordered = [
-                    (getattr(h, "identifier", "?"), h.title) for h in hubs[:10]
-                ]
-                logger.info(
-                    "move_hub_after: no top anchor for '%s'. Top hubs (id, title): %s",
-                    library_name,
-                    ordered,
-                )
+        else:
+            # No in-progress anchor exposed — go to literal position 0. If Continue
+            # Watching dynamically appears later, Plex should float it above.
+            ordered = [
+                (getattr(h, "identifier", "?"), h.title) for h in hubs[:5]
+            ]
+            logger.info(
+                "move_hub_after: no in-progress anchor for '%s'; using position 0. "
+                "Top 5 hubs (id, title): %s",
+                library_name,
+                ordered,
+            )
 
     try:
         target.move(after=after_hub)
