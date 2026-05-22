@@ -40,9 +40,11 @@ def _sync_hub_order_post_rotation(
     config: AppConfig,
     smart_group_collections: Optional[Dict[str, List[CollectionRef]]],
 ) -> None:
-    # After rotation visibility is applied, reconcile per-library hub order with Plex:
-    # slot-in newly active hubs into LibraryHubOrder, remove stale ones, push the
-    # full ordered list to Plex (respecting pin top/bottom).
+    # After rotation visibility is applied, reconcile per-library hub order in our DB:
+    # slot-in newly active hubs into LibraryHubOrder, remove stale ones. Plex's reorder
+    # API doesn't reliably accept chained moves, so we DO NOT push order to Plex here.
+    # New collections appear in Plex at whatever default position Plex assigns; the
+    # user can drag them via the dashboard if a specific position is wanted.
     from .hub_sync import sync_library_hub_order
 
     for lib in config.plex.libraries:
@@ -54,7 +56,6 @@ def _sync_hub_order_post_rotation(
                 config,
                 lib.name,
                 smart_group_collections=smart_group_collections,
-                push_to_plex=True,
             )
         except Exception as e:
             logger.error("Hub order sync failed for library '%s': %s", lib.name, e, exc_info=True)

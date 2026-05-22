@@ -130,91 +130,6 @@ def _make_config_with_group(library_name, group_name, collection_names):
     )
 
 
-# ---- reorder_library_hubs_full tests ----
-
-def test_reorder_full_list_matches_target(monkeypatch):
-    from homescreen_hero.core.integrations import plex_client
-    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
-
-    section = FakeSection("Movies", ["C", "A", "B", "D"])
-    server = FakeServer({"Movies": section})
-
-    final, errors = plex_client.reorder_library_hubs_full(
-        server, "Movies", ["A", "B", "C", "D"]
-    )
-
-    assert final == ["A", "B", "C", "D"]
-    assert errors == []
-    assert [h.title for h in section.managedHubs()] == ["A", "B", "C", "D"]
-
-
-def test_reorder_skips_unknown_titles_in_target(monkeypatch):
-    from homescreen_hero.core.integrations import plex_client
-    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
-
-    section = FakeSection("Movies", ["A", "B"])
-    server = FakeServer({"Movies": section})
-
-    final, errors = plex_client.reorder_library_hubs_full(
-        server, "Movies", ["B", "GhostHub", "A"]
-    )
-
-    assert final == ["B", "A"]
-    assert errors == []
-
-
-def test_reorder_smart_hub_raises_on_move(monkeypatch):
-    from homescreen_hero.core.integrations import plex_client
-    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
-
-    section = FakeSection("Movies", ["A", "B"])
-    # Mark B as non-movable smart hub
-    section._hubs[1].raise_on_move = True
-    server = FakeServer({"Movies": section})
-
-    final, errors = plex_client.reorder_library_hubs_full(
-        server, "Movies", ["B", "A"]
-    )
-
-    # B couldn't be moved to top — chain breaks on first move
-    assert any("Failed to move 'B'" in e for e in errors)
-
-
-def test_reorder_no_op_when_already_correct(monkeypatch):
-    from homescreen_hero.core.integrations import plex_client
-    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
-
-    section = FakeSection("Movies", ["A", "B", "C"])
-    server = FakeServer({"Movies": section})
-
-    final, errors = plex_client.reorder_library_hubs_full(
-        server, "Movies", ["A", "B", "C"]
-    )
-
-    assert final == ["A", "B", "C"]
-    assert errors == []
-    # No moves happened (early exit)
-    assert all(h.move_calls == 0 for h in section._hubs)
-
-
-def test_reorder_dry_run_returns_target_without_modifying(monkeypatch):
-    from homescreen_hero.core.integrations import plex_client
-    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
-
-    section = FakeSection("Movies", ["C", "B", "A"])
-    server = FakeServer({"Movies": section})
-
-    final, errors = plex_client.reorder_library_hubs_full(
-        server, "Movies", ["A", "B", "C"], dry_run=True
-    )
-
-    assert final == ["A", "B", "C"]
-    assert errors == []
-    # No hubs were moved
-    assert all(h.move_calls == 0 for h in section._hubs)
-    assert [h.title for h in section.managedHubs()] == ["C", "B", "A"]
-
-
 # ---- sync_library_hub_order tests ----
 
 def test_sync_adds_all_hubs_on_first_run(monkeypatch):
@@ -303,33 +218,6 @@ def test_sync_does_not_affect_other_libraries(monkeypatch):
     # Movies got the new one
     movies_rows = get_library_hub_order("Movies")
     assert {r.hub_title for r in movies_rows} == {"Top 250", "This Week Popular", "New"}
-
-
-def test_sync_push_to_plex_reorders_with_pins(monkeypatch):
-    from homescreen_hero.core.hub_sync import sync_library_hub_order
-    from homescreen_hero.core.db import (
-        slot_in_hub, set_pin, HUB_TYPE_COLLECTION, PIN_TOP, PIN_BOTTOM,
-    )
-    from homescreen_hero.core.integrations import plex_client
-    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
-
-    # Pre-seed DB with order A, B, C, D — pin D top, A bottom
-    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION)
-    slot_in_hub("Movies", "B", HUB_TYPE_COLLECTION)
-    slot_in_hub("Movies", "C", HUB_TYPE_COLLECTION)
-    slot_in_hub("Movies", "D", HUB_TYPE_COLLECTION)
-    set_pin("Movies", "D", PIN_TOP)
-    set_pin("Movies", "A", PIN_BOTTOM)
-
-    # Plex hubs in different order — sync should push our order (with pins) to Plex
-    section = FakeSection("Movies", ["B", "C", "A", "D"])
-    server = FakeServer({"Movies": section})
-    config = _make_config("Movies")
-
-    sync_library_hub_order(server, config, "Movies", push_to_plex=True)
-
-    # Final Plex order: D (pinned top), B, C, A (pinned bottom)
-    assert [h.title for h in section.managedHubs()] == ["D", "B", "C", "A"]
 
 
 def test_sync_re_run_does_not_disrupt_order():

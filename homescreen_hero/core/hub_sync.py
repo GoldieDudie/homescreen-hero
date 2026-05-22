@@ -21,10 +21,7 @@ from .db import (
     slot_in_hub,
     upsert_hub,
 )
-from .integrations.plex_client import (
-    _get_managed_hubs_for_library,
-    reorder_library_hubs_full,
-)
+from .integrations.plex_client import _get_managed_hubs_for_library
 
 logger = logging.getLogger(__name__)
 
@@ -115,10 +112,11 @@ def sync_library_hub_order(
     library_name: str,
     *,
     smart_group_collections: Optional[Dict[str, List[CollectionRef]]] = None,
-    push_to_plex: bool = False,
 ) -> SyncResult:
     # Reconcile LibraryHubOrder DB rows with Plex's actual managed hubs for this library.
-    # If push_to_plex=True, also push the resulting DB order to Plex via reorder_library_hubs_full.
+    # DB-only — does NOT push the resulting order to Plex (Plex's reorder API does not
+    # reliably accept chained moves; user-driven single moves go through the /hubs/move
+    # endpoint instead).
     result = SyncResult(library_name=library_name)
 
     try:
@@ -179,21 +177,6 @@ def sync_library_hub_order(
     if is_first_sync:
         _migrate_legacy_pins_into_hub_order(library_name, set(plex_hub_by_title.keys()))
 
-    # 4) Push to Plex if requested
-    if push_to_plex:
-        ordered_rows = get_library_hub_order(library_name)
-        target_titles = [r.hub_title for r in ordered_rows]
-        # Apply pin overrides: pinned-top moves to start, pinned-bottom to end
-        pinned_top = [r.hub_title for r in ordered_rows if r.pin_position == "top"]
-        pinned_bottom = [r.hub_title for r in ordered_rows if r.pin_position == "bottom"]
-        middle = [
-            t for t in target_titles
-            if t not in pinned_top and t not in pinned_bottom
-        ]
-        final = pinned_top + middle + pinned_bottom
-        _, errors = reorder_library_hubs_full(server, library_name, final)
-        result.plex_reorder_errors.extend(errors)
-
     logger.info(
         "sync: library '%s' done. added=%d removed=%d updated=%d errors=%d",
         library_name,
@@ -210,7 +193,6 @@ def sync_all_libraries(
     config: AppConfig,
     *,
     smart_group_collections: Optional[Dict[str, List[CollectionRef]]] = None,
-    push_to_plex: bool = False,
 ) -> List[SyncResult]:
     results: List[SyncResult] = []
     for lib in config.plex.libraries:
@@ -222,27 +204,9 @@ def sync_all_libraries(
                 config,
                 lib.name,
                 smart_group_collections=smart_group_collections,
-                push_to_plex=push_to_plex,
             )
         )
     return results
-
-
-def apply_saved_order_to_plex(
-    server: PlexServer,
-    library_name: str,
-) -> Tuple[List[str], List[str]]:
-    # Push the DB order to Plex for a single library, respecting pin positions.
-    ordered_rows = get_library_hub_order(library_name)
-    pinned_top = [r.hub_title for r in ordered_rows if r.pin_position == "top"]
-    pinned_bottom = [r.hub_title for r in ordered_rows if r.pin_position == "bottom"]
-    middle = [
-        r.hub_title for r in ordered_rows
-        if r.pin_position not in ("top", "bottom")
-    ]
-    final = pinned_top + middle + pinned_bottom
-    final_order, errors = reorder_library_hubs_full(server, library_name, final)
-    return final_order, errors
 
 
 def save_library_hub_order(

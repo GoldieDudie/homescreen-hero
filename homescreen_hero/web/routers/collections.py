@@ -20,11 +20,9 @@ from homescreen_hero.core.db.pinning import (
     pin_collection,
     unpin_collection,
     get_display_order,
-    update_display_order,
 )
 from homescreen_hero.core.integrations.plex_client import (
     get_plex_server,
-    reorder_homescreen_collections,
     get_library_collections,
 )
 from homescreen_hero.core.poster_proxy import (
@@ -123,15 +121,6 @@ class TogglePinResponse(BaseModel):
     shared: Optional[bool] = None
     recommended: Optional[bool] = None
     pin_position: Optional[str] = None
-
-
-class ReorderCollectionsRequest(BaseModel):
-    ordered_collections: List[CollectionRef]
-
-
-class ReorderResponse(BaseModel):
-    success: bool
-    message: str
 
 
 class CollectionOut(BaseModel):
@@ -1396,26 +1385,6 @@ def toggle_pin_collection_endpoint(
             recommended=recommended,
             pin_position=applied_position,
         )
-
-
-@router.post("/reorder", response_model=ReorderResponse)
-def reorder_collections_endpoint(
-    request: ReorderCollectionsRequest,
-    _current_user: CurrentUser = Depends(require_admin),
-) -> ReorderResponse:
-    init_db()
-    try:
-        update_display_order(request.ordered_collections)
-        config = load_config()
-        server = get_plex_server(config)
-        reorder_homescreen_collections(server, config, request.ordered_collections)
-        return ReorderResponse(
-            success=True,
-            message=f"Reordered {len(request.ordered_collections)} collections",
-        )
-    except Exception as e:
-        logger.error(f"Error reordering collections: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to reorder: {str(e)}")
 
 
 class RecentlyAddedItem(BaseModel):
