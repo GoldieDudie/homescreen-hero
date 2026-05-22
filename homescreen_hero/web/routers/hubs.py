@@ -19,7 +19,7 @@ from homescreen_hero.core.db import (
     set_library_hub_order,
     set_pin,
 )
-from homescreen_hero.core.hub_sync import sync_library_hub_order
+from homescreen_hero.core.hub_sync import enforce_group_adjacency, sync_library_hub_order
 from homescreen_hero.core.integrations.plex_client import (
     _get_managed_hubs_for_library,
     get_plex_server,
@@ -203,6 +203,10 @@ def sync_hubs(
         library_name,
         smart_group_collections=smart_groups,
     )
+
+    # Cluster scattered group members so the dashboard shows one block per group.
+    adjacency_errors = enforce_group_adjacency(server, library_name)
+    sync_result.plex_reorder_errors.extend(adjacency_errors)
 
     rows = get_library_hub_order(library_name)
     plex_hub_by_title = {hub.title: hub for hub in _get_managed_hubs_for_library(server, library_name)}

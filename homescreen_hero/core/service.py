@@ -47,7 +47,7 @@ def _sync_hub_order_post_rotation(
     # 2. Re-enforce pin-top and pin-bottom via single moves — necessary because
     #    Plex appends newly-promoted hubs to the end, which would otherwise push
     #    a pinned-bottom hub upward.
-    from .hub_sync import sync_library_hub_order
+    from .hub_sync import sync_library_hub_order, enforce_group_adjacency
     from .db import get_library_hub_order, PIN_TOP, PIN_BOTTOM
     from .integrations.plex_client import _get_managed_hubs_for_library, move_hub_after
 
@@ -64,6 +64,17 @@ def _sync_hub_order_post_rotation(
         except Exception as e:
             logger.error("Hub order sync failed for library '%s': %s", lib.name, e, exc_info=True)
             continue
+
+        # Cluster scattered group members (rotation appends new hubs at default
+        # positions which fragments groups). Runs before pin enforcement so pins
+        # still win the top/bottom slots.
+        try:
+            adjacency_errors = enforce_group_adjacency(server, lib.name)
+            for err in adjacency_errors:
+                logger.warning("Post-rotation adjacency in '%s': %s", lib.name, err)
+        except Exception as e:
+            logger.error("Group adjacency enforcement failed for '%s': %s",
+                         lib.name, e, exc_info=True)
 
         # Re-enforce pins (at most 2 single moves per library)
         try:

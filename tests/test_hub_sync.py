@@ -290,3 +290,85 @@ def test_move_hub_after_propagates_plex_failure():
 
     error = plex_client.move_hub_after(server, "Movies", "A", "B")
     assert error is not None and "Failed to move" in error
+
+
+# ---- enforce_group_adjacency tests ----
+
+def test_adjacency_no_op_when_groups_already_consecutive():
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_COLLECTION
+
+    # DB: A, B, C all in group "G"; D, E ungrouped
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "B", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "C", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "D", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "E", HUB_TYPE_COLLECTION)
+
+    section = FakeSection("Movies", ["A", "B", "C", "D", "E"])
+    server = FakeServer({"Movies": section})
+
+    errors = enforce_group_adjacency(server, "Movies")
+    assert errors == []
+    assert all(h.move_calls == 0 for h in section._hubs)
+
+
+def test_adjacency_clusters_scattered_group_members():
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_COLLECTION
+
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "B", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "C", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "X", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "Y", HUB_TYPE_COLLECTION)
+
+    # Plex order is scattered: A, X, B, Y, C
+    section = FakeSection("Movies", ["A", "X", "B", "Y", "C"])
+    server = FakeServer({"Movies": section})
+
+    errors = enforce_group_adjacency(server, "Movies")
+    assert errors == []
+    # A stays, B & C cluster after it
+    titles = [h.title for h in section.managedHubs()]
+    a_idx = titles.index("A")
+    assert titles[a_idx + 1] == "B"
+    assert titles[a_idx + 2] == "C"
+
+
+def test_adjacency_skips_pinned_group_members():
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, set_pin, HUB_TYPE_COLLECTION, PIN_BOTTOM
+
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "B", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "C", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "X", HUB_TYPE_COLLECTION)
+    # Pin C to bottom — adjacency should NOT move C
+    set_pin("Movies", "C", PIN_BOTTOM)
+
+    # Plex: A, X, B, C  (C at bottom, A and B scattered)
+    section = FakeSection("Movies", ["A", "X", "B", "C"])
+    server = FakeServer({"Movies": section})
+
+    enforce_group_adjacency(server, "Movies")
+    titles = [h.title for h in section.managedHubs()]
+    # B clusters after A; C stays at its pinned position
+    a_idx = titles.index("A")
+    assert titles[a_idx + 1] == "B"
+    assert titles[-1] == "C"
+
+
+def test_adjacency_ignores_single_member_groups():
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_COLLECTION
+
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "X", HUB_TYPE_COLLECTION)
+
+    section = FakeSection("Movies", ["X", "A"])
+    server = FakeServer({"Movies": section})
+
+    errors = enforce_group_adjacency(server, "Movies")
+    assert errors == []
+    assert all(h.move_calls == 0 for h in section._hubs)

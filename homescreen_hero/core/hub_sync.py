@@ -21,7 +21,7 @@ from .db import (
     slot_in_hub,
     upsert_hub,
 )
-from .integrations.plex_client import _get_managed_hubs_for_library
+from .integrations.plex_client import _get_managed_hubs_for_library, move_hub_after
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +191,79 @@ def sync_library_hub_order(
         len(result.plex_reorder_errors),
     )
     return result
+
+
+def enforce_group_adjacency(
+    server: PlexServer,
+    library_name: str,
+) -> List[str]:
+    # Ensure all members of each HSH-managed group are CONSECUTIVE in Plex's hub
+    # list. Plex rotation appends new collection hubs at default positions, which
+    # scatters group members. We re-cluster them via single moves:
+    #   - Members already adjacent → no-op
+    #   - Otherwise → chain-move each subsequent member after the previous one,
+    #     anchored at the first member's current Plex position
+    # Pinned hubs are NOT moved (pin position is user intent and overrides group
+    # adjacency). Pin enforcement runs after this and re-establishes pin slots.
+    #
+    # Returns a list of error messages (empty on full success).
+    errors: List[str] = []
+
+    try:
+        plex_hubs = _get_managed_hubs_for_library(server, library_name)
+    except Exception as e:
+        return [f"Could not load hubs for adjacency enforcement in '{library_name}': {e}"]
+
+    plex_titles = [h.title for h in plex_hubs]
+    position_of = {title: i for i, title in enumerate(plex_titles)}
+
+    rows = get_library_hub_order(library_name)
+    pinned = {r.hub_title for r in rows if r.pin_position is not None}
+    title_to_group: Dict[str, str] = {
+        r.hub_title: r.group_name for r in rows if r.group_name
+    }
+
+    # Build groups in Plex order, excluding pinned hubs
+    groups_in_plex_order: Dict[str, List[str]] = {}
+    for title in plex_titles:
+        if title in pinned:
+            continue
+        group = title_to_group.get(title)
+        if not group:
+            continue
+        groups_in_plex_order.setdefault(group, []).append(title)
+
+    for group_name, members in groups_in_plex_order.items():
+        if len(members) < 2:
+            continue
+        positions = [position_of[m] for m in members]
+        if max(positions) - min(positions) == len(positions) - 1:
+            continue  # already consecutive
+
+        logger.info(
+            "Clustering scattered group '%s' in '%s' (%d members, positions %s)",
+            group_name, library_name, len(members), positions,
+        )
+
+        prev = members[0]
+        for member in members[1:]:
+            err = move_hub_after(server, library_name, member, prev)
+            if err:
+                errors.append(f"[group '{group_name}'] {err}")
+                logger.warning("Group adjacency move failed: %s", err)
+                break
+            prev = member
+
+        # Re-fetch position map so subsequent groups see the updated order
+        try:
+            plex_hubs = _get_managed_hubs_for_library(server, library_name)
+            plex_titles = [h.title for h in plex_hubs]
+            position_of = {title: i for i, title in enumerate(plex_titles)}
+        except Exception as e:
+            errors.append(f"Could not refresh hubs after clustering '{group_name}': {e}")
+            break
+
+    return errors
 
 
 def sync_all_libraries(
