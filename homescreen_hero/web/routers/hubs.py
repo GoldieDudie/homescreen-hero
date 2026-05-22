@@ -24,6 +24,7 @@ from homescreen_hero.core.integrations.plex_client import (
     _get_managed_hubs_for_library,
     get_plex_server,
     move_hub_after,
+    pin_hub_to_top,
 )
 
 logger = logging.getLogger(__name__)
@@ -396,11 +397,11 @@ def set_hub_pins(
 
     plex_titles = [h.title for h in plex_hubs]
 
-    # Pin top → move to position 0 (after=None). Plex's API doesn't expose a
-    # stable built-in anchor that's reliably at position 0, so we use after=None.
-    # (Aggregarr uses movie.inprogress/tv.ondeck anchors; can be adopted later.)
+    # Pin top → use unpromote/re-promote/move helper. Plex's managedHubs uses
+    # float ordering that degrades over time; plain move(after=None) eventually
+    # stops landing at position 0. The helper resets float spacing first.
     if request.top is not None and request.top != current_top:
-        err = move_hub_after(server, library_name, request.top, None)
+        err = pin_hub_to_top(server, library_name, request.top)
         if err:
             errors.append(err)
             logger.warning("Pin-top failed for '%s' in '%s': %s", request.top, library_name, err)

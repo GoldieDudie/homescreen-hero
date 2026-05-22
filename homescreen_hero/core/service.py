@@ -49,7 +49,7 @@ def _sync_hub_order_post_rotation(
     #    a pinned-bottom hub upward.
     from .hub_sync import sync_library_hub_order, enforce_group_adjacency
     from .db import get_library_hub_order, PIN_TOP, PIN_BOTTOM
-    from .integrations.plex_client import _get_managed_hubs_for_library, move_hub_after
+    from .integrations.plex_client import _get_managed_hubs_for_library, move_hub_after, pin_hub_to_top
 
     for lib in config.plex.libraries:
         if not lib.enabled:
@@ -89,7 +89,7 @@ def _sync_hub_order_post_rotation(
                 continue
 
             if pin_top and plex_titles[0] != pin_top:
-                err = move_hub_after(server, lib.name, pin_top, None)
+                err = pin_hub_to_top(server, lib.name, pin_top)
                 if err:
                     logger.warning("Post-rotation pin-top failed for '%s' in '%s': %s",
                                    pin_top, lib.name, err)

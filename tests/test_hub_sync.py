@@ -374,3 +374,49 @@ def test_adjacency_ignores_single_member_groups():
     assert all(h.move_calls == 0 for h in section._hubs)
 
 
+
+
+# ---- pin_hub_to_top tests ----
+
+def test_pin_to_top_cycles_visibility_then_moves(monkeypatch):
+    from homescreen_hero.core.integrations import plex_client
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection("Movies", ["A", "B", "C"])
+    section._hubs[1].promotedToOwnHome = True
+    section._hubs[1].promotedToRecommended = True
+    server = FakeServer({"Movies": section})
+
+    error = plex_client.pin_hub_to_top(server, "Movies", "B")
+    assert error is None
+
+    titles = [h.title for h in section.managedHubs()]
+    assert titles[0] == "B"
+    # Visibility flags restored after cycle
+    b = next(h for h in section.managedHubs() if h.title == "B")
+    assert b.promotedToOwnHome is True
+    assert b.promotedToRecommended is True
+
+
+def test_pin_to_top_refuses_unpromoted_hub(monkeypatch):
+    from homescreen_hero.core.integrations import plex_client
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection("Movies", ["A", "B"])
+    # B has no visibility flags set
+    server = FakeServer({"Movies": section})
+
+    error = plex_client.pin_hub_to_top(server, "Movies", "B")
+    assert error is not None
+    assert "no visibility flags" in error
+
+
+def test_pin_to_top_returns_error_for_unknown_hub(monkeypatch):
+    from homescreen_hero.core.integrations import plex_client
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection("Movies", ["A"])
+    server = FakeServer({"Movies": section})
+
+    error = plex_client.pin_hub_to_top(server, "Movies", "GHOST")
+    assert error is not None and "not found" in error

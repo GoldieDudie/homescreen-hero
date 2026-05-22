@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
@@ -478,6 +479,81 @@ def apply_home_screen_selection(
 def _get_managed_hubs_for_library(server: PlexServer, library_name: str) -> List[Any]:
     library = server.library.section(library_name)
     return [hub for hub in library.managedHubs() if hasattr(hub, "title")]
+
+
+# Settle time after a visibility change before re-querying managedHubs.
+# Plex needs a moment to update the managed list; without this the next
+# call can return stale state.
+_VISIBILITY_SETTLE_SECONDS = 0.5
+
+
+def pin_hub_to_top(
+    server: PlexServer,
+    library_name: str,
+    hub_title: str,
+) -> Optional[str]:
+    # Reliable pin-to-top via unpromote/re-promote/move. Solves Plex's float
+    # precision convergence: after many moves, managedHubs floats degrade until
+    # move(after=None) can't actually land at position 0 (notably, our pinned
+    # hub starts appearing ABOVE Continue Watching which Plex normally floats
+    # at the very top).
+    #
+    # Strategy (Aggregarr's documented workaround):
+    #   1. Capture current visibility flags
+    #   2. updateVisibility(False, False, False) — removes from managedHubs
+    #   3. updateVisibility(home, shared, recommended) — re-adds with fresh
+    #      float spacing at the end of managedHubs
+    #   4. move(after=None) — lands at position 0 with a brand-new float
+    #
+    # Trade-off: ~1 extra second per pin-top (two visibility round-trips +
+    # settle delay) versus pin actually working.
+    try:
+        hubs = _get_managed_hubs_for_library(server, library_name)
+    except Exception as e:
+        return f"Could not load managed hubs for '{library_name}': {e}"
+
+    hub = next((h for h in hubs if h.title == hub_title), None)
+    if hub is None:
+        return f"Hub '{hub_title}' not found in '{library_name}'"
+
+    home = bool(getattr(hub, "promotedToOwnHome", False))
+    shared = bool(getattr(hub, "promotedToSharedHome", False))
+    recommended = bool(getattr(hub, "promotedToRecommended", False))
+
+    if not (home or shared or recommended):
+        return (
+            f"Hub '{hub_title}' has no visibility flags set; "
+            f"cannot pin to top without promotion"
+        )
+
+    try:
+        hub.updateVisibility(home=False, shared=False, recommended=False)
+        time.sleep(_VISIBILITY_SETTLE_SECONDS)
+        hub.updateVisibility(home=home, shared=shared, recommended=recommended)
+        time.sleep(_VISIBILITY_SETTLE_SECONDS)
+    except Exception as e:
+        return f"Visibility cycle failed for '{hub_title}': {e}"
+
+    # Re-fetch — the hub instance is stale after visibility changes
+    try:
+        hubs_after = _get_managed_hubs_for_library(server, library_name)
+    except Exception as e:
+        return f"Could not reload hubs after re-promote in '{library_name}': {e}"
+
+    target = next((h for h in hubs_after if h.title == hub_title), None)
+    if target is None:
+        return f"Hub '{hub_title}' did not return to managedHubs after re-promote"
+
+    try:
+        target.move(after=None)
+        logger.info(
+            "pin_hub_to_top: re-promoted and pinned '%s' to top in '%s' "
+            "(home=%s shared=%s recommended=%s)",
+            hub_title, library_name, home, shared, recommended,
+        )
+        return None
+    except Exception as e:
+        return f"Failed to move '{hub_title}' to top in '{library_name}': {e}"
 
 
 def move_hub_after(
