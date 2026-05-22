@@ -177,6 +177,11 @@ def sync_library_hub_order(
     if is_first_sync:
         _migrate_legacy_pins_into_hub_order(library_name, set(plex_hub_by_title.keys()))
 
+    # 4) Align DB positions to Plex's current order. Plex is the source of truth
+    # for hub ordering — any reorder we did via /hubs/move already updated Plex,
+    # so re-reading Plex here doesn't clobber user changes.
+    set_library_hub_order(library_name, plex_titles)
+
     logger.info(
         "sync: library '%s' done. added=%d removed=%d updated=%d errors=%d",
         library_name,

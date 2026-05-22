@@ -187,13 +187,21 @@ def sync_hubs(
     config = load_config()
     server = get_plex_server(config)
 
-    # Smart-group hubs not yet present in DB will be classified as "external" until
-    # a rotation runs (self-corrects after).
+    # Resolve smart groups so smart-rule-matched collections get classified as
+    # HSH-managed (hub_type=collection) and inherit their group_name. Without
+    # this they'd appear as ungrouped "PLEX" external hubs.
+    try:
+        from homescreen_hero.core.service import _resolve_smart_groups
+        smart_groups = _resolve_smart_groups(server, config)
+    except Exception as e:
+        logger.warning("Could not resolve smart groups for sync of '%s': %s", library_name, e)
+        smart_groups = None
+
     sync_result = sync_library_hub_order(
         server,
         config,
         library_name,
-        smart_group_collections=None,
+        smart_group_collections=smart_groups,
     )
 
     rows = get_library_hub_order(library_name)
