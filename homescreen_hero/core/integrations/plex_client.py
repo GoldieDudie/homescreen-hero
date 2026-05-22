@@ -487,26 +487,37 @@ def _get_managed_hubs_for_library(server: PlexServer, library_name: str) -> List
 _VISIBILITY_SETTLE_SECONDS = 0.5
 
 
+# Identifiers of the "Recently Added" managedHub that sits at position 0
+# by default in fresh libraries. Used as the pin-top anchor so the pinned
+# hub lands at managedHubs[1], allowing Continue Watching to render above
+# it (Plex renders a custom collection at managedHubs[0] above CW; a system
+# hub at managedHubs[0] renders below CW).
+_RECENTLY_ADDED_ANCHOR_BY_LIB_TYPE = {
+    "movie": "movie.recentlyadded",
+    "show": "tv.recentlyadded",
+}
+
+
 def pin_hub_to_top(
     server: PlexServer,
     library_name: str,
     hub_title: str,
 ) -> Optional[str]:
-    # Reliable pin-to-top via unpromote/re-promote/move. Solves Plex's float
-    # precision convergence: after many moves, managedHubs floats degrade until
-    # move(after=None) can't actually land at position 0 (notably, our pinned
-    # hub starts appearing ABOVE Continue Watching which Plex normally floats
-    # at the very top).
+    # Pin to top means "first managed hub position" — but Plex renders a custom
+    # collection at managedHubs[0] ABOVE Continue Watching. To keep CW at the
+    # natural top of the Recommended tab, we land the pinned hub at
+    # managedHubs[1] by anchoring after the library's default "Recently Added"
+    # hub (tv.recentlyadded / movie.recentlyadded). Confirmed working on
+    # TV Series; results may vary by library due to opaque Plex per-library
+    # rendering state.
     #
-    # Strategy (Aggregarr's documented workaround):
-    #   1. Capture current visibility flags
-    #   2. updateVisibility(False, False, False) — removes from managedHubs
-    #   3. updateVisibility(home, shared, recommended) — re-adds with fresh
-    #      float spacing at the end of managedHubs
-    #   4. move(after=None) — lands at position 0 with a brand-new float
+    # Sequence:
+    #   1. unpromote (clears managedHubs entry) + re-promote (fresh float at
+    #      end) — defeats float-precision convergence after many moves
+    #   2. move(after=anchor) — lands at managedHubs[1]
     #
-    # Trade-off: ~1 extra second per pin-top (two visibility round-trips +
-    # settle delay) versus pin actually working.
+    # If no anchor exists in managedHubs (rare), falls back to move(after=None)
+    # which lands at position 0 (CW will render below the pinned hub).
     try:
         hubs = _get_managed_hubs_for_library(server, library_name)
     except Exception as e:
@@ -544,13 +555,32 @@ def pin_hub_to_top(
     if target is None:
         return f"Hub '{hub_title}' did not return to managedHubs after re-promote"
 
+    # Find the library type so we can pick the right anchor identifier.
     try:
-        target.move(after=None)
-        logger.info(
-            "pin_hub_to_top: re-promoted and pinned '%s' to top in '%s' "
-            "(home=%s shared=%s recommended=%s)",
-            hub_title, library_name, home, shared, recommended,
-        )
+        lib_type = server.library.section(library_name).type
+    except Exception as e:
+        return f"Could not load library section for '{library_name}': {e}"
+
+    anchor_ident = _RECENTLY_ADDED_ANCHOR_BY_LIB_TYPE.get(lib_type)
+    anchor = None
+    if anchor_ident is not None:
+        anchor = next((h for h in hubs_after if h.identifier == anchor_ident), None)
+
+    try:
+        target.move(after=anchor)
+        if anchor is not None:
+            logger.info(
+                "pin_hub_to_top: re-promoted and pinned '%s' after '%s' in '%s' "
+                "(home=%s shared=%s recommended=%s)",
+                hub_title, anchor.title, library_name, home, shared, recommended,
+            )
+        else:
+            logger.info(
+                "pin_hub_to_top: re-promoted and pinned '%s' to top in '%s' — "
+                "no '%s' anchor found, used move(after=None) "
+                "(home=%s shared=%s recommended=%s)",
+                hub_title, library_name, anchor_ident, home, shared, recommended,
+            )
         return None
     except Exception as e:
         return f"Failed to move '{hub_title}' to top in '{library_name}': {e}"

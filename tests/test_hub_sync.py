@@ -25,10 +25,11 @@ def fresh_db():
 
 class FakeHub:
     def __init__(self, section, title: str, deletable: bool = True,
-                 fail_first_move: bool = False, raise_on_move: bool = False):
+                 fail_first_move: bool = False, raise_on_move: bool = False,
+                 identifier: str = None):
         self.section = section
         self.title = title
-        self.identifier = title.replace(" ", "_")
+        self.identifier = identifier if identifier is not None else title.replace(" ", "_")
         self.deletable = deletable
         self.promotedToOwnHome = False
         self.promotedToSharedHome = False
@@ -61,16 +62,22 @@ class FakeHub:
 
 
 class FakeSection:
-    def __init__(self, name, hub_specs):
-        # hub_specs: list of (title, deletable) or just title (deletable=True default)
+    def __init__(self, name, hub_specs, lib_type: str = "movie"):
+        # hub_specs: list of (title, deletable) or (title, deletable, identifier)
+        # or just title (deletable=True default, identifier derived from title)
         self.title = name
+        self.type = lib_type
         self._hubs = []
         for spec in hub_specs:
             if isinstance(spec, tuple):
-                title, deletable = spec
+                if len(spec) == 3:
+                    title, deletable, identifier = spec
+                else:
+                    title, deletable = spec
+                    identifier = None
             else:
-                title, deletable = spec, True
-            self._hubs.append(FakeHub(self, title, deletable=deletable))
+                title, deletable, identifier = spec, True, None
+            self._hubs.append(FakeHub(self, title, deletable=deletable, identifier=identifier))
 
     def managedHubs(self):
         return list(self._hubs)
@@ -378,13 +385,73 @@ def test_adjacency_ignores_single_member_groups():
 
 # ---- pin_hub_to_top tests ----
 
-def test_pin_to_top_cycles_visibility_then_moves(monkeypatch):
+def test_pin_to_top_moves_target_after_recently_added_anchor_movie(monkeypatch):
+    # Movies library: anchor is movie.recentlyadded. Pinned hub should land
+    # at managedHubs[1] (after anchor), so CW renders above it.
     from homescreen_hero.core.integrations import plex_client
     monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
 
-    section = FakeSection("Movies", ["A", "B", "C"])
-    section._hubs[1].promotedToOwnHome = True
-    section._hubs[1].promotedToRecommended = True
+    section = FakeSection(
+        "Movies",
+        [
+            ("Recently Added Movies", True, "movie.recentlyadded"),
+            "A",
+            "B",
+            "C",
+        ],
+        lib_type="movie",
+    )
+    b = next(h for h in section._hubs if h.title == "B")
+    b.promotedToOwnHome = True
+    b.promotedToRecommended = True
+    server = FakeServer({"Movies": section})
+
+    error = plex_client.pin_hub_to_top(server, "Movies", "B")
+    assert error is None
+
+    titles = [h.title for h in section.managedHubs()]
+    assert titles[0] == "Recently Added Movies"
+    assert titles[1] == "B"
+    # Visibility flags restored after cycle
+    b_after = next(h for h in section.managedHubs() if h.title == "B")
+    assert b_after.promotedToOwnHome is True
+    assert b_after.promotedToRecommended is True
+
+
+def test_pin_to_top_uses_tv_anchor_for_show_libraries(monkeypatch):
+    # Show library: anchor is tv.recentlyadded.
+    from homescreen_hero.core.integrations import plex_client
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection(
+        "TV Series",
+        [
+            ("Recently Added TV", True, "tv.recentlyadded"),
+            "New Premieres",
+        ],
+        lib_type="show",
+    )
+    np = next(h for h in section._hubs if h.title == "New Premieres")
+    np.promotedToRecommended = True
+    server = FakeServer({"TV Series": section})
+
+    error = plex_client.pin_hub_to_top(server, "TV Series", "New Premieres")
+    assert error is None
+
+    titles = [h.title for h in section.managedHubs()]
+    assert titles[0] == "Recently Added TV"
+    assert titles[1] == "New Premieres"
+
+
+def test_pin_to_top_falls_back_to_position_zero_when_no_anchor(monkeypatch):
+    # No recently-added anchor in managedHubs: falls back to move(after=None)
+    # which lands at position 0 (CW will render below the pinned hub).
+    from homescreen_hero.core.integrations import plex_client
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection("Movies", ["A", "B", "C"], lib_type="movie")
+    b = next(h for h in section._hubs if h.title == "B")
+    b.promotedToRecommended = True
     server = FakeServer({"Movies": section})
 
     error = plex_client.pin_hub_to_top(server, "Movies", "B")
@@ -392,17 +459,13 @@ def test_pin_to_top_cycles_visibility_then_moves(monkeypatch):
 
     titles = [h.title for h in section.managedHubs()]
     assert titles[0] == "B"
-    # Visibility flags restored after cycle
-    b = next(h for h in section.managedHubs() if h.title == "B")
-    assert b.promotedToOwnHome is True
-    assert b.promotedToRecommended is True
 
 
 def test_pin_to_top_refuses_unpromoted_hub(monkeypatch):
     from homescreen_hero.core.integrations import plex_client
     monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
 
-    section = FakeSection("Movies", ["A", "B"])
+    section = FakeSection("Movies", ["A", "B"], lib_type="movie")
     # B has no visibility flags set
     server = FakeServer({"Movies": section})
 
@@ -415,7 +478,7 @@ def test_pin_to_top_returns_error_for_unknown_hub(monkeypatch):
     from homescreen_hero.core.integrations import plex_client
     monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
 
-    section = FakeSection("Movies", ["A"])
+    section = FakeSection("Movies", ["A"], lib_type="movie")
     server = FakeServer({"Movies": section})
 
     error = plex_client.pin_hub_to_top(server, "Movies", "GHOST")
