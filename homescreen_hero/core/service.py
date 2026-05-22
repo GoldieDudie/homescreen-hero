@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from datetime import date
+import threading
+import time
 
 import logging
 
@@ -126,6 +128,37 @@ def _resolve_smart_groups(server, config: AppConfig) -> Dict[str, List[Collectio
         result[group.name] = resolved
         logger.info("Smart group '%s' resolved to %d collections", group.name, len(resolved))
     return result
+
+
+# Cache smart group resolution so concurrent /sync calls (one per library on
+# dashboard load) don't each re-query Plex for all collection metadata.
+# Short TTL — config changes during dev should be picked up quickly.
+_SMART_GROUPS_CACHE_TTL_SECONDS = 60.0
+_smart_groups_cache: Optional[Tuple[float, Dict[str, List[CollectionRef]]]] = None
+_smart_groups_cache_lock = threading.Lock()
+
+
+def resolve_smart_groups_cached(server, config: AppConfig) -> Dict[str, List[CollectionRef]]:
+    # Thread-safe cached wrapper for _resolve_smart_groups. First caller within
+    # the TTL window does the work; concurrent and subsequent callers reuse it.
+    global _smart_groups_cache
+    now = time.time()
+    with _smart_groups_cache_lock:
+        if (
+            _smart_groups_cache is not None
+            and (now - _smart_groups_cache[0]) < _SMART_GROUPS_CACHE_TTL_SECONDS
+        ):
+            return _smart_groups_cache[1]
+        result = _resolve_smart_groups(server, config)
+        _smart_groups_cache = (now, result)
+        return result
+
+
+def invalidate_smart_groups_cache() -> None:
+    # Call this after config saves so the next /sync picks up the new rules.
+    global _smart_groups_cache
+    with _smart_groups_cache_lock:
+        _smart_groups_cache = None
 
 
 def _run_auto_rotation(

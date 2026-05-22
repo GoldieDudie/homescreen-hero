@@ -189,11 +189,12 @@ def sync_hubs(
     server = get_plex_server(config)
 
     # Resolve smart groups so smart-rule-matched collections get classified as
-    # HSH-managed (hub_type=collection) and inherit their group_name. Without
-    # this they'd appear as ungrouped "PLEX" external hubs.
+    # HSH-managed (hub_type=collection) and inherit their group_name. Cached
+    # (60s TTL) so the dashboard's parallel /sync calls share one resolution
+    # instead of each re-querying Plex metadata.
     try:
-        from homescreen_hero.core.service import _resolve_smart_groups
-        smart_groups = _resolve_smart_groups(server, config)
+        from homescreen_hero.core.service import resolve_smart_groups_cached
+        smart_groups = resolve_smart_groups_cached(server, config)
     except Exception as e:
         logger.warning("Could not resolve smart groups for sync of '%s': %s", library_name, e)
         smart_groups = None
