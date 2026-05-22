@@ -412,3 +412,34 @@ def test_move_to_top_falls_back_to_position_zero_when_no_anchor():
     assert error is None
     titles = [h.title for h in section.managedHubs()]
     assert titles == ["C", "A", "B"]
+
+
+def test_move_to_top_anchors_after_last_builtin_when_no_explicit_anchor():
+    from homescreen_hero.core.integrations import plex_client
+
+    # Realistic TV Series layout: built-in tv.* hubs at top, custom collections after
+    section = FakeSection("TV Series", [
+        "Continue Watching",
+        "Recently Added in TV Series",
+        "Top 250 Highest Rated TV Series",
+        "New Premieres",
+        "Mini Series",
+    ])
+    section._hubs[0].identifier = "tv.recentlyviewed"   # not in our explicit list
+    section._hubs[1].identifier = "tv.recentlyadded"
+    section._hubs[2].identifier = "custom.collection.4.001"
+    section._hubs[3].identifier = "custom.collection.4.002"
+    section._hubs[4].identifier = "custom.collection.4.003"
+
+    server = FakeServer({"TV Series": section})
+
+    # Pin "New Premieres" to top — should land AFTER the last tv.* built-in,
+    # not at position 0 (which would shove it above Continue Watching).
+    error = plex_client.move_hub_after(server, "TV Series", "New Premieres", None)
+    assert error is None
+
+    titles = [h.title for h in section.managedHubs()]
+    # Expected: built-ins first, then New Premieres, then remaining customs
+    assert titles[0] == "Continue Watching"
+    assert titles[1] == "Recently Added in TV Series"
+    assert titles[2] == "New Premieres"

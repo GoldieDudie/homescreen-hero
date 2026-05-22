@@ -524,7 +524,16 @@ def move_hub_after(
         if after_hub is None:
             return f"Anchor hub '{after_hub_title}' not found in '{library_name}'"
     else:
-        # Pin-to-top semantics: anchor after Continue Watching / On Deck if present.
+        # Pin-to-top semantics: try to land our pin BELOW Plex's system hubs
+        # (Continue Watching, On Deck, Recently Added, etc.) which always sit
+        # at the top. Two-stage anchor resolution:
+        #   1. Explicit identifier match (movie.inprogress, tv.ondeck) — when
+        #      Plex exposes these structural hubs even when empty.
+        #   2. Transition detection — find where built-in hubs end and
+        #      user collections (custom.collection.*) begin; anchor at the
+        #      last built-in. Works for any library type / Plex version.
+        # Falls back to literal position 0 if neither anchor is identifiable.
+
         for candidate in _TOP_ANCHOR_IDENTIFIERS:
             if candidate in hub_by_identifier and hub_by_identifier[candidate] is not None:
                 after_hub = hub_by_identifier[candidate]
@@ -533,19 +542,37 @@ def move_hub_after(
                     hub_title, candidate, library_name,
                 )
                 break
-        else:
-            # Diagnostic: no built-in anchor found. Dump available identifiers so we
-            # can learn which IDs this Plex server actually exposes.
-            available = sorted(
-                str(getattr(h, "identifier", None)) for h in hubs
-            )
-            logger.info(
-                "move_hub_after: no built-in top anchor for '%s' (tried %s). "
-                "Available identifiers: %s",
-                library_name,
-                list(_TOP_ANCHOR_IDENTIFIERS),
-                available,
-            )
+
+        if after_hub is None:
+            last_builtin_at_top = None
+            has_custom_after = False
+            for h in hubs:
+                ident = getattr(h, "identifier", "") or ""
+                if ident.startswith("custom.collection."):
+                    has_custom_after = True
+                    break
+                if h.title == hub_title:
+                    continue
+                last_builtin_at_top = h
+
+            if has_custom_after and last_builtin_at_top is not None:
+                after_hub = last_builtin_at_top
+                logger.info(
+                    "move_hub_after: anchoring '%s' after last built-in '%s' (id=%s) in '%s'",
+                    hub_title,
+                    last_builtin_at_top.title,
+                    getattr(last_builtin_at_top, "identifier", "?"),
+                    library_name,
+                )
+            else:
+                ordered = [
+                    (getattr(h, "identifier", "?"), h.title) for h in hubs[:10]
+                ]
+                logger.info(
+                    "move_hub_after: no top anchor for '%s'. Top hubs (id, title): %s",
+                    library_name,
+                    ordered,
+                )
 
     try:
         target.move(after=after_hub)
