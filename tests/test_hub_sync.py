@@ -372,3 +372,43 @@ def test_adjacency_ignores_single_member_groups():
     errors = enforce_group_adjacency(server, "Movies")
     assert errors == []
     assert all(h.move_calls == 0 for h in section._hubs)
+
+
+# ---- anchor-positioning tests ----
+
+def test_move_to_top_anchors_after_continue_watching_when_present():
+    from homescreen_hero.core.integrations import plex_client
+
+    section = FakeSection("Movies", ["Continue Watching", "A", "B"])
+    section._hubs[0].identifier = "movie.inprogress"
+    server = FakeServer({"Movies": section})
+
+    error = plex_client.move_hub_after(server, "Movies", "B", None)
+    assert error is None
+    titles = [h.title for h in section.managedHubs()]
+    assert titles == ["Continue Watching", "B", "A"]
+
+
+def test_move_to_top_anchors_after_on_deck_for_shows():
+    from homescreen_hero.core.integrations import plex_client
+
+    section = FakeSection("TV Series", ["On Deck", "Show A", "Show B"])
+    section._hubs[0].identifier = "tv.ondeck"
+    server = FakeServer({"TV Series": section})
+
+    error = plex_client.move_hub_after(server, "TV Series", "Show B", None)
+    assert error is None
+    titles = [h.title for h in section.managedHubs()]
+    assert titles == ["On Deck", "Show B", "Show A"]
+
+
+def test_move_to_top_falls_back_to_position_zero_when_no_anchor():
+    from homescreen_hero.core.integrations import plex_client
+
+    section = FakeSection("Movies", ["A", "B", "C"])
+    server = FakeServer({"Movies": section})
+
+    error = plex_client.move_hub_after(server, "Movies", "C", None)
+    assert error is None
+    titles = [h.title for h in section.managedHubs()]
+    assert titles == ["C", "A", "B"]

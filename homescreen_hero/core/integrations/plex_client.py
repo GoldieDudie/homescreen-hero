@@ -480,6 +480,15 @@ def _get_managed_hubs_for_library(server: PlexServer, library_name: str) -> List
     return [hub for hub in library.managedHubs() if hasattr(hub, "title")]
 
 
+# Built-in Plex hubs that should always sit above user-managed hubs.
+# Identifiers (not titles) are stable across Plex versions.
+# movie.inprogress = Continue Watching (movie libraries)
+# tv.ondeck = On Deck / Continue Watching (show libraries)
+# Both exist in managedHubs() even when they're currently empty — they're
+# structural anchors, so moving "after" them reserves the position-1 slot.
+_TOP_ANCHOR_IDENTIFIERS = ("movie.inprogress", "tv.ondeck")
+
+
 def move_hub_after(
     server: PlexServer,
     library_name: str,
@@ -487,7 +496,10 @@ def move_hub_after(
     after_hub_title: Optional[str],
 ) -> Optional[str]:
     # Single PUT mirroring what Plex's own UI sends per drag.
-    # after_hub_title=None means "move to top". Returns error message on failure, else None.
+    # after_hub_title=None means "move to top" — but we actually anchor after the
+    # built-in Continue Watching / On Deck hub when present so our pinned hub
+    # sits BELOW Plex's auto-managed in-progress row (which always wins position 0).
+    # Returns error message on failure, else None.
     #
     # Why single-move-only: Plex's server does NOT reliably accept chained moves
     # attempting to enforce a global hub order — it rate-limits/re-normalizes between
@@ -498,6 +510,10 @@ def move_hub_after(
         return f"Could not load managed hubs for '{library_name}': {e}"
 
     hub_by_title = {h.title: h for h in hubs}
+    hub_by_identifier = {
+        getattr(h, "identifier", None): h for h in hubs
+    }
+
     target = hub_by_title.get(hub_title)
     if target is None:
         return f"Hub '{hub_title}' not found in '{library_name}'"
@@ -507,6 +523,16 @@ def move_hub_after(
         after_hub = hub_by_title.get(after_hub_title)
         if after_hub is None:
             return f"Anchor hub '{after_hub_title}' not found in '{library_name}'"
+    else:
+        # Pin-to-top semantics: anchor after Continue Watching / On Deck if present.
+        for candidate in _TOP_ANCHOR_IDENTIFIERS:
+            if candidate in hub_by_identifier and hub_by_identifier[candidate] is not None:
+                after_hub = hub_by_identifier[candidate]
+                logger.debug(
+                    "move_hub_after: anchoring '%s' after built-in '%s' in '%s'",
+                    hub_title, candidate, library_name,
+                )
+                break
 
     try:
         target.move(after=after_hub)
