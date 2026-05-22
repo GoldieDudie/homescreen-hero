@@ -528,11 +528,24 @@ def move_hub_after(
         for candidate in _TOP_ANCHOR_IDENTIFIERS:
             if candidate in hub_by_identifier and hub_by_identifier[candidate] is not None:
                 after_hub = hub_by_identifier[candidate]
-                logger.debug(
+                logger.info(
                     "move_hub_after: anchoring '%s' after built-in '%s' in '%s'",
                     hub_title, candidate, library_name,
                 )
                 break
+        else:
+            # Diagnostic: no built-in anchor found. Dump available identifiers so we
+            # can learn which IDs this Plex server actually exposes.
+            available = sorted(
+                str(getattr(h, "identifier", None)) for h in hubs
+            )
+            logger.info(
+                "move_hub_after: no built-in top anchor for '%s' (tried %s). "
+                "Available identifiers: %s",
+                library_name,
+                list(_TOP_ANCHOR_IDENTIFIERS),
+                available,
+            )
 
     try:
         target.move(after=after_hub)
