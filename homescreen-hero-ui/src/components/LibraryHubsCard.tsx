@@ -667,11 +667,17 @@ function LibrarySection({
     const setPin = useCallback(
         async (hubTitle: string, slot: PinSlot) => {
             const previousHubs = hubsRef.current;
-            const optimistic = previousHubs.map((h) => {
+            // Update pin_position AND reorder the array so UI matches what Plex will do.
+            const withPinFlags = previousHubs.map((h) => {
                 if (h.title === hubTitle) return { ...h, pin_position: slot };
                 if (h.pin_position === slot) return { ...h, pin_position: null };
                 return h;
             });
+            const target = withPinFlags.find((h) => h.title === hubTitle)!;
+            const rest = withPinFlags.filter((h) => h.title !== hubTitle);
+            const reordered =
+                slot === "top" ? [target, ...rest] : [...rest, target];
+            const optimistic = reordered.map((h, idx) => ({ ...h, position: idx }));
             setHubs(optimistic);
             markPending([hubTitle], true);
             setActionState("saving");

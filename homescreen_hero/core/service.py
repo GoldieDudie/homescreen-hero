@@ -40,12 +40,16 @@ def _sync_hub_order_post_rotation(
     config: AppConfig,
     smart_group_collections: Optional[Dict[str, List[CollectionRef]]],
 ) -> None:
-    # After rotation visibility is applied, reconcile per-library hub order in our DB:
-    # slot-in newly active hubs into LibraryHubOrder, remove stale ones. Plex's reorder
-    # API doesn't reliably accept chained moves, so we DO NOT push order to Plex here.
-    # New collections appear in Plex at whatever default position Plex assigns; the
-    # user can drag them via the dashboard if a specific position is wanted.
+    # After rotation visibility is applied:
+    # 1. Reconcile per-library hub order in our DB (slot-in newly active hubs,
+    #    remove stale ones). Does NOT push full order to Plex (Plex's chain reorder
+    #    is unreliable).
+    # 2. Re-enforce pin-top and pin-bottom via single moves — necessary because
+    #    Plex appends newly-promoted hubs to the end, which would otherwise push
+    #    a pinned-bottom hub upward.
     from .hub_sync import sync_library_hub_order
+    from .db import get_library_hub_order, PIN_TOP, PIN_BOTTOM
+    from .integrations.plex_client import _get_managed_hubs_for_library, move_hub_after
 
     for lib in config.plex.libraries:
         if not lib.enabled:
@@ -59,6 +63,42 @@ def _sync_hub_order_post_rotation(
             )
         except Exception as e:
             logger.error("Hub order sync failed for library '%s': %s", lib.name, e, exc_info=True)
+            continue
+
+        # Re-enforce pins (at most 2 single moves per library)
+        try:
+            rows = get_library_hub_order(lib.name)
+            pin_top = next((r.hub_title for r in rows if r.pin_position == PIN_TOP), None)
+            pin_bottom = next((r.hub_title for r in rows if r.pin_position == PIN_BOTTOM), None)
+            if pin_top is None and pin_bottom is None:
+                continue
+
+            plex_titles = [h.title for h in _get_managed_hubs_for_library(server, lib.name)]
+            if not plex_titles:
+                continue
+
+            if pin_top and plex_titles[0] != pin_top:
+                err = move_hub_after(server, lib.name, pin_top, None)
+                if err:
+                    logger.warning("Post-rotation pin-top failed for '%s' in '%s': %s",
+                                   pin_top, lib.name, err)
+                else:
+                    logger.info("Post-rotation re-pinned '%s' to top in '%s'", pin_top, lib.name)
+                    plex_titles = [h.title for h in _get_managed_hubs_for_library(server, lib.name)]
+
+            if pin_bottom and plex_titles[-1] != pin_bottom:
+                last = next((t for t in reversed(plex_titles) if t != pin_bottom), None)
+                if last:
+                    err = move_hub_after(server, lib.name, pin_bottom, last)
+                    if err:
+                        logger.warning("Post-rotation pin-bottom failed for '%s' in '%s': %s",
+                                       pin_bottom, lib.name, err)
+                    else:
+                        logger.info("Post-rotation re-pinned '%s' to bottom in '%s'",
+                                    pin_bottom, lib.name)
+        except Exception as e:
+            logger.error("Post-rotation pin enforcement failed for '%s': %s",
+                         lib.name, e, exc_info=True)
 
 
 def _resolve_smart_groups(server, config: AppConfig) -> Dict[str, List[CollectionRef]]:
