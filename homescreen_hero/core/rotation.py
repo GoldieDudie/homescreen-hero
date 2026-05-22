@@ -207,11 +207,17 @@ def run_rotation_with_history(
             group_results.append(result)
             continue
 
+        # pick_all_matching means "always pick every match" — bypasses the
+        # no-repeats and gap-rule filters (which are about variety), but still
+        # respects blacklist and already-selected.
+        pick_all = group.smart and group.pick_all_matching
+
         available = [r for r in pool if r not in selected_set]
-        available = [r for r in available if _passes_gap_rule(r, group, max_rotation_id, usage_map)]
+        if not pick_all:
+            available = [r for r in available if _passes_gap_rule(r, group, max_rotation_id, usage_map)]
         available = [r for r in available if not _is_blacklisted(r, blacklist)]
 
-        if not allow_repeats and last_rotation_set:
+        if not pick_all and not allow_repeats and last_rotation_set:
             available = [r for r in available if r not in last_rotation_set]
 
         available = [r for r in available if within_library_limit(r)]
