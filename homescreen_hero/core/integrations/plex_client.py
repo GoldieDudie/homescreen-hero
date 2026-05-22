@@ -480,19 +480,6 @@ def _get_managed_hubs_for_library(server: PlexServer, library_name: str) -> List
     return [hub for hub in library.managedHubs() if hasattr(hub, "title")]
 
 
-# Built-in Plex hubs that represent "in-progress" content (Continue Watching /
-# On Deck variants). Identifiers vary by Plex version and library type. We anchor
-# our pin-top BELOW any of these so Continue Watching keeps the actual top slot.
-# Tried in order — first match wins.
-_TOP_ANCHOR_IDENTIFIERS = (
-    "movie.inprogress",
-    "tv.ondeck",
-    "tv.inprogress",
-    "tv.recentlyviewed",
-    "movie.recentlyviewed",
-)
-
-
 def move_hub_after(
     server: PlexServer,
     library_name: str,
@@ -500,10 +487,13 @@ def move_hub_after(
     after_hub_title: Optional[str],
 ) -> Optional[str]:
     # Single PUT mirroring what Plex's own UI sends per drag.
-    # after_hub_title=None means "move to top" — but we actually anchor after the
-    # built-in Continue Watching / On Deck hub when present so our pinned hub
-    # sits BELOW Plex's auto-managed in-progress row (which always wins position 0).
+    # after_hub_title=None means "move to literal position 0 of managedHubs".
     # Returns error message on failure, else None.
+    #
+    # Note on Continue Watching: in many Plex setups (esp. TV libraries) the
+    # Continue Watching / On Deck hub is NOT part of managedHubs — Plex renders
+    # it as a floating system row above the managed section. Pinning to position
+    # 0 of managedHubs is the right behavior; CW floats above naturally.
     #
     # Why single-move-only: Plex's server does NOT reliably accept chained moves
     # attempting to enforce a global hub order — it rate-limits/re-normalizes between
@@ -514,9 +504,6 @@ def move_hub_after(
         return f"Could not load managed hubs for '{library_name}': {e}"
 
     hub_by_title = {h.title: h for h in hubs}
-    hub_by_identifier = {
-        getattr(h, "identifier", None): h for h in hubs
-    }
 
     target = hub_by_title.get(hub_title)
     if target is None:
@@ -527,31 +514,6 @@ def move_hub_after(
         after_hub = hub_by_title.get(after_hub_title)
         if after_hub is None:
             return f"Anchor hub '{after_hub_title}' not found in '{library_name}'"
-    else:
-        # Pin-to-top semantics: anchor BELOW the in-progress / Continue Watching
-        # hub so it keeps position 0. We don't anchor below other built-ins
-        # (Recently Added, Top Rated, etc.) because the user expects their pin
-        # to sit ABOVE those.
-        for candidate in _TOP_ANCHOR_IDENTIFIERS:
-            if candidate in hub_by_identifier and hub_by_identifier[candidate] is not None:
-                after_hub = hub_by_identifier[candidate]
-                logger.info(
-                    "move_hub_after: anchoring '%s' after in-progress hub '%s' in '%s'",
-                    hub_title, candidate, library_name,
-                )
-                break
-        else:
-            # No in-progress anchor exposed — go to literal position 0. If Continue
-            # Watching dynamically appears later, Plex should float it above.
-            ordered = [
-                (getattr(h, "identifier", "?"), h.title) for h in hubs[:5]
-            ]
-            logger.info(
-                "move_hub_after: no in-progress anchor for '%s'; using position 0. "
-                "Top 5 hubs (id, title): %s",
-                library_name,
-                ordered,
-            )
 
     try:
         target.move(after=after_hub)
