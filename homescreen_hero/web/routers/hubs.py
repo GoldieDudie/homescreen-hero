@@ -179,7 +179,6 @@ def get_library_hubs(
 @router.post("/{library_name}/hubs/sync", response_model=SyncResponse)
 def sync_hubs(
     library_name: str,
-    push_to_plex: bool = False,
     _current_user: CurrentUser = Depends(require_admin),
 ) -> SyncResponse:
     init_db()
@@ -187,18 +186,13 @@ def sync_hubs(
     config = load_config()
     server = get_plex_server(config)
 
-    # Smart groups are resolved here when needed by config — for sync we just want
-    # to know which (lib, title) pairs are HSH-managed. Smart-resolved refs come
-    # from service._resolve_smart_groups, which requires runtime metadata.
-    # For sync, we conservatively use only explicitly-configured (non-smart) refs;
-    # smart-group hubs not yet present in DB will be classified as "external" until
-    # a rotation runs. This is fine as a fallback and self-corrects after rotation.
+    # Smart-group hubs not yet present in DB will be classified as "external" until
+    # a rotation runs (self-corrects after).
     sync_result = sync_library_hub_order(
         server,
         config,
         library_name,
         smart_group_collections=None,
-        push_to_plex=push_to_plex,
     )
 
     rows = get_library_hub_order(library_name)
