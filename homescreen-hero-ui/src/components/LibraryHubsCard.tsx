@@ -657,7 +657,9 @@ function LibrarySection({
                 const t = await res.text();
                 return `Pin failed (${res.status}): ${t}`;
             }
-            return null;
+            const data = await res.json();
+            const errors: string[] = data.errors ?? [];
+            return errors.length > 0 ? errors.join("; ") : null;
         },
         [libraryName],
     );

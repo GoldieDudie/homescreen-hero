@@ -108,6 +108,7 @@ class PinsResponse(BaseModel):
     library_name: str
     top: Optional[str] = None
     bottom: Optional[str] = None
+    errors: List[str] = Field(default_factory=list)
 
 
 # ---- helpers ----
@@ -327,10 +328,13 @@ def set_hub_pins(
     request: PinsRequest,
     _current_user: CurrentUser = Depends(require_admin),
 ) -> PinsResponse:
-    # Batched ok: pins are DB-only writes (1 top + 1 bottom per library).
-    # Pin enforcement against Plex is via subsequent move calls, not here.
+    # Persist pins to DB AND push the corresponding move() to Plex so the hub
+    # actually lands at top/bottom. Each pin change = one PUT (single-move-per-action
+    # model). Unpinning is DB-only — Plex keeps the hub wherever it currently is.
     init_db()
     _validate_library(library_name)
+    config = load_config()
+    server = get_plex_server(config)
 
     rows = get_library_hub_order(library_name)
     titles = {r.hub_title for r in rows}
@@ -353,6 +357,7 @@ def set_hub_pins(
     current_top = next((r.hub_title for r in rows if r.pin_position == PIN_TOP), None)
     current_bottom = next((r.hub_title for r in rows if r.pin_position == PIN_BOTTOM), None)
 
+    # 1) Persist pin metadata in DB first
     if current_top != request.top:
         if current_top is not None:
             set_pin(library_name, current_top, None)
@@ -364,4 +369,57 @@ def set_hub_pins(
         if request.bottom is not None:
             set_pin(library_name, request.bottom, PIN_BOTTOM)
 
-    return PinsResponse(library_name=library_name, top=request.top, bottom=request.bottom)
+    # 2) Enforce in Plex via single moves. Fetch current Plex order once.
+    errors: List[str] = []
+    try:
+        plex_hubs = _get_managed_hubs_for_library(server, library_name)
+    except Exception as e:
+        errors.append(f"Could not load Plex hubs for '{library_name}': {e}")
+        return PinsResponse(
+            library_name=library_name,
+            top=request.top,
+            bottom=request.bottom,
+            errors=errors,
+        )
+
+    plex_titles = [h.title for h in plex_hubs]
+
+    # Pin top → move to position 0 (after=None). Plex's API doesn't expose a
+    # stable built-in anchor that's reliably at position 0, so we use after=None.
+    # (Aggregarr uses movie.inprogress/tv.ondeck anchors; can be adopted later.)
+    if request.top is not None and request.top != current_top:
+        err = move_hub_after(server, library_name, request.top, None)
+        if err:
+            errors.append(err)
+            logger.warning("Pin-top failed for '%s' in '%s': %s", request.top, library_name, err)
+        else:
+            logger.info("Pinned '%s' to top in '%s'", request.top, library_name)
+
+    # Pin bottom → move after the current last hub in Plex's order. Skip the
+    # candidate itself if it happens to already be last.
+    if request.bottom is not None and request.bottom != current_bottom:
+        last_title = next(
+            (t for t in reversed(plex_titles) if t != request.bottom),
+            None,
+        )
+        if last_title is None:
+            errors.append(f"Cannot pin '{request.bottom}' to bottom: no other hubs in '{library_name}'")
+        else:
+            err = move_hub_after(server, library_name, request.bottom, last_title)
+            if err:
+                errors.append(err)
+                logger.warning(
+                    "Pin-bottom failed for '%s' in '%s': %s", request.bottom, library_name, err,
+                )
+            else:
+                logger.info(
+                    "Pinned '%s' to bottom in '%s' (after '%s')",
+                    request.bottom, library_name, last_title,
+                )
+
+    return PinsResponse(
+        library_name=library_name,
+        top=request.top,
+        bottom=request.bottom,
+        errors=errors,
+    )
