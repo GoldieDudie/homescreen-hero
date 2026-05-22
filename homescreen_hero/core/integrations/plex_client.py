@@ -606,6 +606,41 @@ def _reorder_library_hubs(
     return current_order
 
 
+def move_hub_after(
+    server: PlexServer,
+    library_name: str,
+    hub_title: str,
+    after_hub_title: Optional[str],
+) -> Optional[str]:
+    # Single PUT mirroring what Plex's own UI sends per drag.
+    # after_hub_title=None means "move to top". Returns error message on failure, else None.
+    #
+    # Why single-move-only: Plex's server does NOT reliably accept chained moves
+    # attempting to enforce a global hub order — it rate-limits/re-normalizes between
+    # rapid sequential calls. One drag = one PUT = the only working pattern.
+    try:
+        hubs = _get_managed_hubs_for_library(server, library_name)
+    except Exception as e:
+        return f"Could not load managed hubs for '{library_name}': {e}"
+
+    hub_by_title = {h.title: h for h in hubs}
+    target = hub_by_title.get(hub_title)
+    if target is None:
+        return f"Hub '{hub_title}' not found in '{library_name}'"
+
+    after_hub = None
+    if after_hub_title is not None:
+        after_hub = hub_by_title.get(after_hub_title)
+        if after_hub is None:
+            return f"Anchor hub '{after_hub_title}' not found in '{library_name}'"
+
+    try:
+        target.move(after=after_hub)
+        return None
+    except Exception as e:
+        return f"Failed to move '{hub_title}' in '{library_name}': {e}"
+
+
 def reorder_homescreen_collections(
     server: PlexServer,
     config: AppConfig,

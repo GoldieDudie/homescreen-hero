@@ -347,3 +347,58 @@ def test_sync_re_run_does_not_disrupt_order():
     second_order = [r.hub_title for r in get_library_hub_order("Movies")]
 
     assert first_order == second_order == ["A", "B", "C"]
+
+
+# ---- move_hub_after tests ----
+
+def test_move_hub_after_moves_to_position():
+    from homescreen_hero.core.integrations import plex_client
+
+    section = FakeSection("Movies", ["A", "B", "C", "D"])
+    server = FakeServer({"Movies": section})
+
+    error = plex_client.move_hub_after(server, "Movies", "D", "A")
+    assert error is None
+    assert [h.title for h in section.managedHubs()] == ["A", "D", "B", "C"]
+
+
+def test_move_hub_after_with_none_moves_to_top():
+    from homescreen_hero.core.integrations import plex_client
+
+    section = FakeSection("Movies", ["A", "B", "C"])
+    server = FakeServer({"Movies": section})
+
+    error = plex_client.move_hub_after(server, "Movies", "C", None)
+    assert error is None
+    assert [h.title for h in section.managedHubs()] == ["C", "A", "B"]
+
+
+def test_move_hub_after_unknown_hub_returns_error():
+    from homescreen_hero.core.integrations import plex_client
+
+    section = FakeSection("Movies", ["A", "B"])
+    server = FakeServer({"Movies": section})
+
+    error = plex_client.move_hub_after(server, "Movies", "GHOST", "A")
+    assert error is not None and "not found" in error
+
+
+def test_move_hub_after_unknown_anchor_returns_error():
+    from homescreen_hero.core.integrations import plex_client
+
+    section = FakeSection("Movies", ["A", "B"])
+    server = FakeServer({"Movies": section})
+
+    error = plex_client.move_hub_after(server, "Movies", "A", "GHOST")
+    assert error is not None and "Anchor" in error
+
+
+def test_move_hub_after_propagates_plex_failure():
+    from homescreen_hero.core.integrations import plex_client
+
+    section = FakeSection("Movies", ["A", "B"])
+    section._hubs[0].raise_on_move = True
+    server = FakeServer({"Movies": section})
+
+    error = plex_client.move_hub_after(server, "Movies", "A", "B")
+    assert error is not None and "Failed to move" in error
