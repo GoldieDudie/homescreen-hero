@@ -160,7 +160,10 @@ export default function SmartGroupDetailPage() {
     const [loading, setLoading] = useState(true);
     const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [autoSaveError, setAutoSaveError] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [showExitGuard, setShowExitGuard] = useState(false);
+    const pendingNavRef = useRef<(() => void) | null>(null);
     const [message, setMessage] = useState<string | null>(null);
     const [messageVisible, setMessageVisible] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -183,9 +186,7 @@ export default function SmartGroupDetailPage() {
     const [loadedPreviewPosters, setLoadedPreviewPosters] = useState<Record<string, boolean>>({});
     const [previewRevision, setPreviewRevision] = useState(0);
 
-    // Auto-save refs
     const savedFormRef = useRef<string>("");
-    const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
     const selectedIndex = isNew ? "new" : Number(groupId);
 
@@ -245,16 +246,18 @@ export default function SmartGroupDetailPage() {
         };
     }, [form.rules]);
 
-    // ─── Auto-save ──────────────────────────────────────────────
+    // ─── Save / Cancel / Exit guard ─────────────────────────────
 
-    const autoSave = useCallback(async (formToSave: SmartGroupForm, index: number) => {
+    const saveGroup = useCallback(async () => {
+        if (selectedIndex === "new") return;
         try {
-            setAutoSaveError(null);
+            setSaving(true);
+            setSaveError(null);
             const payload = {
-                ...formToSave,
-                date_range: formToSave.date_range?.start && formToSave.date_range?.end ? formToSave.date_range : null,
+                ...form,
+                date_range: form.date_range?.start && form.date_range?.end ? form.date_range : null,
             };
-            const r = await fetchWithAuth(`/api/admin/config/groups/${index}`, {
+            const r = await fetchWithAuth(`/api/admin/config/groups/${selectedIndex}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -263,41 +266,31 @@ export default function SmartGroupDetailPage() {
                 const text = await r.text();
                 throw new Error(text || "Failed to save group");
             }
-            savedFormRef.current = JSON.stringify(formToSave);
+            savedFormRef.current = JSON.stringify(form);
+            setMessage("Changes saved.");
         } catch (e) {
-            setAutoSaveError(String(e));
+            setSaveError(String(e));
+        } finally {
+            setSaving(false);
         }
-    }, []);
+    }, [form, selectedIndex]);
 
-    const flushAutoSave = () => {
-        if (debounceRef.current) {
-            clearTimeout(debounceRef.current);
-            debounceRef.current = undefined;
+    const guardedNavigate = useCallback((navFn: () => void) => {
+        if (JSON.stringify(form) !== savedFormRef.current) {
+            pendingNavRef.current = navFn;
+            setShowExitGuard(true);
+        } else {
+            navFn();
         }
-        if (selectedIndex !== "new") {
-            const currentJson = JSON.stringify(form);
-            if (currentJson !== savedFormRef.current) {
-                autoSave(form, selectedIndex as number);
-            }
-        }
-    };
+    }, [form]);
 
     useEffect(() => {
-        if (selectedIndex === "new") return;
-        const currentJson = JSON.stringify(form);
-        if (currentJson === savedFormRef.current) return;
-
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        const formSnapshot = form;
-        const indexSnapshot = selectedIndex as number;
-        debounceRef.current = setTimeout(() => {
-            autoSave(formSnapshot, indexSnapshot);
-        }, 800);
-
-        return () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current);
+        const handler = (e: BeforeUnloadEvent) => {
+            if (JSON.stringify(form) !== savedFormRef.current) e.preventDefault();
         };
-    }, [form, selectedIndex, autoSave]);
+        window.addEventListener("beforeunload", handler);
+        return () => window.removeEventListener("beforeunload", handler);
+    }, [form]);
 
     // Auto-dismiss toast
     useEffect(() => {
@@ -438,7 +431,7 @@ export default function SmartGroupDetailPage() {
             {/* Header */}
             <div className="flex flex-col gap-4">
                 <button
-                    onClick={() => { flushAutoSave(); navigate("/groups"); }}
+                    onClick={() => guardedNavigate(() => navigate("/groups"))}
                     className="flex items-center gap-2 text-slate-400 hover:text-white w-fit transition-colors"
                 >
                     <ArrowLeft size={20} />
@@ -501,6 +494,25 @@ export default function SmartGroupDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {/* Save / Cancel */}
+                        <button
+                            type="button"
+                            onClick={() => setForm(JSON.parse(savedFormRef.current || JSON.stringify(emptyForm)))}
+                            disabled={JSON.stringify(form) === savedFormRef.current}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-300 hover:border-slate-500 hover:text-white transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={saveGroup}
+                            disabled={saving || JSON.stringify(form) === savedFormRef.current}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/60 bg-emerald-600/15 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-600/25 hover:border-emerald-500 hover:text-emerald-200 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                            Save
+                        </button>
+                        <div className="w-px h-6 bg-slate-700/70" />
                         <button
                             type="button"
                             onClick={() => setSettingsOpen(true)}
@@ -525,8 +537,14 @@ export default function SmartGroupDetailPage() {
             {error && (
                 <div className="rounded-xl border border-red-500/30 bg-red-950/50 px-4 py-3 text-sm text-red-200">{error}</div>
             )}
-            {autoSaveError && (
-                <div className="rounded-xl border border-amber-500/30 bg-amber-950/50 px-4 py-3 text-sm text-amber-200">Auto-save failed: {autoSaveError}</div>
+            {saveError && (
+                <div className="rounded-xl border border-red-500/30 bg-red-950/50 px-4 py-3 text-sm text-red-200 flex items-center justify-between gap-3">
+                    <span>Save failed: {saveError}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button type="button" onClick={() => { setSaveError(null); saveGroup(); }} className="text-xs font-semibold text-red-200 hover:text-white underline">Retry</button>
+                        <button type="button" onClick={() => setSaveError(null)} className="text-red-400 hover:text-white text-lg leading-none">×</button>
+                    </div>
+                </div>
             )}
             <div className="grid gap-6 xl:gap-0 xl:divide-x xl:divide-slate-800/70 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
                 {/* Rule Builder */}
@@ -1118,6 +1136,22 @@ export default function SmartGroupDetailPage() {
                 confirmLabel="Delete"
                 variant="danger"
                 onConfirm={() => { setShowDeleteConfirm(false); deleteGroup(); }}
+            />
+
+            {/* Exit guard */}
+            <ConfirmDialog
+                open={showExitGuard}
+                onOpenChange={setShowExitGuard}
+                title="Unsaved changes"
+                description="You have unsaved changes. Leave without saving?"
+                confirmLabel="Leave"
+                cancelLabel="Stay"
+                variant="danger"
+                onConfirm={() => {
+                    setShowExitGuard(false);
+                    pendingNavRef.current?.();
+                    pendingNavRef.current = null;
+                }}
             />
 
             {/* Success toast */}

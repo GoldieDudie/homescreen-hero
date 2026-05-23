@@ -495,6 +495,7 @@ function LibrarySection({
     onHubsUpdated: (hubs: HubOut[]) => void;
 }) {
     const [hubs, setHubs] = useState<HubOut[]>(initialHubs);
+    const [collapsed, setCollapsed] = useState(true);
     const [actionState, setActionState] = useState<ActionState>("idle");
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -781,8 +782,16 @@ function LibrarySection({
 
     return (
         <div className="rounded-xl border border-slate-800/60 bg-slate-950/40">
-            {/* Sticky library header */}
-            <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-2 border-b border-slate-800/40 bg-slate-950/95 backdrop-blur-sm rounded-t-xl">
+            {/* Sticky library header — click anywhere to collapse/expand */}
+            <button
+                type="button"
+                onClick={() => setCollapsed((v) => !v)}
+                className={`sticky top-0 z-10 w-full flex items-center gap-2 px-3 py-2 bg-slate-950/95 backdrop-blur-sm hover:bg-slate-900/80 transition-colors text-left ${collapsed ? "rounded-xl" : "border-b border-slate-800/40 rounded-t-xl"}`}
+            >
+                {collapsed
+                    ? <ChevronRight size={13} className="text-slate-500 shrink-0" />
+                    : <ChevronDown size={13} className="text-slate-500 shrink-0" />
+                }
                 {libraryIcon(libraryType)}
                 <h3 className="text-sm font-medium text-slate-200 flex-1">{libraryName}</h3>
                 {actionState === "saving" && (
@@ -798,62 +807,66 @@ function LibrarySection({
                 <span className="text-[10px] text-slate-500">
                     {visibleHubs.length}{hiddenCount > 0 ? `/${hubs.length}` : ""} hubs
                 </span>
-            </div>
+            </button>
 
-            {/* Column headers — same gap/padding/widths as a single-hub row */}
-            <div className="flex items-center gap-3 px-2 py-1.5 text-[10px] text-slate-500 uppercase tracking-wide">
-                <span className={`${GRIP_W} shrink-0`} />
-                <span className="flex-1 min-w-0" />
-                <div className="flex items-center shrink-0">
-                    <div className={`${COL_W} flex justify-center`}>Library Rec.</div>
-                    <div className={`${COL_W} flex justify-center`}>Home</div>
-                    <div className={`${COL_W} flex justify-center`}>Friends'</div>
-                </div>
-                <div className={`${PIN_W} flex justify-center shrink-0`}>Pin</div>
-            </div>
-
-            {errorMsg && actionState === "error" && (
-                <div className="mx-2 mb-1 px-2 py-1.5 rounded bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2">
-                    <AlertCircle size={12} className="mt-0.5 shrink-0" />
-                    <span className="flex-1 break-words">{errorMsg}</span>
-                    <button
-                        type="button"
-                        onClick={() => { setErrorMsg(null); setActionState("idle"); }}
-                        className="text-rose-300 hover:text-rose-100 shrink-0"
-                        aria-label="Dismiss"
-                    >
-                        <X size={12} />
-                    </button>
-                </div>
-            )}
-
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={blockIds} strategy={verticalListSortingStrategy}>
-                    <div className="px-1 pb-1 space-y-1">
-                        {blocks.map((block) => {
-                            const blockTitles =
-                                block.kind === "group"
-                                    ? block.hubs.map((h) => h.title)
-                                    : [block.hub.title];
-                            const pending = blockTitles.some((t) => pendingTitles.has(t));
-                            return (
-                                <SortableBlock
-                                    key={blockId(block, libraryName)}
-                                    block={block}
-                                    libraryName={libraryName}
-                                    pinSlots={pinSlots}
-                                    onSetPin={setPin}
-                                    onUnpin={unpin}
-                                    onVisibilityChange={changeVisibility}
-                                    expandedGroups={expandedGroups}
-                                    setGroupExpanded={setGroupExpanded}
-                                    pending={pending}
-                                />
-                            );
-                        })}
+            {!collapsed && (
+                <>
+                    {/* Column headers — same gap/padding/widths as a single-hub row */}
+                    <div className="flex items-center gap-3 px-2 py-1.5 text-[10px] text-slate-500 uppercase tracking-wide">
+                        <span className={`${GRIP_W} shrink-0`} />
+                        <span className="flex-1 min-w-0" />
+                        <div className="flex items-center shrink-0">
+                            <div className={`${COL_W} flex justify-center`}>Library Rec.</div>
+                            <div className={`${COL_W} flex justify-center`}>Home</div>
+                            <div className={`${COL_W} flex justify-center`}>Friends'</div>
+                        </div>
+                        <div className={`${PIN_W} flex justify-center shrink-0`}>Pin</div>
                     </div>
-                </SortableContext>
-            </DndContext>
+
+                    {errorMsg && actionState === "error" && (
+                        <div className="mx-2 mb-1 px-2 py-1.5 rounded bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2">
+                            <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                            <span className="flex-1 break-words">{errorMsg}</span>
+                            <button
+                                type="button"
+                                onClick={() => { setErrorMsg(null); setActionState("idle"); }}
+                                className="text-rose-300 hover:text-rose-100 shrink-0"
+                                aria-label="Dismiss"
+                            >
+                                <X size={12} />
+                            </button>
+                        </div>
+                    )}
+
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={blockIds} strategy={verticalListSortingStrategy}>
+                            <div className="px-1 pb-1 space-y-1">
+                                {blocks.map((block) => {
+                                    const blockTitles =
+                                        block.kind === "group"
+                                            ? block.hubs.map((h) => h.title)
+                                            : [block.hub.title];
+                                    const pending = blockTitles.some((t) => pendingTitles.has(t));
+                                    return (
+                                        <SortableBlock
+                                            key={blockId(block, libraryName)}
+                                            block={block}
+                                            libraryName={libraryName}
+                                            pinSlots={pinSlots}
+                                            onSetPin={setPin}
+                                            onUnpin={unpin}
+                                            onVisibilityChange={changeVisibility}
+                                            expandedGroups={expandedGroups}
+                                            setGroupExpanded={setGroupExpanded}
+                                            pending={pending}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        </SortableContext>
+                    </DndContext>
+                </>
+            )}
         </div>
     );
 }
