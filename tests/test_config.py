@@ -100,8 +100,10 @@ class TestRotationSettings:
             RotationSettings(interval_hours=0)
 
     def test_max_collections_minimum(self):
+        # 0 is now valid (means unlimited); negative values should still fail
         with pytest.raises(ValidationError):
-            RotationSettings(max_collections=0)
+            RotationSettings(max_collections=-1)
+        assert RotationSettings(max_collections=0).max_collections == 0
 
     def test_migrates_legacy_strategy_weighted(self):
         rotation = RotationSettings.model_validate({"strategy": "weighted"})

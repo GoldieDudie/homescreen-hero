@@ -72,8 +72,8 @@ class RotationSettings(BaseModel):
     )
     max_collections: int = Field(
         default=5,
-        ge=1,
-        description="Global cap on how many collections are featured at once",
+        ge=0,
+        description="Global cap on how many collections are featured at once. 0 = unlimited.",
     )
     group_order: str = Field(
         default="display_order",
@@ -541,8 +541,8 @@ class RotationResult(BaseModel):
     # Full explanation of a rotation decision.
     selected_collections: List[CollectionRef]
     groups: List[GroupSelectionResult]
-    max_global: int
-    remaining_global: int
+    max_global: int  # 0 means unlimited
+    remaining_global: int  # -1 means unlimited (max_global was 0)
     today: date
     per_library_counts: Dict[str, int] = Field(
         default_factory=dict,

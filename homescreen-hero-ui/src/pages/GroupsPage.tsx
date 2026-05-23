@@ -1157,26 +1157,26 @@ export default function GroupsPage() {
                             <div className="flex items-center justify-between">
                                 <label className="text-sm font-medium text-white">Max Collections</label>
                                 <span className="text-xs font-medium text-slate-300 tabular-nums">
-                                    {rotationSettings?.max_collections ?? 1}
+                                    {(rotationSettings?.max_collections ?? 0) === 0 ? "Unlimited" : rotationSettings?.max_collections}
                                 </span>
                             </div>
                             <p className="text-xs text-slate-400">
-                                Limit the number of collections displayed.
+                                Global cap on collections per rotation. Set to 0 for unlimited.
                             </p>
                             <Slider
-                                min={1}
-                                max={20}
+                                min={0}
+                                max={200}
                                 step={1}
-                                value={[rotationSettings?.max_collections ?? 1]}
+                                value={[rotationSettings?.max_collections ?? 0]}
                                 onValueChange={([val]) => {
                                     setMaxCollectionsInput(String(val));
                                     saveRotationField({ max_collections: val });
                                 }}
                             />
                             <div className="flex justify-between text-[10px] text-slate-600">
-                                <span>1</span>
-                                <span>10</span>
-                                <span>20</span>
+                                <span>Unlimited</span>
+                                <span>100</span>
+                                <span>200</span>
                             </div>
                         </div>
 

@@ -144,7 +144,8 @@ def run_rotation_with_history(
         rng = random.Random()
 
     max_global = config.rotation.max_collections
-    remaining_global = max_global
+    # 0 means unlimited — use infinity so all comparisons / min() calls work unchanged
+    remaining_global: float = float("inf") if max_global == 0 else max_global
     allow_repeats = config.rotation.allow_repeats
     last_rotation_set: Set[CollectionRef] = set(last_rotation_collections or [])
     per_library_limits = config.rotation.per_library_limits
@@ -289,7 +290,7 @@ def run_rotation_with_history(
         selected_collections=final_selected,
         groups=group_results,
         max_global=max_global,
-        remaining_global=remaining_global,
+        remaining_global=-1 if remaining_global == float("inf") else int(remaining_global),
         today=today,
         per_library_counts=dict(library_counts),
     )
@@ -442,7 +443,7 @@ def run_rotation_dry(
         rng = random.Random()
 
     max_global = config.rotation.max_collections
-    remaining_global = max_global
+    remaining_global: float = float("inf") if max_global == 0 else max_global
 
     selected: List[CollectionRef] = []
     selected_set: Set[CollectionRef] = set()
@@ -529,7 +530,7 @@ def run_rotation_dry(
         selected_collections=selected,
         groups=group_results,
         max_global=max_global,
-        remaining_global=remaining_global,
+        remaining_global=-1 if remaining_global == float("inf") else int(remaining_global),
         today=today,
     )
 

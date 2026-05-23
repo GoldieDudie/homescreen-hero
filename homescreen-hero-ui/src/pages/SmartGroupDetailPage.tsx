@@ -918,7 +918,7 @@ export default function SmartGroupDetailPage() {
                                         className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary focus:ring-offset-0"
                                     />
                                     <span className="text-xs text-slate-300">Pick all matching collections</span>
-                                    <InfoTooltip text="Ignore Min/Max and pick every collection the smart rules match. Still subject to the global max_collections cap." />
+                                    <InfoTooltip text="Ignore Min/Max and pick every collection the smart rules match. Still subject to the global max_collections cap (unless set to 0 = unlimited)." />
                                 </label>
                             </div>
 

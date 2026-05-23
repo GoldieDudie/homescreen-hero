@@ -576,7 +576,7 @@ export default function SettingsPage() {
     const handleMaxCollectionsChange = (value: string) => {
         setMaxCollectionsInput(value);
         const parsed = Number(value);
-        if (value !== "" && !Number.isNaN(parsed)) {
+        if (value !== "" && !Number.isNaN(parsed) && parsed >= 0) {
             setRotationSettings((prev) => ({ ...prev, max_collections: parsed }));
         }
     };
@@ -1090,14 +1090,15 @@ export default function SettingsPage() {
                             />
                         </FieldRow>
 
-                        <FieldRow label="Max collections" hint="Global cap on how many collections appear at once.">
+                        <FieldRow label="Max collections" hint="Global cap on how many collections are selected per rotation. Set to 0 for unlimited.">
                             <input
                                 type="number"
-                                min={1}
+                                min={0}
                                 value={maxCollectionsInput}
                                 onChange={(e) => handleMaxCollectionsChange(e.target.value)}
                                 disabled={loadingRotation}
                                 className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/70"
+                                placeholder="0 = unlimited"
                             />
                         </FieldRow>
 
