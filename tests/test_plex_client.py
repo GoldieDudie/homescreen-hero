@@ -78,3 +78,45 @@ def _ref(name: str, library: str = "Movies") -> CollectionRef:
     return CollectionRef(library=library, name=name)
 
 
+class FakeVisibility:
+    def __init__(self, home: bool = False, shared: bool = False, recommended: bool = False):
+        self.promotedToOwnHome = home
+        self.promotedToSharedHome = shared
+        self.promotedToRecommended = recommended
+        self.update_calls: list[dict] = []
+
+    def updateVisibility(self, home: bool, shared: bool, recommended: bool):
+        self.update_calls.append({"home": home, "shared": shared, "recommended": recommended})
+        self.promotedToOwnHome = home
+        self.promotedToSharedHome = shared
+        self.promotedToRecommended = recommended
+
+
+def test_visibility_needs_update_returns_false_when_state_matches():
+    # Regression: updateVisibility must NOT be called when state already matches.
+    # Plex re-appends hubs to the end of the managed list on every updateVisibility call,
+    # so calling it unnecessarily causes drift on every rotation.
+    hub = FakeVisibility(home=True, shared=False, recommended=False)
+    assert not plex_client._visibility_needs_update(hub, True, False, False)
+
+
+def test_visibility_needs_update_returns_true_when_home_differs():
+    hub = FakeVisibility(home=False, shared=False, recommended=False)
+    assert plex_client._visibility_needs_update(hub, True, False, False)
+
+
+def test_visibility_needs_update_returns_true_when_shared_differs():
+    hub = FakeVisibility(home=True, shared=False, recommended=False)
+    assert plex_client._visibility_needs_update(hub, True, True, False)
+
+
+def test_visibility_needs_update_returns_true_when_recommended_differs():
+    hub = FakeVisibility(home=False, shared=False, recommended=True)
+    assert plex_client._visibility_needs_update(hub, False, False, False)
+
+
+def test_visibility_needs_update_returns_false_when_all_false_matches():
+    hub = FakeVisibility(home=False, shared=False, recommended=False)
+    assert not plex_client._visibility_needs_update(hub, False, False, False)
+
+

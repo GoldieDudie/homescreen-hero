@@ -251,6 +251,16 @@ def cleanup_deleted_integration_sources(
     }
 
 
+def _visibility_needs_update(hub, home: bool, shared: bool, recommended: bool) -> bool:
+    # Plex re-appends a hub to the end of the managed list on every updateVisibility call,
+    # even when the state hasn't changed. Only call updateVisibility when state actually differs.
+    return (
+        bool(getattr(hub, "promotedToOwnHome", False)) != home
+        or bool(getattr(hub, "promotedToSharedHome", False)) != shared
+        or bool(getattr(hub, "promotedToRecommended", False)) != recommended
+    )
+
+
 def apply_home_screen_selection(
     server: PlexServer,
     config: AppConfig,
@@ -385,41 +395,36 @@ def apply_home_screen_selection(
                             lib_ref = next((r for r in selected_name_refs), None)
                         if lib_ref:
                             visibility = collection_visibility.get(lib_ref, {"home": True, "shared": False, "recommended": False})
+                            desired_home = visibility.get("home", True)
+                            desired_shared = visibility.get("shared", False)
+                            desired_recommended = visibility.get("recommended", False)
                             logger.info(
                                 "Enabling visibility for pinned collection '%s' (lib=%s): home=%s, shared=%s, recommended=%s",
                                 name, lib,
-                                visibility.get("home", True),
-                                visibility.get("shared", False),
-                                visibility.get("recommended", False),
+                                desired_home, desired_shared, desired_recommended,
                             )
-                            if not dry_run:
-                                hub.updateVisibility(
-                                    home=visibility.get("home", True),
-                                    shared=visibility.get("shared", False),
-                                    recommended=visibility.get("recommended", False),
-                                )
+                            if not dry_run and _visibility_needs_update(hub, desired_home, desired_shared, desired_recommended):
+                                hub.updateVisibility(home=desired_home, shared=desired_shared, recommended=desired_recommended)
                         continue
                     else:
                         logger.debug("Suppressing non-pinned library instance of '%s' (lib=%s)", name, lib)
-                        if not dry_run:
+                        if not dry_run and _visibility_needs_update(hub, False, False, False):
                             hub.updateVisibility(home=False, shared=False, recommended=False)
                         continue
 
                 if matching_ref is not None:
                     visibility = collection_visibility.get(matching_ref, {"home": True, "shared": False, "recommended": False})
+                    desired_home = visibility.get("home", True)
+                    desired_shared = visibility.get("shared", False)
+                    desired_recommended = visibility.get("recommended", False)
                     logger.info(
                         "Enabling visibility for collection '%s' (lib=%s): home=%s, shared=%s, recommended=%s",
                         name, lib,
-                        visibility.get("home", True),
-                        visibility.get("shared", False),
-                        visibility.get("recommended", False),
+                        desired_home, desired_shared, desired_recommended,
                     )
                     if not dry_run:
-                        hub.updateVisibility(
-                            home=visibility.get("home", True),
-                            shared=visibility.get("shared", False),
-                            recommended=visibility.get("recommended", False),
-                        )
+                        if _visibility_needs_update(hub, desired_home, desired_shared, desired_recommended):
+                            hub.updateVisibility(home=desired_home, shared=desired_shared, recommended=desired_recommended)
                         if collection_sort and matching_ref in collection_sort:
                             try:
                                 coll.sortUpdate(sort=collection_sort[matching_ref])
@@ -433,7 +438,7 @@ def apply_home_screen_selection(
                         logger.debug("Skipping '%s' in unmanaged library '%s'", name, lib)
                         continue
                     logger.debug("Suppressing unselected library instance of '%s' (lib=%s)", name, lib)
-                    if not dry_run:
+                    if not dry_run and _visibility_needs_update(hub, False, False, False):
                         hub.updateVisibility(home=False, shared=False, recommended=False)
 
             # Track applied refs (all selected refs for this name that had instances)
@@ -458,7 +463,9 @@ def apply_home_screen_selection(
                 else:
                     logger.debug("Disabling visibility for collection: %s (lib=%s)", name, _lib)
                 if not dry_run:
-                    coll.visibility().updateVisibility(home=False, shared=False, recommended=False)
+                    hub_vis = coll.visibility()
+                    if _visibility_needs_update(hub_vis, False, False, False):
+                        hub_vis.updateVisibility(home=False, shared=False, recommended=False)
 
     logger.info(
         "Home screen selection applied; %d collections enabled, %d collections processed",

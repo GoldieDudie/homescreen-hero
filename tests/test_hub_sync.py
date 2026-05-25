@@ -483,3 +483,115 @@ def test_pin_to_top_returns_error_for_unknown_hub(monkeypatch):
 
     error = plex_client.pin_hub_to_top(server, "Movies", "GHOST")
     assert error is not None and "not found" in error
+
+
+def test_post_rotation_pin_enforcement_skips_repromote_when_already_at_position_one(monkeypatch):
+    # Regression: pin_hub_to_top must NOT fire when pin_top is already at
+    # managedHubs[1]. The old check was plex_titles[0] != pin_top, which
+    # was always true because plex_titles[0] is recently-added (a SmartHub).
+    # Fixed to plex_titles[1] != pin_top.
+    from homescreen_hero.core.integrations import plex_client
+
+    repromote_calls = []
+    original_pin_hub_to_top = plex_client.pin_hub_to_top
+
+    def tracking_pin_hub_to_top(server, library_name, hub_title):
+        repromote_calls.append(hub_title)
+        return original_pin_hub_to_top(server, library_name, hub_title)
+
+    monkeypatch.setattr(plex_client, "pin_hub_to_top", tracking_pin_hub_to_top)
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection(
+        "Movies",
+        [
+            ("Recently Added Movies", False, "movie.recentlyadded"),
+            "PinnedTop",   # already at managedHubs[1] — correct position
+            "GroupA",
+            "GroupB",
+        ],
+        lib_type="movie",
+    )
+    pinned_top = next(h for h in section._hubs if h.title == "PinnedTop")
+    pinned_top.promotedToOwnHome = True
+    server = FakeServer({"Movies": section})
+
+    plex_titles = [h.title for h in section.managedHubs()]
+    pin_top = "PinnedTop"
+
+    # Correct condition (post-fix): only repromote when pin_top is not in the first two positions
+    if pin_top and pin_top not in plex_titles[:2]:
+        plex_client.pin_hub_to_top(server, "Movies", pin_top)
+
+    assert repromote_calls == [], (
+        "pin_hub_to_top must not fire when pin_top is already at managedHubs[1]; "
+        "this repromote cycle is what causes other hubs to drift over time"
+    )
+    assert pinned_top.move_calls == 0
+
+
+def test_post_rotation_pin_enforcement_skips_repromote_when_at_position_zero(monkeypatch):
+    # pin_top at position 0 (no recently-added anchor in the library) is also correct —
+    # must NOT fire for libraries like DocuFilms where the anchor isn't present.
+    from homescreen_hero.core.integrations import plex_client
+
+    repromote_calls = []
+    original_pin_hub_to_top = plex_client.pin_hub_to_top
+
+    def tracking_pin_hub_to_top(server, library_name, hub_title):
+        repromote_calls.append(hub_title)
+        return original_pin_hub_to_top(server, library_name, hub_title)
+
+    monkeypatch.setattr(plex_client, "pin_hub_to_top", tracking_pin_hub_to_top)
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection(
+        "DocuFilms",
+        [
+            "PinnedTop",   # at position 0 (no recently-added anchor in this library)
+            "GroupA",
+            "GroupB",
+        ],
+        lib_type="movie",
+    )
+    pinned_top = next(h for h in section._hubs if h.title == "PinnedTop")
+    pinned_top.promotedToOwnHome = True
+    server = FakeServer({"DocuFilms": section})
+
+    plex_titles = [h.title for h in section.managedHubs()]
+    pin_top = "PinnedTop"
+
+    if pin_top and pin_top not in plex_titles[:2]:
+        plex_client.pin_hub_to_top(server, "DocuFilms", pin_top)
+
+    assert repromote_calls == [], "pin_hub_to_top must not fire when pin_top is at position 0 either"
+
+
+def test_post_rotation_pin_enforcement_does_repromote_when_displaced(monkeypatch):
+    # pin_hub_to_top MUST fire when pin_top has drifted past position 1.
+    from homescreen_hero.core.integrations import plex_client
+
+    monkeypatch.setattr(plex_client.time, "sleep", lambda _s: None)
+
+    section = FakeSection(
+        "Movies",
+        [
+            ("Recently Added Movies", False, "movie.recentlyadded"),
+            "GroupA",
+            "PinnedTop",   # displaced to position 2 — needs enforcement
+            "GroupB",
+        ],
+        lib_type="movie",
+    )
+    pinned_top = next(h for h in section._hubs if h.title == "PinnedTop")
+    pinned_top.promotedToOwnHome = True
+    server = FakeServer({"Movies": section})
+
+    plex_titles = [h.title for h in section.managedHubs()]
+    pin_top = "PinnedTop"
+
+    if pin_top and pin_top not in plex_titles[:2]:
+        plex_client.pin_hub_to_top(server, "Movies", pin_top)
+
+    titles = [h.title for h in section.managedHubs()]
+    assert titles[1] == "PinnedTop", "Displaced pin_top must be moved back to position 1"

@@ -90,7 +90,7 @@ def _sync_hub_order_post_rotation(
             if not plex_titles:
                 continue
 
-            if pin_top and plex_titles[0] != pin_top:
+            if pin_top and pin_top not in plex_titles[:2]:
                 err = pin_hub_to_top(server, lib.name, pin_top)
                 if err:
                     logger.warning("Post-rotation pin-top failed for '%s' in '%s': %s",
