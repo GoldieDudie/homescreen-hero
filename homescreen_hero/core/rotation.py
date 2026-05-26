@@ -298,7 +298,7 @@ def run_rotation_with_history(
     logger.info(
         "Rotation complete with history: %d selected, %d remaining",
         len(selected),
-        remaining_global,
+        -1 if remaining_global == float("inf") else int(remaining_global),
     )
     if library_counts:
         logger.info("Per-library counts: %s", dict(library_counts))

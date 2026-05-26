@@ -381,6 +381,103 @@ def test_adjacency_ignores_single_member_groups():
     assert all(h.move_calls == 0 for h in section._hubs)
 
 
+def test_sync_does_not_overwrite_db_order_with_plex_order():
+    # Regression: sync_library_hub_order must NOT overwrite DB positions with
+    # Plex's current order. updateVisibility re-appends hubs to the end of the
+    # Plex list, so reading Plex after visibility changes would bake corrupt
+    # positions into DB and cause persistent group drift.
+    from homescreen_hero.core.hub_sync import sync_library_hub_order
+    from homescreen_hero.core.db import slot_in_hub, get_library_hub_order, HUB_TYPE_COLLECTION
+
+    # DB says the desired order is A, B, C
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "B", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "C", HUB_TYPE_COLLECTION)
+
+    # Plex has them in a different order (simulating updateVisibility corruption)
+    section = FakeSection("Movies", ["A", "C", "B"])
+    server = FakeServer({"Movies": section})
+    config = _make_config("Movies")
+
+    sync_library_hub_order(server, config, "Movies")
+
+    rows = get_library_hub_order("Movies")
+    assert [r.hub_title for r in rows] == ["A", "B", "C"], (
+        "DB order must be preserved; sync must not overwrite it with Plex's (possibly corrupt) order"
+    )
+
+
+def test_enforce_group_adjacency_repositions_group_at_wrong_absolute_position():
+    # Regression: when an entire group is contiguous but at the wrong absolute
+    # position (e.g. appended to the end by updateVisibility), enforce_group_adjacency
+    # must move the group to its DB-specified position, not just fix internal scattering.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_COLLECTION
+
+    # DB order: X(0), Y(1), A(2, group=G), B(3, group=G)
+    # Group G should appear right after Y.
+    slot_in_hub("Movies", "X", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "Y", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "B", HUB_TYPE_COLLECTION, group_name="G")
+
+    # Plex has the group appended to the end (contiguous but wrong position)
+    section = FakeSection("Movies", ["X", "Y", "A", "B"])
+    server = FakeServer({"Movies": section})
+
+    # No-op: group is already right after Y
+    errors = enforce_group_adjacency(server, "Movies")
+    assert errors == []
+    assert [h.title for h in section.managedHubs()] == ["X", "Y", "A", "B"]
+
+    # Now simulate updateVisibility drift: A and B appended to end after Z
+    section2_hubs = ["X", "Y", "Z", "A", "B"]
+    from homescreen_hero.core.db import slot_in_hub as _slot
+    _slot("Movies", "Z", HUB_TYPE_COLLECTION)  # Z has no group; DB pos=4, after B
+
+    # Rebuild DB: X(0), Y(1), A(2,G), B(3,G), Z(4) — but Plex has X,Y,Z,A,B
+    section2 = FakeSection("Movies", ["X", "Y", "Z", "A", "B"])
+    server2 = FakeServer({"Movies": section2})
+
+    errors = enforce_group_adjacency(server2, "Movies")
+    assert errors == []
+    titles = [h.title for h in section2.managedHubs()]
+    # Group G (A, B) should be repositioned after Y (its DB anchor)
+    y_idx = titles.index("Y")
+    assert titles[y_idx + 1] == "A", f"A should follow Y; got {titles}"
+    assert titles[y_idx + 2] == "B", f"B should follow A; got {titles}"
+
+
+def test_enforce_group_adjacency_repositions_group_appended_after_existing_groups():
+    # Simulates the real-world Recommended Movies drift: a group is appended to
+    # the very end of Plex's hub list (all members contiguous) but should appear
+    # much earlier, right after a specific anchor hub.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_COLLECTION
+
+    # DB order mirrors the Movies library layout:
+    # Recently Added(0), New Premieres(1), Rec1(2,Rec), Rec2(3,Rec), Home1(4,HS), Home2(5,HS)
+    slot_in_hub("Movies", "Recently Added", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "New Premieres", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "Rec1", HUB_TYPE_COLLECTION, group_name="Recommended")
+    slot_in_hub("Movies", "Rec2", HUB_TYPE_COLLECTION, group_name="Recommended")
+    slot_in_hub("Movies", "Home1", HUB_TYPE_COLLECTION, group_name="Home Screen")
+    slot_in_hub("Movies", "Home2", HUB_TYPE_COLLECTION, group_name="Home Screen")
+
+    # Plex has Recommended appended to end (updateVisibility drift)
+    section = FakeSection("Movies", ["Recently Added", "New Premieres", "Home1", "Home2", "Rec1", "Rec2"])
+    server = FakeServer({"Movies": section})
+
+    errors = enforce_group_adjacency(server, "Movies")
+    assert errors == []
+    titles = [h.title for h in section.managedHubs()]
+
+    # Recommended group should now be right after New Premieres (its DB anchor)
+    np_idx = titles.index("New Premieres")
+    assert titles[np_idx + 1] == "Rec1", f"Rec1 should follow New Premieres; got {titles}"
+    assert titles[np_idx + 2] == "Rec2", f"Rec2 should follow Rec1; got {titles}"
+
+
 
 
 # ---- pin_hub_to_top tests ----

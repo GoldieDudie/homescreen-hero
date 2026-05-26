@@ -254,11 +254,16 @@ def cleanup_deleted_integration_sources(
 def _visibility_needs_update(hub, home: bool, shared: bool, recommended: bool) -> bool:
     # Plex re-appends a hub to the end of the managed list on every updateVisibility call,
     # even when the state hasn't changed. Only call updateVisibility when state actually differs.
-    return (
-        bool(getattr(hub, "promotedToOwnHome", False)) != home
-        or bool(getattr(hub, "promotedToSharedHome", False)) != shared
-        or bool(getattr(hub, "promotedToRecommended", False)) != recommended
+    current_home = bool(getattr(hub, "promotedToOwnHome", False))
+    current_shared = bool(getattr(hub, "promotedToSharedHome", False))
+    current_recommended = bool(getattr(hub, "promotedToRecommended", False))
+    logger.debug(
+        "_visibility_needs_update '%s': current=(home=%s shared=%s recommended=%s) desired=(home=%s shared=%s recommended=%s)",
+        getattr(hub, "title", "?"),
+        current_home, current_shared, current_recommended,
+        home, shared, recommended,
     )
+    return current_home != home or current_shared != shared or current_recommended != recommended
 
 
 def apply_home_screen_selection(
@@ -403,8 +408,11 @@ def apply_home_screen_selection(
                                 name, lib,
                                 desired_home, desired_shared, desired_recommended,
                             )
-                            if not dry_run and _visibility_needs_update(hub, desired_home, desired_shared, desired_recommended):
-                                hub.updateVisibility(home=desired_home, shared=desired_shared, recommended=desired_recommended)
+                            if not dry_run:
+                                if _visibility_needs_update(hub, desired_home, desired_shared, desired_recommended):
+                                    hub.updateVisibility(home=desired_home, shared=desired_shared, recommended=desired_recommended)
+                                else:
+                                    logger.info("Skipping visibility update for pinned '%s' (lib=%s) — already correct", name, lib)
                         continue
                     else:
                         logger.debug("Suppressing non-pinned library instance of '%s' (lib=%s)", name, lib)
@@ -425,6 +433,8 @@ def apply_home_screen_selection(
                     if not dry_run:
                         if _visibility_needs_update(hub, desired_home, desired_shared, desired_recommended):
                             hub.updateVisibility(home=desired_home, shared=desired_shared, recommended=desired_recommended)
+                        else:
+                            logger.info("Skipping visibility update for '%s' (lib=%s) — already correct", name, lib)
                         if collection_sort and matching_ref in collection_sort:
                             try:
                                 coll.sortUpdate(sort=collection_sort[matching_ref])

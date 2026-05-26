@@ -114,9 +114,12 @@ def sync_library_hub_order(
     smart_group_collections: Optional[Dict[str, List[CollectionRef]]] = None,
 ) -> SyncResult:
     # Reconcile LibraryHubOrder DB rows with Plex's actual managed hubs for this library.
-    # DB-only — does NOT push the resulting order to Plex (Plex's reorder API does not
-    # reliably accept chained moves; user-driven single moves go through the /hubs/move
-    # endpoint instead).
+    # DB is the source of truth for ordering — we only update it for hubs that appear
+    # in Plex but not in DB (slot_in_hub) or in DB but not in Plex (delete_hub).
+    # We deliberately do NOT overwrite the DB with Plex's current order: calling
+    # updateVisibility re-appends the hub to the end of Plex's managed list, so reading
+    # Plex immediately after visibility changes would bake corrupted positions into DB.
+    # enforce_group_adjacency runs after this and corrects Plex to match the DB.
     result = SyncResult(library_name=library_name)
 
     try:
@@ -125,7 +128,6 @@ def sync_library_hub_order(
         logger.warning("sync_library_hub_order: could not load hubs for '%s': %s", library_name, e)
         return result
 
-    plex_titles = [hub.title for hub in plex_hubs]
     plex_hub_by_title = {hub.title: hub for hub in plex_hubs}
 
     configured_groups = _build_collection_to_group_map(config, smart_group_collections)
@@ -177,11 +179,6 @@ def sync_library_hub_order(
     if is_first_sync:
         _migrate_legacy_pins_into_hub_order(library_name, set(plex_hub_by_title.keys()))
 
-    # 4) Align DB positions to Plex's current order. Plex is the source of truth
-    # for hub ordering — any reorder we did via /hubs/move already updated Plex,
-    # so re-reading Plex here doesn't clobber user changes.
-    set_library_hub_order(library_name, plex_titles)
-
     logger.info(
         "sync: library '%s' done. added=%d removed=%d updated=%d errors=%d",
         library_name,
@@ -197,14 +194,20 @@ def enforce_group_adjacency(
     server: PlexServer,
     library_name: str,
 ) -> List[str]:
-    # Ensure all members of each HSH-managed group are CONSECUTIVE in Plex's hub
-    # list. Plex rotation appends new collection hubs at default positions, which
-    # scatters group members. We re-cluster them via single moves:
-    #   - Members already adjacent → no-op
-    #   - Otherwise → chain-move each subsequent member after the previous one,
-    #     anchored at the first member's current Plex position
-    # Pinned hubs are NOT moved (pin position is user intent and overrides group
-    # adjacency). Pin enforcement runs after this and re-establishes pin slots.
+    # Ensure HSH-managed groups in Plex match the DB-specified order in two ways:
+    #
+    #   (a) ADJACENCY: all group members are consecutive in Plex's hub list.
+    #       Plex appends newly-promoted hubs to the end, scattering group members.
+    #
+    #   (b) ABSOLUTE POSITION: each group starts immediately after its DB anchor
+    #       (the nearest non-pinned hub that precedes the group's first member in
+    #       DB position order). When updateVisibility re-appends an entire group
+    #       to the end, the group is internally contiguous but at the wrong slot —
+    #       adjacency alone would miss this.
+    #
+    # Groups are processed in DB order (top → bottom). After each group is fixed,
+    # Plex's hub list is re-fetched so subsequent groups see the updated positions.
+    # Pinned hubs are never moved here; pin enforcement runs after and wins.
     #
     # Returns a list of error messages (empty on full success).
     errors: List[str] = []
@@ -218,41 +221,120 @@ def enforce_group_adjacency(
     position_of = {title: i for i, title in enumerate(plex_titles)}
 
     rows = get_library_hub_order(library_name)
+    if not rows:
+        return errors
+
     pinned = {r.hub_title for r in rows if r.pin_position is not None}
-    title_to_group: Dict[str, str] = {
-        r.hub_title: r.group_name for r in rows if r.group_name
-    }
 
-    # Build groups in Plex order, excluding pinned hubs
-    groups_in_plex_order: Dict[str, List[str]] = {}
-    for title in plex_titles:
-        if title in pinned:
-            continue
-        group = title_to_group.get(title)
-        if not group:
-            continue
-        groups_in_plex_order.setdefault(group, []).append(title)
+    # Build groups in DB position order, excluding pinned members
+    groups_db_order: Dict[str, List[str]] = {}
+    for row in rows:  # rows are already sorted by position asc
+        if row.group_name and row.hub_title not in pinned:
+            groups_db_order.setdefault(row.group_name, []).append(row.hub_title)
 
-    for group_name, members in groups_in_plex_order.items():
+    if not groups_db_order:
+        return errors
+
+    db_pos_of = {r.hub_title: r.position for r in rows}
+    db_titles_in_order = [r.hub_title for r in rows]
+
+    for group_name, members in groups_db_order.items():
         if len(members) < 2:
             continue
-        positions = [position_of[m] for m in members]
-        if max(positions) - min(positions) == len(positions) - 1:
-            continue  # already consecutive
 
-        logger.info(
-            "Clustering scattered group '%s' in '%s' (%d members, positions %s)",
-            group_name, library_name, len(members), positions,
+        first_member = members[0]
+        if first_member not in position_of:
+            continue  # not visible in Plex yet
+
+        first_db_pos = db_pos_of.get(first_member)
+        if first_db_pos is None:
+            continue
+
+        # Anchor: nearest non-pinned hub before this group in DB order.
+        # Skip pinned hubs — they have their own enforcement and their Plex
+        # position can differ significantly from their DB position.
+        anchor: Optional[str] = None
+        for title in reversed(db_titles_in_order):
+            if db_pos_of[title] < first_db_pos and title not in pinned:
+                anchor = title
+                break
+
+        # When no non-pinned anchor exists (group is the first non-pinned block),
+        # fall back to the rightmost (in Plex) pinned hub that DB places before
+        # the group. This catches the case where the group has leapfrogged a
+        # pinned hub (e.g. DocuFilms Recommended sits before New Premieres in
+        # Plex even though DB says New Premieres → Recommended).
+        effective_anchor = anchor
+        if anchor is None:
+            pinned_before_in_db = [
+                t for t in db_titles_in_order
+                if db_pos_of[t] < first_db_pos and t in pinned and t in position_of
+            ]
+            if pinned_before_in_db:
+                effective_anchor = max(pinned_before_in_db, key=lambda t: position_of[t])
+
+        # Check whether the group needs repositioning
+        if effective_anchor is None:
+            needs_reposition = position_of[first_member] != 0
+        elif effective_anchor in position_of:
+            needs_reposition = position_of[first_member] != position_of[effective_anchor] + 1
+        else:
+            # Anchor not present in Plex (e.g. not yet promoted); skip reposition
+            needs_reposition = False
+
+        # Check whether members are already consecutive in Plex
+        member_plex_positions = [position_of[m] for m in members if m in position_of]
+        needs_adjacency = (
+            len(member_plex_positions) >= 2
+            and max(member_plex_positions) - min(member_plex_positions) != len(member_plex_positions) - 1
         )
 
-        prev = members[0]
-        for member in members[1:]:
-            err = move_hub_after(server, library_name, member, prev)
+        if not needs_reposition and not needs_adjacency:
+            continue
+
+        if needs_reposition:
+            logger.info(
+                "Repositioning group '%s' in '%s': first member '%s' at Plex pos %d, "
+                "expected after anchor '%s' (Plex pos %s)",
+                group_name, library_name, first_member, position_of[first_member],
+                effective_anchor, position_of.get(effective_anchor),
+            )
+            # Move first member to correct absolute position, then chain the rest
+            err = move_hub_after(server, library_name, first_member, effective_anchor)
             if err:
-                errors.append(f"[group '{group_name}'] {err}")
-                logger.warning("Group adjacency move failed: %s", err)
-                break
-            prev = member
+                errors.append(f"[group '{group_name}'] reposition: {err}")
+                logger.warning("Group reposition failed: %s", err)
+            else:
+                prev = first_member
+                for member in members[1:]:
+                    if member not in position_of:
+                        continue
+                    err = move_hub_after(server, library_name, member, prev)
+                    if err:
+                        errors.append(f"[group '{group_name}'] reposition chain: {err}")
+                        logger.warning("Group reposition chain move failed: %s", err)
+                        break
+                    prev = member
+        else:
+            # Adjacency-only: anchor at first member's current Plex position.
+            # Sort by current Plex position so members[0] stays put.
+            members_by_plex = sorted(
+                [m for m in members if m in position_of],
+                key=lambda m: position_of[m],
+            )
+            logger.info(
+                "Clustering scattered group '%s' in '%s' (%d members, positions %s)",
+                group_name, library_name, len(members_by_plex),
+                [position_of[m] for m in members_by_plex],
+            )
+            prev = members_by_plex[0]
+            for member in members_by_plex[1:]:
+                err = move_hub_after(server, library_name, member, prev)
+                if err:
+                    errors.append(f"[group '{group_name}'] {err}")
+                    logger.warning("Group adjacency move failed: %s", err)
+                    break
+                prev = member
 
         # Re-fetch position map so subsequent groups see the updated order
         try:
@@ -260,7 +342,7 @@ def enforce_group_adjacency(
             plex_titles = [h.title for h in plex_hubs]
             position_of = {title: i for i, title in enumerate(plex_titles)}
         except Exception as e:
-            errors.append(f"Could not refresh hubs after clustering '{group_name}': {e}")
+            errors.append(f"Could not refresh hubs after processing group '{group_name}': {e}")
             break
 
     return errors
