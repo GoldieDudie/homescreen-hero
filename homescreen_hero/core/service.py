@@ -534,6 +534,68 @@ def sync_all_sources(config: Optional[AppConfig] = None) -> Dict[str, int]:
     }
 
 
+def restore_plex_visibility(config: Optional[AppConfig] = None) -> None:
+    # Re-apply the last rotation's visibility to Plex without selecting new collections
+    # or writing a new rotation history entry. Called when Plex reconnects after an outage.
+    if config is None:
+        config = load_config()
+
+    init_db()
+    last_collections = get_last_rotation_collections()
+    if not last_collections:
+        logger.info("Plex reconnect restore: no previous rotation found, skipping")
+        return
+
+    logger.info(
+        "Plex reconnect: restoring visibility for %d collections", len(last_collections)
+    )
+
+    server = get_plex_server(config)
+    smart_group_collections = resolve_smart_groups_cached(server, config)
+
+    from datetime import date
+    from .config.schema import RotationResult as _RotationResult
+
+    rotation_result = _RotationResult(
+        selected_collections=last_collections,
+        groups=[],
+        max_global=len(last_collections),
+        remaining_global=0,
+        today=date.today(),
+    )
+
+    if config.rotation.auto_rotate.enabled:
+        auto_rotate = config.rotation.auto_rotate
+        auto_vis = {
+            "home": auto_rotate.visibility_home,
+            "shared": auto_rotate.visibility_shared,
+            "recommended": auto_rotate.visibility_recommended,
+        }
+        collection_visibility = {ref: auto_vis.copy() for ref in last_collections}
+    else:
+        collection_visibility = build_visibility_map_from_rotation_result(
+            rotation_result, config, smart_group_collections
+        )
+
+    from .db import get_pinned_visibility_map
+    collection_visibility.update(get_pinned_visibility_map())
+
+    collection_sort = build_collection_sort_map(config, smart_group_collections)
+
+    apply_home_screen_selection(
+        server,
+        config,
+        last_collections,
+        collection_visibility,
+        dry_run=False,
+        smart_group_collections=smart_group_collections,
+        collection_sort=collection_sort,
+    )
+
+    _sync_hub_order_post_rotation(server, config, smart_group_collections)
+    logger.info("Plex reconnect: visibility restored successfully")
+
+
 def apply_simulation(
     simulation_id: int,
     config: Optional[AppConfig] = None,

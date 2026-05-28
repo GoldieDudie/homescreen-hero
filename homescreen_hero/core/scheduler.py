@@ -15,8 +15,11 @@ from homescreen_hero.core.service import run_rotation_once
 logger = logging.getLogger(__name__)
 
 JOB_ID = "rotation-job"
+WATCHDOG_JOB_ID = "plex-watchdog"
 _scheduler: Optional[BackgroundScheduler] = None
 _post_rotation_callbacks: list[Callable[[], None]] = []
+# True until we confirm a failure, so a healthy startup never triggers a restore.
+_plex_was_healthy: bool = True
 
 
 def get_scheduler() -> Optional[BackgroundScheduler]:
@@ -27,6 +30,30 @@ def get_scheduler() -> Optional[BackgroundScheduler]:
 def register_post_rotation_callback(callback: Callable[[], None]) -> None:
     """Register a callback to be called after each rotation completes."""
     _post_rotation_callbacks.append(callback)
+
+
+def _run_plex_watchdog() -> None:
+    global _plex_was_healthy
+    try:
+        config = load_config()
+        try:
+            from homescreen_hero.core.integrations.plex_client import get_plex_server
+            get_plex_server(config)
+            currently_healthy = True
+        except Exception:
+            currently_healthy = False
+
+        if not _plex_was_healthy and currently_healthy:
+            logger.info("Plex connectivity restored — triggering visibility resync")
+            try:
+                from homescreen_hero.core.service import restore_plex_visibility
+                restore_plex_visibility(config)
+            except Exception:
+                logger.exception("Plex reconnect restore failed")
+
+        _plex_was_healthy = currently_healthy
+    except Exception:
+        logger.exception("Plex watchdog check failed")
 
 
 def _run_scheduled_rotation() -> None:
@@ -147,6 +174,14 @@ def start_rotation_scheduler(
         max_instances=1,
         # First run happens after the interval (does not run immediately on start)
         next_run_time=_compute_next_run_time(interval_hours),
+    )
+    scheduler.add_job(
+        _run_plex_watchdog,
+        trigger=IntervalTrigger(seconds=30),
+        id=WATCHDOG_JOB_ID,
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
     )
     scheduler.start()
 
