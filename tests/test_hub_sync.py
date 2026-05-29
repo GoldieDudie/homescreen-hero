@@ -479,6 +479,110 @@ def test_enforce_group_adjacency_repositions_group_appended_after_existing_group
 
 
 
+def test_enforce_defrag_gathers_stray_member_at_largest_cluster():
+    # A group with a stray member (e.g. one re-appended by Plex on rotation)
+    # must be gathered at its LARGEST existing cluster — the stray moves to join
+    # the bulk, the group is NOT relocated to the stray. Non-group hubs between
+    # them keep their position.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import (
+        slot_in_hub, set_library_hub_order, get_library_hub_order,
+        HUB_TYPE_COLLECTION, HUB_TYPE_EXTERNAL,
+    )
+
+    slot_in_hub("Movies", "Top", HUB_TYPE_EXTERNAL)
+    for t in ["RecStray", "RecA", "RecB", "RecC"]:
+        slot_in_hub("Movies", t, HUB_TYPE_COLLECTION, group_name="Rec")
+    for t in ["X1", "X2"]:
+        slot_in_hub("Movies", t, HUB_TYPE_EXTERNAL)
+
+    # Stray Rec member up top; the main Rec cluster lower; two external hubs between.
+    set_library_hub_order("Movies", ["Top", "RecStray", "X1", "X2", "RecA", "RecB", "RecC"])
+
+    section = FakeSection("Movies", ["Top", "RecStray", "X1", "X2", "RecA", "RecB", "RecC"])
+    server = FakeServer({"Movies": section})
+
+    errors = enforce_group_adjacency(server, "Movies")
+    assert errors == []
+
+    # Stray joined the main cluster (down at the bigger run); X1/X2 stay put.
+    db_titles = [r.hub_title for r in get_library_hub_order("Movies")]
+    assert db_titles == ["Top", "X1", "X2", "RecStray", "RecA", "RecB", "RecC"], (
+        f"group should gather at its largest cluster, non-group hubs preserved; got {db_titles}"
+    )
+    plex = [h.title for h in section.managedHubs()]
+    rec = sorted(plex.index(t) for t in ["RecStray", "RecA", "RecB", "RecC"])
+    assert rec == list(range(rec[0], rec[0] + 4)), f"Rec group split in Plex: {plex}"
+
+
+def test_enforce_respects_group_dragged_below_external_hubs():
+    # The user's scenario: a group dragged BELOW the external hubs (above the
+    # pinned-bottom hub) must STAY there — de-frag/enforce must not pull it back
+    # up into the other groups. The DB order is authoritative for placement.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import (
+        slot_in_hub, set_pin, set_library_hub_order, get_library_hub_order,
+        HUB_TYPE_COLLECTION, HUB_TYPE_EXTERNAL, PIN_BOTTOM,
+    )
+
+    for t in ["RecA", "RecB"]:
+        slot_in_hub("Movies", t, HUB_TYPE_COLLECTION, group_name="Rec")
+    for t in ["HomeA", "HomeB"]:
+        slot_in_hub("Movies", t, HUB_TYPE_COLLECTION, group_name="Home")
+    for t in ["RecentlyAdded", "Top250"]:
+        slot_in_hub("Movies", t, HUB_TYPE_EXTERNAL)
+    slot_in_hub("Movies", "MustSee", HUB_TYPE_EXTERNAL)
+    set_pin("Movies", "MustSee", PIN_BOTTOM)
+
+    # Simulate the user dragging Home below the external hubs, just above the pin.
+    dragged = ["RecA", "RecB", "RecentlyAdded", "Top250", "HomeA", "HomeB", "MustSee"]
+    set_library_hub_order("Movies", dragged)
+
+    section = FakeSection("Movies", list(dragged))
+    server = FakeServer({"Movies": section})
+
+    errors = enforce_group_adjacency(server, "Movies")
+    assert errors == []
+
+    db_titles = [r.hub_title for r in get_library_hub_order("Movies")]
+    assert db_titles == dragged, (
+        f"manually-placed group below external hubs must be preserved; got {db_titles}"
+    )
+    plex = [h.title for h in section.managedHubs()]
+    assert plex.index("HomeA") > plex.index("Top250"), (
+        f"Home group must stay below the external hubs in Plex: {plex}"
+    )
+    assert plex.index("HomeB") == plex.index("HomeA") + 1, f"Home split in Plex: {plex}"
+
+
+def test_enforce_defragment_preserves_pinned_and_non_group_hubs():
+    # De-fragmentation must not disturb pinned hubs or ungrouped hubs — only
+    # gather group members. Pinned members are excluded from gathering.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import (
+        slot_in_hub, set_pin, set_library_hub_order, get_library_hub_order,
+        HUB_TYPE_COLLECTION, HUB_TYPE_EXTERNAL, PIN_BOTTOM,
+    )
+
+    slot_in_hub("Movies", "Top", HUB_TYPE_EXTERNAL)
+    for t in ["GA", "GB", "GC"]:
+        slot_in_hub("Movies", t, HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "Bottom", HUB_TYPE_EXTERNAL)
+    set_pin("Movies", "Bottom", PIN_BOTTOM)
+
+    set_library_hub_order("Movies", ["Top", "GA", "GB", "GC", "Bottom"])
+
+    section = FakeSection("Movies", ["Top", "GA", "GB", "GC", "Bottom"])
+    server = FakeServer({"Movies": section})
+
+    enforce_group_adjacency(server, "Movies")
+
+    rows = get_library_hub_order("Movies")
+    db_titles = [r.hub_title for r in rows]
+    # Already canonical; order unchanged. Pinned hub stays at the end.
+    assert db_titles == ["Top", "GA", "GB", "GC", "Bottom"]
+    assert rows[-1].hub_title == "Bottom" and rows[-1].pin_position == PIN_BOTTOM
+
 
 # ---- pin_hub_to_top tests ----
 

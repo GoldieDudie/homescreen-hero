@@ -79,6 +79,7 @@ def _sync_hub_order_post_rotation(
                          lib.name, e, exc_info=True)
 
         # Re-enforce pins (at most 2 single moves per library)
+        pin_moved = False
         try:
             rows = get_library_hub_order(lib.name)
             pin_top = next((r.hub_title for r in rows if r.pin_position == PIN_TOP), None)
@@ -98,6 +99,7 @@ def _sync_hub_order_post_rotation(
                 else:
                     logger.info("Post-rotation re-pinned '%s' to top in '%s'", pin_top, lib.name)
                     plex_titles = [h.title for h in _get_managed_hubs_for_library(server, lib.name)]
+                    pin_moved = True
 
             if pin_bottom and plex_titles[-1] != pin_bottom:
                 last = next((t for t in reversed(plex_titles) if t != pin_bottom), None)
@@ -109,9 +111,22 @@ def _sync_hub_order_post_rotation(
                     else:
                         logger.info("Post-rotation re-pinned '%s' to bottom in '%s'",
                                     pin_bottom, lib.name)
+                        pin_moved = True
         except Exception as e:
             logger.error("Post-rotation pin enforcement failed for '%s': %s",
                          lib.name, e, exc_info=True)
+
+        # Pin moves shift all other hubs by 1 position, which can displace groups
+        # relative to their anchors. Re-run adjacency enforcement so groups land
+        # correctly without waiting for the next rotation.
+        if pin_moved:
+            try:
+                adjacency_errors = enforce_group_adjacency(server, lib.name)
+                for err in adjacency_errors:
+                    logger.warning("Post-pin adjacency in '%s': %s", lib.name, err)
+            except Exception as e:
+                logger.error("Post-pin adjacency enforcement failed for '%s': %s",
+                             lib.name, e, exc_info=True)
 
 
 def _resolve_smart_groups(server, config: AppConfig) -> Dict[str, List[CollectionRef]]:

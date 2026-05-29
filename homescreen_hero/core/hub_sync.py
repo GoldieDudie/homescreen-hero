@@ -13,6 +13,7 @@ from .db import (
     HUB_TYPE_SMART_HUB,
     PIN_BOTTOM,
     PIN_TOP,
+    defragment_library_hub_order,
     delete_hub,
     get_library_hub_order,
     get_pinned_collections,
@@ -212,6 +213,21 @@ def enforce_group_adjacency(
     # Returns a list of error messages (empty on full success).
     errors: List[str] = []
 
+    # Self-heal: gather each group's members contiguously in the DB before
+    # computing anchors. Rotation churn can interleave a group's members with
+    # other groups in the DB; the anchor logic below ("highest current Plex
+    # position among DB predecessors") is only correct when each group is
+    # contiguous — otherwise a group anchors onto a lone member of another
+    # group and splits it. Members are gathered at the group's largest existing
+    # cluster; group order and non-group hub positions are left as the DB has
+    # them, so manual drag placement is preserved. Derived from DB group
+    # metadata only (not Plex order).
+    try:
+        if defragment_library_hub_order(library_name):
+            logger.info("De-fragmented DB hub order for '%s' before adjacency enforcement", library_name)
+    except Exception as e:
+        logger.warning("Could not de-fragment hub order for '%s': %s", library_name, e)
+
     try:
         plex_hubs = _get_managed_hubs_for_library(server, library_name)
     except Exception as e:
@@ -250,14 +266,22 @@ def enforce_group_adjacency(
         if first_db_pos is None:
             continue
 
-        # Anchor: nearest non-pinned hub before this group in DB order.
-        # Skip pinned hubs — they have their own enforcement and their Plex
-        # position can differ significantly from their DB position.
+        # Anchor: among all non-pinned hubs that precede this group in DB
+        # order, pick the one with the HIGHEST current Plex position.
+        #
+        # Using the last predecessor in DB order (naive approach) breaks when
+        # Plex smart hubs drift to low positions: those hubs never get
+        # re-appended by rotation, so over time they end up near pos 0 while
+        # HSH-managed collections are at higher positions. A drifted smart hub
+        # as anchor would place the group near the top of the screen instead of
+        # after the collection hubs that logically precede it.
         anchor: Optional[str] = None
-        for title in reversed(db_titles_in_order):
-            if db_pos_of[title] < first_db_pos and title not in pinned:
-                anchor = title
-                break
+        best_plex_pos = -1
+        for title in db_titles_in_order:
+            if db_pos_of[title] < first_db_pos and title not in pinned and title in position_of:
+                if position_of[title] > best_plex_pos:
+                    best_plex_pos = position_of[title]
+                    anchor = title
 
         # When no non-pinned anchor exists (group is the first non-pinned block),
         # fall back to the rightmost (in Plex) pinned hub that DB places before
