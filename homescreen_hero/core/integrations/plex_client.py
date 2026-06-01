@@ -645,6 +645,94 @@ def move_hub_after(
         return f"Failed to move '{hub_title}' in '{library_name}': {e}"
 
 
+def _move_landed(hubs: List[Any], hub_title: str, after_hub_title: Optional[str]) -> bool:
+    # True if hub_title currently sits immediately after after_hub_title
+    # (or at position 0 when after_hub_title is None) in the given hub list.
+    titles = [h.title for h in hubs]
+    if hub_title not in titles:
+        return False
+    idx = titles.index(hub_title)
+    if after_hub_title is None:
+        return idx == 0
+    if after_hub_title not in titles:
+        return False
+    return idx == titles.index(after_hub_title) + 1
+
+
+def move_hub_after_verified(
+    server: PlexServer,
+    library_name: str,
+    hub_title: str,
+    after_hub_title: Optional[str],
+) -> Optional[str]:
+    # Like move_hub_after, but verifies the hub actually landed after its anchor
+    # and recovers from Plex's float-precision convergence (see memory:
+    # plex-hub-reorder-api). After many chained moves Plex's internal float
+    # ordering loses precision and a move() silently fails to place the hub.
+    #
+    # Recovery mirrors pin_hub_to_top: unpromote + re-promote the hub (fresh
+    # float spacing at the end of managedHubs) via a visibility cycle, then move
+    # again. Only collections (hubs with visibility flags set) can be
+    # re-promoted; smart/built-in hubs cannot, so for those we report the
+    # failure rather than silently leaving them mis-placed.
+    #
+    # Returns None on success, else an error message.
+    err = move_hub_after(server, library_name, hub_title, after_hub_title)
+    if err:
+        return err
+
+    try:
+        hubs = _get_managed_hubs_for_library(server, library_name)
+    except Exception as e:
+        return f"Could not reload hubs to verify move of '{hub_title}' in '{library_name}': {e}"
+
+    if _move_landed(hubs, hub_title, after_hub_title):
+        return None
+
+    target = next((h for h in hubs if h.title == hub_title), None)
+    if target is None:
+        return f"Hub '{hub_title}' vanished from managedHubs during move in '{library_name}'"
+
+    home = bool(getattr(target, "promotedToOwnHome", False))
+    shared = bool(getattr(target, "promotedToSharedHome", False))
+    recommended = bool(getattr(target, "promotedToRecommended", False))
+    if not (home or shared or recommended):
+        return (
+            f"Move of '{hub_title}' did not land after '{after_hub_title}' in "
+            f"'{library_name}' and the hub is not re-promotable (smart/built-in)"
+        )
+
+    # Re-promote to defeat float-precision convergence, then retry the move.
+    try:
+        target.updateVisibility(home=False, shared=False, recommended=False)
+        time.sleep(_VISIBILITY_SETTLE_SECONDS)
+        target.updateVisibility(home=home, shared=shared, recommended=recommended)
+        time.sleep(_VISIBILITY_SETTLE_SECONDS)
+    except Exception as e:
+        return f"Visibility cycle failed during move recovery for '{hub_title}': {e}"
+
+    err = move_hub_after(server, library_name, hub_title, after_hub_title)
+    if err:
+        return err
+
+    try:
+        hubs = _get_managed_hubs_for_library(server, library_name)
+    except Exception as e:
+        return f"Could not reload hubs to re-verify move of '{hub_title}' in '{library_name}': {e}"
+
+    if _move_landed(hubs, hub_title, after_hub_title):
+        logger.info(
+            "move recovery succeeded: re-promoted '%s' and placed after '%s' in '%s'",
+            hub_title, after_hub_title, library_name,
+        )
+        return None
+
+    return (
+        f"precision convergence: '{hub_title}' would not stay after "
+        f"'{after_hub_title}' in '{library_name}' even after re-promote"
+    )
+
+
 
 
 # Home user functions for watch history copying

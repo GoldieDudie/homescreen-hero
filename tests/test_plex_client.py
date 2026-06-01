@@ -120,3 +120,122 @@ def test_visibility_needs_update_returns_false_when_all_false_matches():
     assert not plex_client._visibility_needs_update(hub, False, False, False)
 
 
+# ---- move_hub_after_verified: float-precision convergence recovery ----------
+
+class ConvergenceFakeHub:
+    # Simulates Plex's float-precision convergence: when `drifted` is set,
+    # move() ignores the requested position and appends the hub to the end of
+    # the list (Plex's "re-normalize" behaviour). A re-promote visibility cycle
+    # (home False then True) restores clean float spacing so moves work again —
+    # unless `recover_on_repromote` is False, modelling an unrecoverable hub.
+    def __init__(self, section, title, *, promotable=True, drifted=False,
+                 recover_on_repromote=True):
+        self.section = section
+        self.title = title
+        self.identifier = title.replace(" ", "_")
+        self.promotedToOwnHome = promotable
+        self.promotedToSharedHome = False
+        self.promotedToRecommended = False
+        self.drifted = drifted
+        self.recover_on_repromote = recover_on_repromote
+        self.move_calls = 0
+        self.visibility_cycles = 0
+
+    def move(self, after=None):
+        self.move_calls += 1
+        hubs = self.section._hubs
+        hubs.remove(self)
+        if self.drifted:
+            hubs.append(self)  # precision lost: lands at the end, not after anchor
+            return
+        if after is None:
+            hubs.insert(0, self)
+            return
+        hubs.insert(hubs.index(after) + 1, self)
+
+    def updateVisibility(self, home=None, shared=None, recommended=None):
+        if home is not None:
+            self.promotedToOwnHome = home
+        if shared is not None:
+            self.promotedToSharedHome = shared
+        if recommended is not None:
+            self.promotedToRecommended = recommended
+        if home:  # the re-promote (on) half of the cycle
+            self.visibility_cycles += 1
+            if self.recover_on_repromote:
+                self.drifted = False
+
+
+class ConvergenceFakeSection:
+    def __init__(self, name, hubs):
+        self.title = name
+        self.type = "movie"
+        self._hubs = hubs
+        for h in hubs:
+            h.section = self
+
+    def managedHubs(self):
+        return list(self._hubs)
+
+
+def _conv_server(monkeypatch, *hubs):
+    # No real sleeping during the recovery visibility cycle.
+    monkeypatch.setattr(plex_client.time, "sleep", lambda *_: None)
+    section = ConvergenceFakeSection("Movies", list(hubs))
+    return FakeServer({"Movies": section}), section
+
+
+def test_verified_move_no_recovery_when_move_lands(monkeypatch):
+    anchor = ConvergenceFakeHub(None, "Anchor")
+    target = ConvergenceFakeHub(None, "Target")
+    other = ConvergenceFakeHub(None, "Other")
+    server, section = _conv_server(monkeypatch, anchor, other, target)
+
+    err = plex_client.move_hub_after_verified(server, "Movies", "Target", "Anchor")
+
+    assert err is None
+    assert [h.title for h in section._hubs] == ["Anchor", "Target", "Other"]
+    assert target.visibility_cycles == 0  # landed first try, no re-promote needed
+
+
+def test_verified_move_recovers_via_repromote(monkeypatch):
+    anchor = ConvergenceFakeHub(None, "Anchor")
+    target = ConvergenceFakeHub(None, "Target", drifted=True)
+    other = ConvergenceFakeHub(None, "Other")
+    server, section = _conv_server(monkeypatch, anchor, other, target)
+
+    err = plex_client.move_hub_after_verified(server, "Movies", "Target", "Anchor")
+
+    assert err is None
+    assert target.visibility_cycles == 1  # one re-promote cycle to recover
+    assert [h.title for h in section._hubs] == ["Anchor", "Target", "Other"]
+
+
+def test_verified_move_fails_when_hub_not_repromotable(monkeypatch):
+    # Other sits between Anchor and Target so the drifted "append to end"
+    # position differs from the correct "after Anchor" slot.
+    anchor = ConvergenceFakeHub(None, "Anchor")
+    other = ConvergenceFakeHub(None, "Other")
+    target = ConvergenceFakeHub(None, "Target", promotable=False, drifted=True)
+    server, section = _conv_server(monkeypatch, anchor, other, target)
+
+    err = plex_client.move_hub_after_verified(server, "Movies", "Target", "Anchor")
+
+    assert err is not None
+    assert "not re-promotable" in err
+    assert target.visibility_cycles == 0  # never attempted to re-promote
+
+
+def test_verified_move_reports_precision_convergence_when_unrecoverable(monkeypatch):
+    anchor = ConvergenceFakeHub(None, "Anchor")
+    other = ConvergenceFakeHub(None, "Other")
+    target = ConvergenceFakeHub(None, "Target", drifted=True, recover_on_repromote=False)
+    server, section = _conv_server(monkeypatch, anchor, other, target)
+
+    err = plex_client.move_hub_after_verified(server, "Movies", "Target", "Anchor")
+
+    assert err is not None
+    assert "precision convergence" in err
+    assert target.visibility_cycles == 1  # tried to recover once, still failed
+
+

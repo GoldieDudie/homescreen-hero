@@ -37,6 +37,12 @@ class FakeHub:
         self.fail_first_move = fail_first_move
         self.raise_on_move = raise_on_move
         self.move_calls = 0
+        # Simulate Plex float-precision convergence: while drifted, move()
+        # ignores the requested position and appends to the end. A re-promote
+        # visibility cycle clears it. Off by default so existing tests behave
+        # exactly as before.
+        self.drift_until_repromote = False
+        self.visibility_cycles = 0
 
     def move(self, after=None):
         self.move_calls += 1
@@ -46,6 +52,9 @@ class FakeHub:
             raise Exception("Simulated transient Plex API failure")
         hubs = self.section._hubs
         hubs.remove(self)
+        if self.drift_until_repromote:
+            hubs.append(self)
+            return
         if after is None:
             hubs.insert(0, self)
             return
@@ -59,6 +68,9 @@ class FakeHub:
             self.promotedToSharedHome = shared
         if recommended is not None:
             self.promotedToRecommended = recommended
+        if home:  # the re-promote (on) half of a recovery cycle
+            self.visibility_cycles += 1
+            self.drift_until_repromote = False
 
 
 class FakeSection:
@@ -379,6 +391,97 @@ def test_adjacency_ignores_single_member_groups():
     errors = enforce_group_adjacency(server, "Movies")
     assert errors == []
     assert all(h.move_calls == 0 for h in section._hubs)
+
+
+def _no_sleep(monkeypatch):
+    # The re-promote recovery in move_hub_after_verified sleeps to let Plex
+    # settle; skip it in tests.
+    monkeypatch.setattr(
+        "homescreen_hero.core.integrations.plex_client.time.sleep", lambda *_: None
+    )
+
+
+def test_adjacency_recovers_drifted_member_via_repromote(monkeypatch):
+    # A scattered group member whose plain move() silently fails (float-precision
+    # convergence) must be recovered by the unpromote/re-promote cycle so the
+    # group still converges in a single rotation.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_COLLECTION
+
+    _no_sleep(monkeypatch)
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "B", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "C", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "X", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "Y", HUB_TYPE_COLLECTION)
+
+    # Plex order scattered: A, X, B, Y, C — and B's moves drift until re-promote.
+    section = FakeSection("Movies", ["A", "X", "B", "Y", "C"])
+    server = FakeServer({"Movies": section})
+    b = next(h for h in section._hubs if h.title == "B")
+    b.promotedToOwnHome = True  # re-promotable collection
+    b.drift_until_repromote = True
+
+    errors = enforce_group_adjacency(server, "Movies")
+
+    assert errors == []
+    assert b.visibility_cycles == 1  # recovered via one re-promote
+    titles = [h.title for h in section.managedHubs()]
+    a_idx = titles.index("A")
+    assert titles[a_idx + 1] == "B"
+    assert titles[a_idx + 2] == "C"
+
+
+def test_adjacency_reports_precision_convergence_for_unrecoverable_member(monkeypatch):
+    # A drifted member that is NOT re-promotable (no visibility flags) cannot be
+    # recovered; enforce must surface an error rather than silently leaving the
+    # group scattered for every future rotation.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_COLLECTION
+
+    _no_sleep(monkeypatch)
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "B", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "C", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "X", HUB_TYPE_COLLECTION)
+
+    section = FakeSection("Movies", ["A", "X", "B", "C"])
+    server = FakeServer({"Movies": section})
+    b = next(h for h in section._hubs if h.title == "B")
+    b.drift_until_repromote = True  # promotedToOwnHome stays False → unrecoverable
+
+    errors = enforce_group_adjacency(server, "Movies")
+
+    assert errors != []
+    assert any("not re-promotable" in e or "precision convergence" in e for e in errors)
+    assert b.visibility_cycles == 0
+
+
+def test_adjacency_selective_skip_leaves_correct_members_untouched(monkeypatch):
+    # Members already correctly slotted must not be moved (selective reordering),
+    # minimising Plex moves and therefore convergence risk.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_COLLECTION
+
+    _no_sleep(monkeypatch)
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "B", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "C", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "X", HUB_TYPE_COLLECTION)
+
+    # A and B already adjacent and correctly placed; only C is scattered.
+    section = FakeSection("Movies", ["A", "B", "X", "C"])
+    server = FakeServer({"Movies": section})
+
+    errors = enforce_group_adjacency(server, "Movies")
+
+    assert errors == []
+    moves = {h.title: h.move_calls for h in section._hubs}
+    assert moves["A"] == 0 and moves["B"] == 0  # already correct → skipped
+    assert moves["C"] >= 1  # the only one that needed moving
+    titles = [h.title for h in section.managedHubs()]
+    a_idx = titles.index("A")
+    assert titles[a_idx:a_idx + 3] == ["A", "B", "C"]
 
 
 def test_sync_does_not_overwrite_db_order_with_plex_order():

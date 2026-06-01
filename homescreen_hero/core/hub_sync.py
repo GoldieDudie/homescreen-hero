@@ -22,7 +22,7 @@ from .db import (
     slot_in_hub,
     upsert_hub,
 )
-from .integrations.plex_client import _get_managed_hubs_for_library, move_hub_after
+from .integrations.plex_client import _get_managed_hubs_for_library, move_hub_after_verified
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +191,77 @@ def sync_library_hub_order(
     return result
 
 
+def _place_group_consecutive(
+    server: PlexServer,
+    library_name: str,
+    group_name: str,
+    head: str,
+    head_anchor: Optional[str],
+    tail: List[str],
+    move_head: bool,
+) -> List[str]:
+    # Place a group's members consecutively in Plex using verified moves that
+    # recover from float-precision convergence (see move_hub_after_verified).
+    #
+    # When move_head is True, `head` is moved to sit immediately after
+    # `head_anchor` (or to position 0 when head_anchor is None) — this sets the
+    # group's absolute position. When move_head is False, `head` keeps its
+    # current slot and the rest are clustered after it (adjacency-only).
+    #
+    # Each member in `tail` is then placed immediately after its predecessor.
+    # Selective reordering: members already correctly slotted are skipped, which
+    # minimises the number of Plex moves and therefore the convergence risk.
+    errors: List[str] = []
+
+    def positions() -> Dict[str, int]:
+        hubs = _get_managed_hubs_for_library(server, library_name)
+        return {h.title: i for i, h in enumerate(hubs)}
+
+    try:
+        pos = positions()
+    except Exception as e:
+        return [f"[group '{group_name}'] could not load hubs: {e}"]
+
+    if move_head:
+        already = head in pos and (
+            (head_anchor is None and pos[head] == 0)
+            or (head_anchor is not None and head_anchor in pos
+                and pos[head] == pos[head_anchor] + 1)
+        )
+        if not already:
+            err = move_hub_after_verified(server, library_name, head, head_anchor)
+            if err:
+                errors.append(f"[group '{group_name}'] reposition: {err}")
+                logger.warning("Group reposition failed: %s", err)
+                return errors
+            try:
+                pos = positions()
+            except Exception as e:
+                errors.append(f"[group '{group_name}'] could not reload hubs: {e}")
+                return errors
+
+    prev = head
+    for member in tail:
+        if member not in pos:
+            continue
+        if prev in pos and pos[member] == pos[prev] + 1:
+            prev = member  # already adjacent — skip the move
+            continue
+        err = move_hub_after_verified(server, library_name, member, prev)
+        if err:
+            errors.append(f"[group '{group_name}'] chain: {err}")
+            logger.warning("Group chain move failed: %s", err)
+            return errors
+        try:
+            pos = positions()
+        except Exception as e:
+            errors.append(f"[group '{group_name}'] could not reload hubs: {e}")
+            return errors
+        prev = member
+
+    return errors
+
+
 def enforce_group_adjacency(
     server: PlexServer,
     library_name: str,
@@ -323,22 +394,14 @@ def enforce_group_adjacency(
                 group_name, library_name, first_member, position_of[first_member],
                 effective_anchor, position_of.get(effective_anchor),
             )
-            # Move first member to correct absolute position, then chain the rest
-            err = move_hub_after(server, library_name, first_member, effective_anchor)
-            if err:
-                errors.append(f"[group '{group_name}'] reposition: {err}")
-                logger.warning("Group reposition failed: %s", err)
-            else:
-                prev = first_member
-                for member in members[1:]:
-                    if member not in position_of:
-                        continue
-                    err = move_hub_after(server, library_name, member, prev)
-                    if err:
-                        errors.append(f"[group '{group_name}'] reposition chain: {err}")
-                        logger.warning("Group reposition chain move failed: %s", err)
-                        break
-                    prev = member
+            # Move first member to its correct absolute position, then chain the
+            # rest after it.
+            seq = [m for m in members if m in position_of]
+            errors.extend(_place_group_consecutive(
+                server, library_name, group_name,
+                head=seq[0], head_anchor=effective_anchor, tail=seq[1:],
+                move_head=True,
+            ))
         else:
             # Adjacency-only: anchor at first member's current Plex position.
             # Sort by current Plex position so members[0] stays put.
@@ -351,14 +414,11 @@ def enforce_group_adjacency(
                 group_name, library_name, len(members_by_plex),
                 [position_of[m] for m in members_by_plex],
             )
-            prev = members_by_plex[0]
-            for member in members_by_plex[1:]:
-                err = move_hub_after(server, library_name, member, prev)
-                if err:
-                    errors.append(f"[group '{group_name}'] {err}")
-                    logger.warning("Group adjacency move failed: %s", err)
-                    break
-                prev = member
+            errors.extend(_place_group_consecutive(
+                server, library_name, group_name,
+                head=members_by_plex[0], head_anchor=None, tail=members_by_plex[1:],
+                move_head=False,
+            ))
 
         # Re-fetch position map so subsequent groups see the updated order
         try:
@@ -368,6 +428,21 @@ def enforce_group_adjacency(
         except Exception as e:
             errors.append(f"Could not refresh hubs after processing group '{group_name}': {e}")
             break
+
+        # Final verification: the group should now be contiguous in Plex. If it
+        # is not, float-precision convergence defeated even the re-promote
+        # recovery in move_hub_after_verified — surface it rather than silently
+        # re-trying next rotation forever.
+        final_positions = sorted(position_of[m] for m in members if m in position_of)
+        if len(final_positions) >= 2 and (
+            final_positions[-1] - final_positions[0] != len(final_positions) - 1
+        ):
+            msg = (
+                f"group '{group_name}' in '{library_name}' still scattered after "
+                f"enforcement (positions {final_positions}) — precision convergence"
+            )
+            errors.append(msg)
+            logger.warning(msg)
 
     return errors
 
