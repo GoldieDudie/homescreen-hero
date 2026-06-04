@@ -138,6 +138,18 @@ def sync_library_hub_order(
     existing_titles = {r.hub_title for r in existing_rows}
     is_first_sync = not existing_rows
 
+    # Snapshot the inter-group order BEFORE any deletions/slot-ins. When a group
+    # fully churns in one rotation (every member replaced), slot_in_hub has no
+    # surviving member to anchor to and appends the new members at the bottom in
+    # Plex/config order — silently discarding a user's dashboard drag that put
+    # the group elsewhere. We re-impose this snapshot after slotting so the
+    # dragged inter-group order survives a full churn.
+    pre_pinned = {r.hub_title for r in existing_rows if r.pin_position is not None}
+    group_order_snapshot: List[str] = []
+    for r in existing_rows:  # already position-sorted
+        if r.group_name and r.hub_title not in pre_pinned and r.group_name not in group_order_snapshot:
+            group_order_snapshot.append(r.group_name)
+
     # 1) Remove DB rows for hubs that no longer exist in Plex
     for row in existing_rows:
         if row.hub_title not in plex_hub_by_title:
@@ -180,6 +192,11 @@ def sync_library_hub_order(
     if is_first_sync:
         _migrate_legacy_pins_into_hub_order(library_name, set(plex_hub_by_title.keys()))
 
+    # 4) Re-impose the pre-sync inter-group order (preserves dashboard drags
+    #    through a full churn). Skipped on first sync — no prior order to honor.
+    if group_order_snapshot:
+        _reimpose_group_order(library_name, group_order_snapshot, config)
+
     logger.info(
         "sync: library '%s' done. added=%d removed=%d updated=%d errors=%d",
         library_name,
@@ -189,6 +206,75 @@ def sync_library_hub_order(
         len(result.plex_reorder_errors),
     )
     return result
+
+
+def _reimpose_group_order(
+    library_name: str,
+    group_order_snapshot: List[str],
+    config: AppConfig,
+) -> bool:
+    # Reorder the library's group BLOCKS to match the pre-sync inter-group order
+    # (group_order_snapshot), leaving every ungrouped and pinned hub exactly
+    # where it is. Each group block is slotted back into a position currently
+    # occupied by a group block, just reordered among themselves — so a group
+    # that fully churned (and got appended to the bottom by slot_in_hub) is
+    # pulled back to its dragged place. Groups absent from the snapshot (newly
+    # added) are ordered AFTER the snapshot groups by config display_order, then
+    # name; the user can then drag them. Returns True if the order changed.
+    rows = get_library_hub_order(library_name)
+    if not rows:
+        return False
+
+    pinned = {r.hub_title for r in rows if r.pin_position is not None}
+    titles = [r.hub_title for r in rows]
+    group_of = {r.hub_title: r.group_name for r in rows}
+
+    # Collapse consecutive same-group non-pinned hubs into group blocks; pinned
+    # and ungrouped hubs are singleton blocks that never move.
+    blocks: List[Tuple[Optional[str], List[str]]] = []
+    i = 0
+    while i < len(titles):
+        g = group_of.get(titles[i])
+        if g and titles[i] not in pinned:
+            members: List[str] = []
+            while i < len(titles) and group_of.get(titles[i]) == g and titles[i] not in pinned:
+                members.append(titles[i])
+                i += 1
+            blocks.append((g, members))
+        else:
+            blocks.append((None, [titles[i]]))
+            i += 1
+
+    group_block_idxs = [idx for idx, (g, _) in enumerate(blocks) if g is not None]
+    if len(group_block_idxs) < 2:
+        return False  # 0 or 1 group block — nothing to reorder
+
+    snapshot_rank = {g: i for i, g in enumerate(group_order_snapshot)}
+    cfg_order = {g.name: g.display_order for g in config.groups}
+
+    def rank(group_name: str) -> Tuple[int, int, str]:
+        if group_name in snapshot_rank:
+            return (0, snapshot_rank[group_name], "")
+        return (1, cfg_order.get(group_name, 0), group_name)
+
+    reordered = sorted((blocks[idx] for idx in group_block_idxs), key=lambda b: rank(b[0]))
+    for slot_idx, gb in zip(group_block_idxs, reordered):
+        blocks[slot_idx] = gb
+
+    new_titles: List[str] = []
+    for _, members in blocks:
+        new_titles.extend(members)
+
+    if new_titles == titles:
+        return False
+
+    set_library_hub_order(library_name, new_titles)
+    logger.info(
+        "Re-imposed inter-group order in '%s': %s",
+        library_name,
+        [g for g, _ in blocks if g is not None],
+    )
+    return True
 
 
 def _place_group_consecutive(

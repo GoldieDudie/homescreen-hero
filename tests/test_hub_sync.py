@@ -899,3 +899,96 @@ def test_post_rotation_pin_enforcement_does_repromote_when_displaced(monkeypatch
 
     titles = [h.title for h in section.managedHubs()]
     assert titles[1] == "PinnedTop", "Displaced pin_top must be moved back to position 1"
+
+
+# ---- inter-group order durability (Option B) ----
+
+def _make_config_two_groups(library_name, g1, g1_colls, g2, g2_colls):
+    # G1 has the LOWER display_order, so config wants G1 before G2.
+    from homescreen_hero.core.config.schema import (
+        AppConfig, PlexSettings, PlexLibraryConfig, RotationSettings,
+        CollectionGroupConfig, CollectionRef,
+    )
+    return AppConfig(
+        plex=PlexSettings(
+            base_url="http://localhost:32400",
+            token="test-token",
+            libraries=[PlexLibraryConfig(name=library_name, enabled=True)],
+        ),
+        rotation=RotationSettings(enabled=True, max_collections=10),
+        groups=[
+            CollectionGroupConfig(
+                name=g1, enabled=True, min_picks=1, max_picks=10, display_order=0,
+                collections=[CollectionRef(library=library_name, name=n) for n in g1_colls],
+            ),
+            CollectionGroupConfig(
+                name=g2, enabled=True, min_picks=1, max_picks=10, display_order=1,
+                collections=[CollectionRef(library=library_name, name=n) for n in g2_colls],
+            ),
+        ],
+    )
+
+
+def test_dragged_group_order_survives_full_churn():
+    # User drags G2 ABOVE G1 on the dashboard (against config display_order).
+    # A rotation then fully churns BOTH groups (every member replaced). The
+    # dragged inter-group order (G2 before G1) must survive the rotation.
+    from homescreen_hero.core.hub_sync import sync_library_hub_order, enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, get_library_hub_order, HUB_TYPE_COLLECTION
+
+    lib = "Movies"
+    config = _make_config_two_groups(
+        lib,
+        "G1", ["g1a", "g1b", "g1c", "g1d"],
+        "G2", ["g2a", "g2b", "g2c", "g2d"],
+    )
+
+    # Seed DB in the DRAGGED order: G2 first, then G1.
+    slot_in_hub(lib, "g2a", HUB_TYPE_COLLECTION, group_name="G2")
+    slot_in_hub(lib, "g2b", HUB_TYPE_COLLECTION, group_name="G2")
+    slot_in_hub(lib, "g1a", HUB_TYPE_COLLECTION, group_name="G1")
+    slot_in_hub(lib, "g1b", HUB_TYPE_COLLECTION, group_name="G1")
+    assert [r.group_name for r in get_library_hub_order(lib)] == ["G2", "G2", "G1", "G1"]
+
+    # Rotation fully churns both groups. Plex now shows the new members, promoted
+    # in CONFIG order (G1 first), exactly as order_collections_for_display emits.
+    section = FakeSection(lib, ["g1c", "g1d", "g2c", "g2d"])
+    server = FakeServer({lib: section})
+
+    sync_library_hub_order(server, config, lib)
+    enforce_group_adjacency(server, lib)
+
+    db_groups = [r.group_name for r in get_library_hub_order(lib)]
+    first_g2 = db_groups.index("G2")
+    first_g1 = db_groups.index("G1")
+    assert first_g2 < first_g1, f"dragged group order (G2 before G1) lost: {db_groups}"
+
+
+def test_dragged_group_order_survives_partial_retention():
+    # Same drag (G2 above G1), but each group retains one member across the
+    # rotation. slot_in should anchor new members to the retained ones, keeping
+    # the dragged order.
+    from homescreen_hero.core.hub_sync import sync_library_hub_order, enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, get_library_hub_order, HUB_TYPE_COLLECTION
+
+    lib = "Movies"
+    config = _make_config_two_groups(
+        lib,
+        "G1", ["g1a", "g1b", "g1c"],
+        "G2", ["g2a", "g2b", "g2c"],
+    )
+
+    slot_in_hub(lib, "g2a", HUB_TYPE_COLLECTION, group_name="G2")
+    slot_in_hub(lib, "g2b", HUB_TYPE_COLLECTION, group_name="G2")
+    slot_in_hub(lib, "g1a", HUB_TYPE_COLLECTION, group_name="G1")
+    slot_in_hub(lib, "g1b", HUB_TYPE_COLLECTION, group_name="G1")
+
+    # g2b and g1b retained; g2c and g1c are new.
+    section = FakeSection(lib, ["g1b", "g1c", "g2b", "g2c"])
+    server = FakeServer({lib: section})
+
+    sync_library_hub_order(server, config, lib)
+    enforce_group_adjacency(server, lib)
+
+    db_groups = [r.group_name for r in get_library_hub_order(lib)]
+    assert db_groups.index("G2") < db_groups.index("G1"), f"order lost: {db_groups}"
