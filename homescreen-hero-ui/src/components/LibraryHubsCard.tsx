@@ -41,7 +41,7 @@ import { fetchWithAuth } from "../utils/api";
 type HubType = "collection" | "smart_hub" | "external";
 type PinSlot = "top" | "bottom";
 
-interface HubOut {
+export interface HubOut {
     title: string;
     position: number;
     hub_type: HubType;
@@ -72,7 +72,7 @@ interface LibraryConfig {
 
 // ── Block model (visual collapse of consecutive same-group hubs) ───────────
 
-type HubBlock =
+export type HubBlock =
     | { kind: "single"; hub: HubOut }
     | { kind: "group"; groupName: string; hubs: HubOut[] };
 
@@ -82,7 +82,7 @@ function blockId(block: HubBlock, libraryName: string): string {
         : `lib::${libraryName}::hub::${block.hub.title}`;
 }
 
-function buildBlocks(hubs: HubOut[]): HubBlock[] {
+export function buildBlocks(hubs: HubOut[]): HubBlock[] {
     // Collapse only CONSECUTIVE same-group hubs (Plex order may scatter members).
     const result: HubBlock[] = [];
     let i = 0;
@@ -102,6 +102,28 @@ function buildBlocks(hubs: HubOut[]): HubBlock[] {
         }
     }
     return result;
+}
+
+function blockPinTier(block: HubBlock): number {
+    // 0 = pinned top, 2 = pinned bottom, 1 = everything else. Group blocks are
+    // never pinned, so they always land in the middle tier.
+    if (block.kind === "single") {
+        if (block.hub.pin_position === "top") return 0;
+        if (block.hub.pin_position === "bottom") return 2;
+    }
+    return 1;
+}
+
+export function orderBlocksForDisplay(blocks: HubBlock[]): HubBlock[] {
+    // Mirror Plex: pinned-top hubs render first and pinned-bottom hubs last,
+    // regardless of stored DB position (Plex floats them the same way). DB
+    // position still orders everything within the normal tier. Stable sort —
+    // ties keep original order — so non-pinned hubs are left exactly as the DB
+    // has them.
+    return blocks
+        .map((b, i) => ({ b, i }))
+        .sort((a, z) => blockPinTier(a.b) - blockPinTier(z.b) || a.i - z.i)
+        .map((x) => x.b);
 }
 
 function flattenBlocks(blocks: HubBlock[]): HubOut[] {
@@ -529,7 +551,7 @@ function LibrarySection({
         });
     }, [hubs, hideUnused]);
 
-    const blocks = useMemo(() => buildBlocks(visibleHubs), [visibleHubs]);
+    const blocks = useMemo(() => orderBlocksForDisplay(buildBlocks(visibleHubs)), [visibleHubs]);
     const blockIds = blocks.map((b) => blockId(b, libraryName));
 
     const pinSlots = useMemo(() => {
