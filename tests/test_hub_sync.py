@@ -992,3 +992,44 @@ def test_dragged_group_order_survives_partial_retention():
 
     db_groups = [r.group_name for r in get_library_hub_order(lib)]
     assert db_groups.index("G2") < db_groups.index("G1"), f"order lost: {db_groups}"
+
+
+def test_adjacency_anchors_after_pinned_top_hub_between_anchor_and_group():
+    # Reproduces the live Anime split: a pinned-top hub (New Premieres) sits in
+    # DB between a non-pinned hub (Recently Added TV) and the group. In Plex the
+    # group is split by external hubs. The group must be re-clustered BELOW the
+    # pinned-top hub — not jammed into the pinned hub's slot (which on real Plex
+    # fails float-precision convergence every run, leaving the group split).
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import (
+        slot_in_hub, set_pin, get_library_hub_order,
+        HUB_TYPE_COLLECTION, HUB_TYPE_EXTERNAL, PIN_TOP,
+    )
+
+    lib = "Anime"
+    slot_in_hub(lib, "Recently Added TV", HUB_TYPE_EXTERNAL)
+    slot_in_hub(lib, "New Premieres", HUB_TYPE_EXTERNAL)
+    set_pin(lib, "New Premieres", PIN_TOP)
+    slot_in_hub(lib, "Rec for A", HUB_TYPE_COLLECTION, group_name="Recommended Anime")
+    slot_in_hub(lib, "Rec for B", HUB_TYPE_COLLECTION, group_name="Recommended Anime")
+    slot_in_hub(lib, "Rec for C", HUB_TYPE_COLLECTION, group_name="Recommended Anime")
+    slot_in_hub(lib, "Recently Added in Anime", HUB_TYPE_EXTERNAL)
+    slot_in_hub(lib, "More in (Genre)", HUB_TYPE_EXTERNAL)
+
+    # Plex order: group split by the two external hubs (A,B ... ext,ext ... C).
+    section = FakeSection(lib, [
+        "Recently Added TV", "New Premieres",
+        "Rec for A", "Rec for B",
+        "Recently Added in Anime", "More in (Genre)",
+        "Rec for C",
+    ])
+    server = FakeServer({lib: section})
+
+    errors = enforce_group_adjacency(server, lib)
+    assert errors == [], f"unexpected convergence errors: {errors}"
+
+    titles = [h.title for h in section.managedHubs()]
+    gi = titles.index("Rec for A")
+    assert titles[gi:gi + 3] == ["Rec for A", "Rec for B", "Rec for C"], f"group not contiguous: {titles}"
+    # The group must sit BELOW the pinned-top hub, never above it.
+    assert titles.index("New Premieres") < titles.index("Rec for A"), f"group jumped above pinned-top: {titles}"

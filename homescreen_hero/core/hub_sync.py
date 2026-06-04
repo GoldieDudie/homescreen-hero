@@ -398,6 +398,7 @@ def enforce_group_adjacency(
         return errors
 
     pinned = {r.hub_title for r in rows if r.pin_position is not None}
+    pinned_bottom = {r.hub_title for r in rows if r.pin_position == PIN_BOTTOM}
 
     # Build groups in DB position order, excluding pinned members
     groups_db_order: Dict[str, List[str]] = {}
@@ -423,8 +424,8 @@ def enforce_group_adjacency(
         if first_db_pos is None:
             continue
 
-        # Anchor: among all non-pinned hubs that precede this group in DB
-        # order, pick the one with the HIGHEST current Plex position.
+        # Anchor: among the hubs that precede this group in DB order, pick the
+        # one with the HIGHEST current Plex position.
         #
         # Using the last predecessor in DB order (naive approach) breaks when
         # Plex smart hubs drift to low positions: those hubs never get
@@ -432,10 +433,20 @@ def enforce_group_adjacency(
         # HSH-managed collections are at higher positions. A drifted smart hub
         # as anchor would place the group near the top of the screen instead of
         # after the collection hubs that logically precede it.
+        #
+        # Pinned-TOP hubs ARE eligible anchors: they are locked at the top by
+        # Plex and never drift, so they are reliable. Excluding them caused the
+        # group to be targeted at the pinned hub's slot — e.g. when New Premieres
+        # (pinned top) sits between Recently Added TV and the group, the old code
+        # picked Recently Added TV and tried to move the group's first member
+        # into New Premieres' slot, which Plex's float precision rejected every
+        # run ("would not stay even after re-promote"), leaving the group split.
+        # Only pinned-BOTTOM hubs are excluded (they live at the end, never a
+        # valid top anchor).
         anchor: Optional[str] = None
         best_plex_pos = -1
         for title in db_titles_in_order:
-            if db_pos_of[title] < first_db_pos and title not in pinned and title in position_of:
+            if db_pos_of[title] < first_db_pos and title not in pinned_bottom and title in position_of:
                 if position_of[title] > best_plex_pos:
                     best_plex_pos = position_of[title]
                     anchor = title
