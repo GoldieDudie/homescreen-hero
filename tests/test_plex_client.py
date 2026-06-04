@@ -120,6 +120,74 @@ def test_visibility_needs_update_returns_false_when_all_false_matches():
     assert not plex_client._visibility_needs_update(hub, False, False, False)
 
 
+class FakeManagedHubVisibility:
+    # Mirrors plexapi ManagedHub: _promoted = "is in the Managed Recommendations
+    # list" (separate from the three visibility flags). remove() deletes the entry.
+    def __init__(self, identifier: str, *, promoted: bool = True,
+                 home: bool = False, shared: bool = False, recommended: bool = False,
+                 remove_raises: bool = False):
+        self.identifier = identifier
+        self._promoted = promoted
+        self.promotedToOwnHome = home
+        self.promotedToSharedHome = shared
+        self.promotedToRecommended = recommended
+        self.remove_raises = remove_raises
+        self.removed = False
+        self.update_calls: list[dict] = []
+
+    def remove(self):
+        if self.remove_raises:
+            raise Exception("Simulated Plex remove failure")
+        self.removed = True
+        self._promoted = False
+
+    def updateVisibility(self, home: bool, shared: bool, recommended: bool):
+        self.update_calls.append({"home": home, "shared": shared, "recommended": recommended})
+        self.promotedToOwnHome = home
+        self.promotedToSharedHome = shared
+        self.promotedToRecommended = recommended
+
+
+def test_suppress_removes_lingering_custom_managed_hub():
+    # Lingering entry: in the managed list (_promoted) with all flags False.
+    # Must be removed, not left to accumulate.
+    hub = FakeManagedHubVisibility("custom.collection.1.55497")
+    assert plex_client._suppress_managed_hub(hub) == "removed"
+    assert hub.removed
+    assert hub.update_calls == []
+
+
+def test_suppress_removes_promoted_custom_managed_hub():
+    hub = FakeManagedHubVisibility("custom.collection.1.54910", recommended=True)
+    assert plex_client._suppress_managed_hub(hub) == "removed"
+    assert hub.removed
+
+
+def test_suppress_leaves_system_hub_demotes_instead_of_removing():
+    # Default system hubs (deletable in Plex but must never be removed) fall back
+    # to a plain demote.
+    hub = FakeManagedHubVisibility("movie.recentlyadded", recommended=True)
+    assert plex_client._suppress_managed_hub(hub) == "demoted"
+    assert not hub.removed
+    assert hub.update_calls == [{"home": False, "shared": False, "recommended": False}]
+
+
+def test_suppress_noop_when_not_a_managed_rec():
+    # Never-promoted collection (not in managed list, flags already clear).
+    hub = FakeManagedHubVisibility("custom.collection.1.99999", promoted=False)
+    assert plex_client._suppress_managed_hub(hub) == "noop"
+    assert not hub.removed
+    assert hub.update_calls == []
+
+
+def test_suppress_falls_back_to_demote_when_remove_fails():
+    hub = FakeManagedHubVisibility("custom.collection.1.55497", recommended=True,
+                                   remove_raises=True)
+    assert plex_client._suppress_managed_hub(hub) == "demoted"
+    assert not hub.removed
+    assert hub.update_calls == [{"home": False, "shared": False, "recommended": False}]
+
+
 # ---- move_hub_after_verified: float-precision convergence recovery ----------
 
 class ConvergenceFakeHub:

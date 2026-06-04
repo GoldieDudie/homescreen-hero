@@ -891,3 +891,31 @@ class TestOrderCollectionsForDisplay:
             rng=random.Random(0),
         )
         assert result == [pin, regular]
+
+    def test_group_collection_order_alpha_sorts_within_group(self):
+        config = _make_test_config(groups=[
+            CollectionGroupConfig(
+                name="Genres", enabled=True, collection_order="alpha",
+                collections=[cr("Zombie"), cr("Action"), cr("Mystery")],
+            ),
+        ])
+        members = [cr("Zombie"), cr("Action"), cr("Mystery")]
+        result = order_collections_for_display(members, config, rng=random.Random(0))
+        assert result == [cr("Action"), cr("Mystery"), cr("Zombie")]
+
+    def test_group_collection_order_random_does_not_force_alpha(self):
+        # Regression for the within-group "always alphabetical in Plex" bug:
+        # collection_order None/random must shuffle, not sort A→Z.
+        config = _make_test_config(groups=[
+            CollectionGroupConfig(
+                name="Genres", enabled=True, collection_order=None,  # None == random
+                collections=[cr("Action"), cr("Mystery"), cr("Zombie"), cr("Bottle")],
+            ),
+        ])
+        members = [cr("Action"), cr("Mystery"), cr("Zombie"), cr("Bottle")]
+        alpha = sorted(members, key=lambda r: (r.library, r.name))
+        # Seed chosen so the shuffle differs from alphabetical; result must still
+        # contain every member exactly once.
+        result = order_collections_for_display(members, config, rng=random.Random(1))
+        assert sorted(result, key=lambda r: r.name) == sorted(members, key=lambda r: r.name)
+        assert result != alpha

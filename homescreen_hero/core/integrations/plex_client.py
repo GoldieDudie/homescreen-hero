@@ -266,6 +266,35 @@ def _visibility_needs_update(hub, home: bool, shared: bool, recommended: bool) -
     return current_home != home or current_shared != shared or current_recommended != recommended
 
 
+def _suppress_managed_hub(hub_vis) -> str:
+    # Fully drop an HSH-managed collection from the library's Managed
+    # Recommendations rather than only clearing its visibility flags.
+    #
+    # updateVisibility(False, False, False) flips the promoted flags but leaves
+    # the ManagedHub entry in place (_promoted stays True, all flags False). The
+    # entry then lingers in managedHubs() forever, bloating LibraryHubOrder and
+    # the group-adjacency machinery until oversized groups defeat the chained
+    # moves (float-precision convergence). ManagedHub.remove() deletes the entry
+    # so the collection leaves managedHubs() until it is promoted again.
+    #
+    # Only custom collections are removed; default system hubs
+    # (movie.recentlyadded, recent.library.playlists, ...) are left untouched
+    # even though Plex reports them deletable. Returns "removed" | "demoted" | "noop".
+    identifier = str(getattr(hub_vis, "identifier", "") or "")
+    if getattr(hub_vis, "_promoted", False) and identifier.startswith("custom.collection"):
+        try:
+            hub_vis.remove()
+            return "removed"
+        except Exception as e:
+            # Fall back to a plain demote so visibility is still cleared.
+            logger.warning("remove() failed for managed hub '%s': %s — falling back to demote",
+                           getattr(hub_vis, "title", identifier), e)
+    if _visibility_needs_update(hub_vis, False, False, False):
+        hub_vis.updateVisibility(home=False, shared=False, recommended=False)
+        return "demoted"
+    return "noop"
+
+
 def apply_home_screen_selection(
     server: PlexServer,
     config: AppConfig,
@@ -342,6 +371,7 @@ def apply_home_screen_selection(
             continue
 
     applied: List[CollectionRef] = []
+    removed_count = 0
 
     logger.info(
         "Applying home screen selection to %d total collections (%d configured, %d previously rotated) across %d libraries (dry_run=%s)",
@@ -361,10 +391,34 @@ def apply_home_screen_selection(
         pinned_libraries[p.collection_name].add(p.library_name)
     pinned_names: Set[str] = set(pinned_order.keys())
 
+    # Promote selected collections in their intended display order (which honors
+    # each group's collection_order — e.g. random for the Home Screen group)
+    # rather than alphabetically. Plex appends newly-promoted hubs to the managed
+    # list in promotion order, so this is what fixes the persisted within-group
+    # order: previously sort_key fell back to alphabetical (1, 0, name), which
+    # forced groups to display A→Z regardless of collection_order=random.
+    # Unselected/demoted names are not in this map and trail (their order is
+    # irrelevant — they are being removed).
+    from ..rotation import order_collections_for_display
+    _pin_refs = {CollectionRef(library=p.library_name, name=p.collection_name) for p in pinned_db}
+    _pin_order_refs = {CollectionRef(library=p.library_name, name=p.collection_name): p.display_order for p in pinned_db}
+    _pin_pos_refs = {CollectionRef(library=p.library_name, name=p.collection_name): p.pin_position for p in pinned_db}
+    ordered_selected = order_collections_for_display(
+        list(selected_set),
+        config,
+        pinned_names=_pin_refs,
+        pinned_order=_pin_order_refs,
+        smart_group_collections=smart_group_collections,
+        pinned_positions=_pin_pos_refs,
+    )
+    promote_order_index: Dict[str, int] = {}
+    for i, ref in enumerate(ordered_selected):
+        promote_order_index.setdefault(ref.name, i)
+
     def sort_key(name: str) -> tuple:
         if name in pinned_names:
             return (0, pinned_order[name], name)
-        return (1, 0, name)
+        return (1, promote_order_index.get(name, len(promote_order_index)), name)
 
     for name in sorted(all_names_to_process, key=sort_key):
         instances = all_instances.get(name)
@@ -416,8 +470,8 @@ def apply_home_screen_selection(
                         continue
                     else:
                         logger.debug("Suppressing non-pinned library instance of '%s' (lib=%s)", name, lib)
-                        if not dry_run and _visibility_needs_update(hub, False, False, False):
-                            hub.updateVisibility(home=False, shared=False, recommended=False)
+                        if not dry_run:
+                            _suppress_managed_hub(hub)
                         continue
 
                 if matching_ref is not None:
@@ -448,16 +502,17 @@ def apply_home_screen_selection(
                         logger.debug("Skipping '%s' in unmanaged library '%s'", name, lib)
                         continue
                     logger.debug("Suppressing unselected library instance of '%s' (lib=%s)", name, lib)
-                    if not dry_run and _visibility_needs_update(hub, False, False, False):
-                        hub.updateVisibility(home=False, shared=False, recommended=False)
+                    if not dry_run:
+                        _suppress_managed_hub(hub)
 
             # Track applied refs (all selected refs for this name that had instances)
             for ref in selected_name_refs:
                 if any(lib == ref.library for lib, _ in instances) or (ref.library == "" and instances):
                     applied.append(ref)
         else:
-            # Not selected: disable matching instances, but only where we manage the library
-            # AND only specific (lib, name) instances we've previously rotated or have configured.
+            # Not selected: drop matching instances from Managed Recommendations,
+            # but only where we manage the library AND only specific (lib, name)
+            # instances we've previously rotated or have configured.
             configured_pairs: Set[Tuple[str, str]] = {(r.library, r.name) for r in configured_refs}
             for _lib, coll in instances:
                 if _lib not in active_libraries:
@@ -469,17 +524,17 @@ def apply_home_screen_selection(
                     logger.debug("Leaving unmanaged collection '%s' (lib=%s) untouched", name, _lib)
                     continue
                 if pair in previously_rotated_refs and pair not in configured_pairs:
-                    logger.info("Disabling visibility for previously managed collection (removed from config): %s (lib=%s)", name, _lib)
+                    logger.debug("Removing previously managed collection (removed from config): %s (lib=%s)", name, _lib)
                 else:
-                    logger.debug("Disabling visibility for collection: %s (lib=%s)", name, _lib)
+                    logger.debug("Removing unselected collection from managed recs: %s (lib=%s)", name, _lib)
                 if not dry_run:
-                    hub_vis = coll.visibility()
-                    if _visibility_needs_update(hub_vis, False, False, False):
-                        hub_vis.updateVisibility(home=False, shared=False, recommended=False)
+                    if _suppress_managed_hub(coll.visibility()) == "removed":
+                        removed_count += 1
 
     logger.info(
-        "Home screen selection applied; %d collections enabled, %d collections processed",
+        "Home screen selection applied; %d collections enabled, %d removed from managed recs, %d collections processed",
         len(applied),
+        removed_count,
         len(all_names_to_process),
     )
 
