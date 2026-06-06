@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Dict, List, Optional, Tuple
 
 from plexapi.server import PlexServer
@@ -39,11 +40,22 @@ class SyncResult:
 def _build_collection_to_group_map(
     config: AppConfig,
     smart_group_collections: Optional[Dict[str, List[CollectionRef]]] = None,
+    today: Optional[date] = None,
 ) -> Dict[Tuple[str, str], str]:
     # (library_name, collection_name) -> group_name
+    # Only ACTIVE groups may claim a collection. A disabled or out-of-season group
+    # must not label hubs that an active group actually produced — otherwise two
+    # active groups that share a collection with an inactive superset group get
+    # clustered under the inactive group's name (e.g. Chill/Intense Genres rendered
+    # as the deactivated Home Screen group).
+    from .rotation import _group_is_active
+
     result: Dict[Tuple[str, str], str] = {}
     smart_group_collections = smart_group_collections or {}
+    today = today or date.today()
     for group in config.groups:
+        if not _group_is_active(group, today):
+            continue
         if group.smart:
             refs = smart_group_collections.get(group.name, [])
         else:

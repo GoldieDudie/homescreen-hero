@@ -149,6 +149,52 @@ def _make_config_with_group(library_name, group_name, collection_names):
     )
 
 
+# ---- _build_collection_to_group_map tests ----
+
+def test_collection_map_ignores_disabled_group_so_active_groups_win():
+    # A disabled superset group ("Home Screen") shares collections with two active
+    # subgroups. The map must label each collection with its ACTIVE group, never the
+    # disabled one — otherwise both subgroups render as the deactivated Home Screen.
+    from homescreen_hero.core.hub_sync import _build_collection_to_group_map
+    from homescreen_hero.core.config.schema import (
+        AppConfig, PlexSettings, PlexLibraryConfig, RotationSettings,
+        CollectionGroupConfig, CollectionRef,
+    )
+
+    lib = "Movies"
+    ref = lambda n: CollectionRef(library=lib, name=n)
+    config = AppConfig(
+        plex=PlexSettings(
+            base_url="http://localhost:32400",
+            token="test-token",
+            libraries=[PlexLibraryConfig(name=lib, enabled=True)],
+        ),
+        rotation=RotationSettings(enabled=True, max_collections=10),
+        groups=[
+            CollectionGroupConfig(
+                name="Home Screen", enabled=False, min_picks=1, max_picks=10,
+                collections=[ref("Comedy"), ref("Drama"), ref("Horror"), ref("Thriller")],
+            ),
+            CollectionGroupConfig(
+                name="Chill Genres", enabled=True, min_picks=1, max_picks=10,
+                collections=[ref("Comedy"), ref("Drama")],
+            ),
+            CollectionGroupConfig(
+                name="Intense Genres", enabled=True, min_picks=1, max_picks=10,
+                collections=[ref("Horror"), ref("Thriller")],
+            ),
+        ],
+    )
+
+    result = _build_collection_to_group_map(config)
+
+    assert result[(lib, "Comedy")] == "Chill Genres"
+    assert result[(lib, "Drama")] == "Chill Genres"
+    assert result[(lib, "Horror")] == "Intense Genres"
+    assert result[(lib, "Thriller")] == "Intense Genres"
+    assert "Home Screen" not in result.values()
+
+
 # ---- sync_library_hub_order tests ----
 
 def test_sync_adds_all_hubs_on_first_run(monkeypatch):
