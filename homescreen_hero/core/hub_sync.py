@@ -23,7 +23,11 @@ from .db import (
     slot_in_hub,
     upsert_hub,
 )
-from .integrations.plex_client import _get_managed_hubs_for_library, move_hub_after_verified
+from .integrations.plex_client import (
+    _get_managed_hubs_for_library,
+    move_hub_after_verified,
+    repromote_hub,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -360,6 +364,111 @@ def _place_group_consecutive(
     return errors
 
 
+def _regroup_via_repromote(
+    server: PlexServer,
+    library_name: str,
+    group_name: str,
+    members_in_order: List[str],
+    head_anchor: Optional[str],
+) -> List[str]:
+    # Last-resort placement when chained moves cannot make a group contiguous
+    # because its float region has converged (the per-hub re-promote recovery in
+    # move_hub_after_verified refreshes only the moved hub, never the saturated
+    # anchor gap it's inserted into).
+    #
+    # Re-promote every member in DB order: each unpromote+repromote re-appends
+    # the hub to the END of managedHubs with fresh, widely-spaced floats, so
+    # after the loop the members are contiguous and correctly ordered at the
+    # tail. The internal gaps between them are now fresh, so the subsequent chain
+    # never has to insert into a saturated gap. Only the single head→anchor move
+    # targets the original (possibly saturated) region; if that one move can't
+    # win, the group is left contiguous-but-trailing — which self-corrects on a
+    # later rotation and is strictly better than leaving it split across the
+    # screen.
+    #
+    # Returns a list of error messages (empty when the group ends contiguous,
+    # regardless of whether the absolute head position was achieved).
+    errors: List[str] = []
+
+    def positions() -> Dict[str, int]:
+        hubs = _get_managed_hubs_for_library(server, library_name)
+        return {h.title: i for i, h in enumerate(hubs)}
+
+    logger.info(
+        "Regrouping '%s' in '%s' via re-promote (%d members) — chained moves "
+        "could not cluster the group (float convergence)",
+        group_name, library_name, len(members_in_order),
+    )
+
+    # 1) Re-promote each member in order → contiguous, ordered, fresh floats at tail.
+    repromotable: List[str] = []
+    for member in members_in_order:
+        err = repromote_hub(server, library_name, member)
+        if err:
+            # A member with no visibility flags (smart/built-in) genuinely cannot
+            # be re-promoted; record it but keep going so the rest still cluster.
+            errors.append(f"[group '{group_name}'] regroup re-promote: {err}")
+            logger.warning("Regroup re-promote failed: %s", err)
+            continue
+        repromotable.append(member)
+
+    if not repromotable:
+        return errors
+
+    # 2) Place the head at its absolute position (after the anchor). Failure here
+    #    is tolerated: the group is already contiguous at the tail.
+    try:
+        pos = positions()
+    except Exception as e:
+        errors.append(f"[group '{group_name}'] regroup could not load hubs: {e}")
+        return errors
+
+    head = repromotable[0]
+    head_target_ok = head in pos and (
+        (head_anchor is None and pos[head] == 0)
+        or (head_anchor is not None and head_anchor in pos
+            and pos[head] == pos[head_anchor] + 1)
+    )
+    if not head_target_ok:
+        err = move_hub_after_verified(server, library_name, head, head_anchor)
+        if err:
+            logger.info(
+                "Regroup of '%s' in '%s': group is contiguous but head could not "
+                "reach its anchor slot (%s) — leaving contiguous-but-trailing, "
+                "will self-correct: %s",
+                group_name, library_name, head_anchor, err,
+            )
+            return errors  # contiguous-but-trailing — not a hard failure
+        try:
+            pos = positions()
+        except Exception as e:
+            errors.append(f"[group '{group_name}'] regroup could not reload hubs: {e}")
+            return errors
+
+    # 3) Chain the rest after the head. Members share fresh floats now, so these
+    #    moves land without re-promotion.
+    prev = head
+    for member in repromotable[1:]:
+        if member not in pos:
+            continue
+        if prev in pos and pos[member] == pos[prev] + 1:
+            prev = member
+            continue
+        err = move_hub_after_verified(server, library_name, member, prev)
+        if err:
+            errors.append(f"[group '{group_name}'] regroup chain: {err}")
+            logger.warning("Regroup chain move failed: %s", err)
+            return errors
+        try:
+            pos = positions()
+        except Exception as e:
+            errors.append(f"[group '{group_name}'] regroup could not reload hubs: {e}")
+            return errors
+        prev = member
+
+    return errors
+
+
 def enforce_group_adjacency(
     server: PlexServer,
     library_name: str,
@@ -496,6 +605,11 @@ def enforce_group_adjacency(
         if not needs_reposition and not needs_adjacency:
             continue
 
+        # Placement errors are held locally: a chained-move failure that the
+        # whole-group re-promote recovery below then fixes should NOT surface as
+        # a rotation error. They are only committed if the group is still broken
+        # after regroup.
+        placement_errors: List[str] = []
         if needs_reposition:
             logger.info(
                 "Repositioning group '%s' in '%s': first member '%s' at Plex pos %d, "
@@ -506,7 +620,7 @@ def enforce_group_adjacency(
             # Move first member to its correct absolute position, then chain the
             # rest after it.
             seq = [m for m in members if m in position_of]
-            errors.extend(_place_group_consecutive(
+            placement_errors.extend(_place_group_consecutive(
                 server, library_name, group_name,
                 head=seq[0], head_anchor=effective_anchor, tail=seq[1:],
                 move_head=True,
@@ -523,7 +637,7 @@ def enforce_group_adjacency(
                 group_name, library_name, len(members_by_plex),
                 [position_of[m] for m in members_by_plex],
             )
-            errors.extend(_place_group_consecutive(
+            placement_errors.extend(_place_group_consecutive(
                 server, library_name, group_name,
                 head=members_by_plex[0], head_anchor=None, tail=members_by_plex[1:],
                 move_head=False,
@@ -535,23 +649,60 @@ def enforce_group_adjacency(
             plex_titles = [h.title for h in plex_hubs]
             position_of = {title: i for i, title in enumerate(plex_titles)}
         except Exception as e:
+            errors.extend(placement_errors)
             errors.append(f"Could not refresh hubs after processing group '{group_name}': {e}")
             break
 
         # Final verification: the group should now be contiguous in Plex. If it
-        # is not, float-precision convergence defeated even the re-promote
-        # recovery in move_hub_after_verified — surface it rather than silently
-        # re-trying next rotation forever.
-        final_positions = sorted(position_of[m] for m in members if m in position_of)
-        if len(final_positions) >= 2 and (
-            final_positions[-1] - final_positions[0] != len(final_positions) - 1
-        ):
-            msg = (
-                f"group '{group_name}' in '{library_name}' still scattered after "
-                f"enforcement (positions {final_positions}) — precision convergence"
-            )
-            errors.append(msg)
-            logger.warning(msg)
+        # is not, float-precision convergence defeated the per-hub re-promote
+        # recovery in move_hub_after_verified (which refreshes only the moved
+        # hub, never the saturated anchor gap). Recover by re-promoting the whole
+        # group so every member gets fresh float spacing, then re-verify.
+        def _is_scattered(pos_map: Dict[str, int]) -> Optional[List[int]]:
+            ps = sorted(pos_map[m] for m in members if m in pos_map)
+            if len(ps) >= 2 and ps[-1] - ps[0] != len(ps) - 1:
+                return ps
+            return None
+
+        if _is_scattered(position_of) is None:
+            # Group is contiguous — placement succeeded (or self-resolved). Any
+            # transient placement_errors are discarded.
+            continue
+
+        regroup_errors = _regroup_via_repromote(
+            server, library_name, group_name, [m for m in members if m in position_of],
+            effective_anchor,
+        )
+        try:
+            plex_hubs = _get_managed_hubs_for_library(server, library_name)
+            plex_titles = [h.title for h in plex_hubs]
+            position_of = {title: i for i, title in enumerate(plex_titles)}
+        except Exception as e:
+            errors.extend(placement_errors + regroup_errors)
+            errors.append(f"Could not refresh hubs after regrouping '{group_name}': {e}")
+            break
+
+        still = _is_scattered(position_of)
+        if still is None:
+            # Regroup made the group contiguous — the earlier placement churn is
+            # not actionable, so it is logged-only and not surfaced as an error.
+            if placement_errors or regroup_errors:
+                logger.info(
+                    "Group '%s' in '%s' clustered via re-promote recovery (%d "
+                    "transient placement issue(s) resolved)",
+                    group_name, library_name, len(placement_errors) + len(regroup_errors),
+                )
+            continue
+
+        # Still scattered even after a full re-promote: genuinely unrecoverable
+        # (e.g. members are smart/built-in hubs that cannot be re-promoted).
+        errors.extend(placement_errors + regroup_errors)
+        msg = (
+            f"group '{group_name}' in '{library_name}' still scattered after "
+            f"regroup (positions {still}) — precision convergence"
+        )
+        errors.append(msg)
+        logger.warning(msg)
 
     return errors
 

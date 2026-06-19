@@ -42,6 +42,12 @@ class FakeHub:
         # visibility cycle clears it. Off by default so existing tests behave
         # exactly as before.
         self.drift_until_repromote = False
+        # Models Plex float-gap saturation: while set, the *gap after this hub*
+        # is too tight to receive a moved hub, so a move(after=this) is accepted
+        # but re-normalises the moved hub to the end. Distinct from
+        # drift_until_repromote (a property of the moved hub); this is a property
+        # of the anchor. Cleared when THIS hub is re-promoted (fresh floats).
+        self.saturated_anchor = False
         self.visibility_cycles = 0
 
     def move(self, after=None):
@@ -54,6 +60,9 @@ class FakeHub:
         hubs.remove(self)
         if self.drift_until_repromote:
             hubs.append(self)
+            return
+        if after is not None and getattr(after, "saturated_anchor", False):
+            hubs.append(self)  # gap after the anchor is saturated → re-normalise to end
             return
         if after is None:
             hubs.insert(0, self)
@@ -71,6 +80,8 @@ class FakeHub:
         if home:  # the re-promote (on) half of a recovery cycle
             self.visibility_cycles += 1
             self.drift_until_repromote = False
+        if home or recommended:  # any re-promote restores fresh float spacing
+            self.saturated_anchor = False
 
 
 class FakeSection:
@@ -501,6 +512,48 @@ def test_adjacency_reports_precision_convergence_for_unrecoverable_member(monkey
     assert errors != []
     assert any("not re-promotable" in e or "precision convergence" in e for e in errors)
     assert b.visibility_cycles == 0
+
+
+def test_adjacency_recovers_saturated_group_via_whole_group_repromote(monkeypatch):
+    # Production scenario (Recommended TV Series): chained moves cannot cluster a
+    # group because the float gap after its anchor is saturated — the per-hub
+    # re-promote in move_hub_after_verified refreshes only the moved hub, never
+    # the anchor gap, so the placement fails identically every rotation. The
+    # whole-group re-promote recovery re-promotes every member (clearing the
+    # saturation) so the group clusters, and the transient placement failure is
+    # NOT surfaced as a rotation error.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_COLLECTION
+
+    _no_sleep(monkeypatch)
+    slot_in_hub("Movies", "X", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "B", HUB_TYPE_COLLECTION, group_name="G")
+    slot_in_hub("Movies", "C", HUB_TYPE_COLLECTION, group_name="G")
+
+    # Plex: group scattered (Y interleaves), members are recommended-only, and
+    # the gap after anchor A is saturated so plain chained moves fail.
+    section = FakeSection("Movies", ["X", "A", "Y", "B", "C"])
+    server = FakeServer({"Movies": section})
+    for title in ("A", "B", "C"):
+        h = next(x for x in section._hubs if x.title == title)
+        h.promotedToRecommended = True
+    a = next(x for x in section._hubs if x.title == "A")
+    a.saturated_anchor = True
+
+    errors = enforce_group_adjacency(server, "Movies")
+
+    # Group clustered, contiguous, in order, right after its anchor X — and no
+    # error surfaced despite the chained-move failure that triggered recovery.
+    assert errors == []
+    titles = [h.title for h in section.managedHubs()]
+    x_idx = titles.index("X")
+    assert titles[x_idx + 1:x_idx + 4] == ["A", "B", "C"], f"got {titles}"
+    # Re-promote restored the members' visibility (recommended stays on).
+    assert all(
+        next(x for x in section._hubs if x.title == t).promotedToRecommended
+        for t in ("A", "B", "C")
+    )
 
 
 def test_adjacency_selective_skip_leaves_correct_members_untouched(monkeypatch):

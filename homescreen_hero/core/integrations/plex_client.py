@@ -714,6 +714,50 @@ def _move_landed(hubs: List[Any], hub_title: str, after_hub_title: Optional[str]
     return idx == titles.index(after_hub_title) + 1
 
 
+def repromote_hub(
+    server: PlexServer,
+    library_name: str,
+    hub_title: str,
+) -> Optional[str]:
+    # Unpromote then re-promote a hub, preserving its current visibility flags.
+    # Plex destroys the managedHubs entry on unpromote and re-appends it to the
+    # END of the list with fresh, widely-spaced float ordering on re-promote.
+    # Used to give a whole group's members fresh float spacing so they can be
+    # chained contiguously without inserting into a saturated float gap (see
+    # move_hub_after_verified — its per-hub recovery refreshes only the moved
+    # hub, never the anchor gap, so a group whose float region has converged
+    # cannot be re-clustered by moves alone). Returns None on success, else an
+    # error message. Non-promotable hubs (smart/built-in, no flags) cannot be
+    # re-promoted and return an error.
+    try:
+        hubs = _get_managed_hubs_for_library(server, library_name)
+    except Exception as e:
+        return f"Could not load managed hubs for '{library_name}': {e}"
+
+    target = next((h for h in hubs if h.title == hub_title), None)
+    if target is None:
+        return f"Hub '{hub_title}' not found in '{library_name}'"
+
+    home = bool(getattr(target, "promotedToOwnHome", False))
+    shared = bool(getattr(target, "promotedToSharedHome", False))
+    recommended = bool(getattr(target, "promotedToRecommended", False))
+    if not (home or shared or recommended):
+        return (
+            f"Hub '{hub_title}' has no visibility flags set; cannot re-promote "
+            f"in '{library_name}' (smart/built-in)"
+        )
+
+    try:
+        target.updateVisibility(home=False, shared=False, recommended=False)
+        time.sleep(_VISIBILITY_SETTLE_SECONDS)
+        target.updateVisibility(home=home, shared=shared, recommended=recommended)
+        time.sleep(_VISIBILITY_SETTLE_SECONDS)
+    except Exception as e:
+        return f"Visibility cycle failed re-promoting '{hub_title}' in '{library_name}': {e}"
+
+    return None
+
+
 def move_hub_after_verified(
     server: PlexServer,
     library_name: str,

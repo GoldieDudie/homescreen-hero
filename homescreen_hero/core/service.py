@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
+from collections import defaultdict
 from datetime import date
 import threading
 import time
@@ -37,10 +38,39 @@ from .db import (
 logger = logging.getLogger(__name__)
 
 
+def _changed_libraries_since_last_rotation(
+    applied_collections: List[CollectionRef],
+) -> Optional[Set[str]]:
+    # Return the set of library names whose promoted-collection membership
+    # differs from the previous rotation. Must be called BEFORE record_rotation
+    # writes this rotation's history (get_last_rotation_collections then still
+    # returns the prior rotation). Returns None to signal "enforce all" — used as
+    # a safe fallback when history can't be read.
+    try:
+        from .db.history import get_last_rotation_collections
+        prev = get_last_rotation_collections()
+    except Exception as e:
+        logger.warning("Could not load last rotation for change detection; enforcing all libraries: %s", e)
+        return None
+
+    prev_by_lib: Dict[str, Set[str]] = defaultdict(set)
+    for r in prev:
+        prev_by_lib[r.library].add(r.name)
+    curr_by_lib: Dict[str, Set[str]] = defaultdict(set)
+    for r in applied_collections:
+        curr_by_lib[r.library].add(r.name)
+
+    return {
+        lib for lib in set(prev_by_lib) | set(curr_by_lib)
+        if prev_by_lib[lib] != curr_by_lib[lib]
+    }
+
+
 def _sync_hub_order_post_rotation(
     server,
     config: AppConfig,
     smart_group_collections: Optional[Dict[str, List[CollectionRef]]],
+    applied_collections: Optional[List[CollectionRef]] = None,
 ) -> None:
     # After rotation visibility is applied:
     # 1. Reconcile per-library hub order in our DB (slot-in newly active hubs,
@@ -52,6 +82,23 @@ def _sync_hub_order_post_rotation(
     from .hub_sync import sync_library_hub_order, enforce_group_adjacency
     from .db import get_library_hub_order, PIN_TOP, PIN_BOTTOM
     from .integrations.plex_client import _get_managed_hubs_for_library, move_hub_after, pin_hub_to_top
+
+    # Group-adjacency moves are the main source of live home-screen "churn" a
+    # browsing user can catch mid-rotation. A library whose promoted-collection
+    # membership is unchanged this rotation has no newly-appended hubs to cluster,
+    # so re-running adjacency would only chase cosmetic float drift while
+    # scrambling the live view. Skip adjacency for unchanged libraries; pin
+    # enforcement still runs (it self-skips when pins are already in place) and
+    # re-triggers adjacency only if a pin actually moves. None = enforce all.
+    changed_libraries: Optional[Set[str]] = (
+        _changed_libraries_since_last_rotation(applied_collections)
+        if applied_collections is not None else None
+    )
+    if changed_libraries is not None:
+        logger.info(
+            "Hub-order adjacency scoped to changed libraries: %s",
+            sorted(changed_libraries) if changed_libraries else "(none changed)",
+        )
 
     for lib in config.plex.libraries:
         if not lib.enabled:
@@ -67,16 +114,25 @@ def _sync_hub_order_post_rotation(
             logger.error("Hub order sync failed for library '%s': %s", lib.name, e, exc_info=True)
             continue
 
+        membership_changed = changed_libraries is None or lib.name in changed_libraries
+
         # Cluster scattered group members (rotation appends new hubs at default
         # positions which fragments groups). Runs before pin enforcement so pins
-        # still win the top/bottom slots.
-        try:
-            adjacency_errors = enforce_group_adjacency(server, lib.name)
-            for err in adjacency_errors:
-                logger.warning("Post-rotation adjacency in '%s': %s", lib.name, err)
-        except Exception as e:
-            logger.error("Group adjacency enforcement failed for '%s': %s",
-                         lib.name, e, exc_info=True)
+        # still win the top/bottom slots. Skipped when this library's membership
+        # is unchanged — nothing was appended, so nothing scattered.
+        if membership_changed:
+            try:
+                adjacency_errors = enforce_group_adjacency(server, lib.name)
+                for err in adjacency_errors:
+                    logger.warning("Post-rotation adjacency in '%s': %s", lib.name, err)
+            except Exception as e:
+                logger.error("Group adjacency enforcement failed for '%s': %s",
+                             lib.name, e, exc_info=True)
+        else:
+            logger.debug(
+                "Skipping group adjacency for '%s' — promoted membership unchanged this rotation",
+                lib.name,
+            )
 
         # Re-enforce pins (at most 2 single moves per library)
         pin_moved = False
@@ -384,7 +440,7 @@ def run_rotation_once(
     )
 
     if not dry_run:
-        _sync_hub_order_post_rotation(server, config, smart_group_collections)
+        _sync_hub_order_post_rotation(server, config, smart_group_collections, applied_collections=applied)
 
         try:
             from .user_targeting import apply_rotation_targeting, sync_all_user_filters
