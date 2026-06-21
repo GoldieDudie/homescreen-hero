@@ -473,19 +473,27 @@ def enforce_group_adjacency(
     server: PlexServer,
     library_name: str,
 ) -> List[str]:
-    # Ensure HSH-managed groups in Plex match the DB-specified order in two ways:
+    # Ensure HSH-managed hubs in Plex match the DB-specified order. The unit of
+    # enforcement is either a multi-member GROUP or a single ungrouped COLLECTION
+    # (despite the legacy name, this is no longer groups-only); both are held to
+    # their DB slot in two ways:
     #
-    #   (a) ADJACENCY: all group members are consecutive in Plex's hub list.
-    #       Plex appends newly-promoted hubs to the end, scattering group members.
+    #   (a) ADJACENCY: all of a group's members are consecutive in Plex's hub
+    #       list. Plex appends newly-promoted hubs to the end, scattering members.
+    #       (No-op for a single collection — nothing to cluster.)
     #
-    #   (b) ABSOLUTE POSITION: each group starts immediately after its DB anchor
-    #       (the nearest non-pinned hub that precedes the group's first member in
-    #       DB position order). When updateVisibility re-appends an entire group
-    #       to the end, the group is internally contiguous but at the wrong slot —
-    #       adjacency alone would miss this.
+    #   (b) ABSOLUTE POSITION: each unit starts immediately after its DB anchor
+    #       (the nearest non-pinned hub that precedes the unit's first member in
+    #       DB position order). When updateVisibility re-appends a unit to the
+    #       end, it is internally contiguous but at the wrong slot — adjacency
+    #       alone would miss this.
     #
-    # Groups are processed in DB order (top → bottom). After each group is fixed,
-    # Plex's hub list is re-fetched so subsequent groups see the updated positions.
+    # Only re-promotable custom collections are moved; native/smart hubs (Recently
+    # Added, Seasonal, …) are never repositioned and serve as stable anchors —
+    # they cannot be convergence-recovered, and the user does not reorder them.
+    #
+    # Units are processed in DB order (top → bottom). After each unit is fixed,
+    # Plex's hub list is re-fetched so later units see the updated positions.
     # Pinned hubs are never moved here; pin enforcement runs after and wins.
     #
     # Returns a list of error messages (empty on full success).
@@ -527,18 +535,44 @@ def enforce_group_adjacency(
         if row.group_name and row.hub_title not in pinned:
             groups_db_order.setdefault(row.group_name, []).append(row.hub_title)
 
-    if not groups_db_order:
+    # Detect ungrouped hubs that are re-promotable custom collections. HSH's DB
+    # types every ungrouped hub as 'external', so classify by the LIVE Plex
+    # identifier instead: custom collections can be repositioned and convergence-
+    # recovered (they have a rating key), whereas native/smart hubs (Recently
+    # Added, Seasonal, …) cannot. We position collections to their DB slot and
+    # leave native hubs untouched as stable anchors.
+    collection_titles = {
+        h.title for h in plex_hubs
+        if str(getattr(h, "identifier", "") or "").startswith("custom.collection.")
+    }
+
+    # Enforcement units in DB position order. A unit is either a multi-member
+    # group or a single ungrouped collection; both are positioned to their DB
+    # slot via the same anchor logic below (a single member simply has no
+    # internal adjacency to enforce). Generalising to ungrouped collections means
+    # a lone collection no longer needs to be put in a group to be held in place.
+    units: List[Tuple[str, List[str]]] = []
+    seen_groups: Set[str] = set()
+    for row in rows:  # DB position order
+        if row.hub_title in pinned:
+            continue
+        if row.group_name:
+            if row.group_name in seen_groups:
+                continue
+            seen_groups.add(row.group_name)
+            members = groups_db_order.get(row.group_name)
+            if members:
+                units.append((row.group_name, members))
+        elif row.hub_title in collection_titles:
+            units.append((row.hub_title, [row.hub_title]))
+
+    if not units:
         return errors
 
     db_pos_of = {r.hub_title: r.position for r in rows}
     db_titles_in_order = [r.hub_title for r in rows]
 
-    for group_name, members in groups_db_order.items():
-        # Single-member groups have no internal adjacency to enforce, but their
-        # one member still gets pinned to its DB position via the anchor logic
-        # below (needs_adjacency stays False for them). This lets a user hold a
-        # lone collection in place by putting it in its own group — the only way
-        # HSH positions an otherwise-ungrouped collection hub.
+    for group_name, members in units:
         if not members:
             continue
 

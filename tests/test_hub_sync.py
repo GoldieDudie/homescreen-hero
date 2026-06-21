@@ -472,6 +472,55 @@ def test_adjacency_single_member_group_no_op_when_already_placed():
     assert all(h.move_calls == 0 for h in section._hubs)
 
 
+def test_enforce_positions_ungrouped_collection_without_group():
+    # An ungrouped custom collection is held at its DB position with NO group —
+    # classified as a collection by its live "custom.collection.*" identifier,
+    # with a native hub serving as its anchor.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_EXTERNAL
+
+    # DB order: native "Recently Added", then collection "Under 100"
+    slot_in_hub("Movies", "Recently Added", HUB_TYPE_EXTERNAL)
+    slot_in_hub("Movies", "Under 100", HUB_TYPE_EXTERNAL)
+
+    # Plex has the collection drifted ABOVE the native anchor
+    section = FakeSection("Movies", [
+        ("Under 100", True, "custom.collection.1.88"),
+        ("Recently Added", False, "movie.recentlyadded"),
+    ])
+    server = FakeServer({"Movies": section})
+
+    errors = enforce_group_adjacency(server, "Movies")
+    assert errors == []
+    assert [h.title for h in section.managedHubs()] == ["Recently Added", "Under 100"]
+    # Only the collection moved; the native anchor was never touched.
+    ra = next(h for h in section._hubs if h.title == "Recently Added")
+    assert ra.move_calls == 0
+
+
+def test_enforce_leaves_native_hubs_unordered():
+    # Native/smart hubs (non-"custom.collection.*" identifiers) are never
+    # repositioned — even when out of DB order — so they stay as stable anchors.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_EXTERNAL
+
+    # DB wants N1 then N2, but Plex has them reversed; both are native hubs.
+    slot_in_hub("Movies", "N1", HUB_TYPE_EXTERNAL)
+    slot_in_hub("Movies", "N2", HUB_TYPE_EXTERNAL)
+
+    section = FakeSection("Movies", [
+        ("N2", False, "movie.n2"),
+        ("N1", False, "movie.n1"),
+    ])
+    server = FakeServer({"Movies": section})
+
+    errors = enforce_group_adjacency(server, "Movies")
+    assert errors == []
+    # Order left exactly as Plex had it; nothing moved.
+    assert [h.title for h in section.managedHubs()] == ["N2", "N1"]
+    assert all(h.move_calls == 0 for h in section._hubs)
+
+
 def _no_sleep(monkeypatch):
     # The re-promote recovery in move_hub_after_verified sleeps to let Plex
     # settle; skip it in tests.
