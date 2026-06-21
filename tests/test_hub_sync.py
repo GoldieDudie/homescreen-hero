@@ -435,12 +435,34 @@ def test_adjacency_skips_pinned_group_members():
     assert titles[-1] == "C"
 
 
-def test_adjacency_ignores_single_member_groups():
+def test_adjacency_positions_single_member_group():
+    # A user can hold a lone collection in place by putting it in its own group.
+    # The single member has no internal adjacency, but is still moved to its DB
+    # position via the anchor logic — the only way HSH positions an otherwise
+    # ungrouped collection hub.
     from homescreen_hero.core.hub_sync import enforce_group_adjacency
     from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_COLLECTION
 
-    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
+    # DB: X ungrouped at top, then A alone in group "G" → A should sit after X
     slot_in_hub("Movies", "X", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
+
+    # Plex has A wrongly above X
+    section = FakeSection("Movies", ["A", "X"])
+    server = FakeServer({"Movies": section})
+
+    errors = enforce_group_adjacency(server, "Movies")
+    assert errors == []
+    assert [h.title for h in section.managedHubs()] == ["X", "A"]
+
+
+def test_adjacency_single_member_group_no_op_when_already_placed():
+    # A correctly-positioned single-member group must not trigger any moves.
+    from homescreen_hero.core.hub_sync import enforce_group_adjacency
+    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_COLLECTION
+
+    slot_in_hub("Movies", "X", HUB_TYPE_COLLECTION)
+    slot_in_hub("Movies", "A", HUB_TYPE_COLLECTION, group_name="G")
 
     section = FakeSection("Movies", ["X", "A"])
     server = FakeServer({"Movies": section})

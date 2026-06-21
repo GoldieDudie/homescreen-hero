@@ -534,7 +534,12 @@ def enforce_group_adjacency(
     db_titles_in_order = [r.hub_title for r in rows]
 
     for group_name, members in groups_db_order.items():
-        if len(members) < 2:
+        # Single-member groups have no internal adjacency to enforce, but their
+        # one member still gets pinned to its DB position via the anchor logic
+        # below (needs_adjacency stays False for them). This lets a user hold a
+        # lone collection in place by putting it in its own group — the only way
+        # HSH positions an otherwise-ungrouped collection hub.
+        if not members:
             continue
 
         first_member = members[0]
