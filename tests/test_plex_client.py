@@ -225,6 +225,20 @@ def test_canonical_collection_tiebreaks_on_lowest_rating_key_when_both_empty():
     assert plex_client._canonical_collection([old, new]) is old
 
 
+def test_get_collection_item_count_handles_none_childcount():
+    # Regression: empty smart collections return childCount=None; must not raise
+    # and must count as 0 (else _canonical_collection's `> 0` blows up with a 500).
+    coll = FakeCollection("Empty Smart", 1, child_count=None)
+    assert plex_client.get_collection_item_count(coll) == 0
+
+
+def test_canonical_collection_survives_none_childcount():
+    none_coll = FakeCollection("This Week Popular", 89117, child_count=None)
+    full = FakeCollection("This Week Popular", 75158, child_count=2)
+    # No TypeError, and the populated one still wins over the None/empty stray.
+    assert plex_client._canonical_collection([none_coll, full]) is full
+
+
 def test_canonical_collection_prefers_populated_over_empty():
     # The populated instance leads even if it's the NEWER ratingKey (mirror case:
     # manager migrated to a new collection, old one is an empty orphan).

@@ -99,7 +99,10 @@ def get_collection_labels(collection: object) -> List[str]:
 
 def get_collection_item_count(collection: object) -> int:
     # Get the number of items in a collection without fetching them all.
-    return getattr(collection, "childCount", 0)
+    # childCount can be absent OR present-but-None (e.g. an empty smart collection
+    # returns no childCount), so coerce None to 0 — callers compare it numerically.
+    count = getattr(collection, "childCount", 0)
+    return int(count) if count is not None else 0
 
 
 def get_configured_collections(
