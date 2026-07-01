@@ -41,20 +41,54 @@ def get_plex_server(config: AppConfig) -> PlexServer:
     return server
 
 
+def _collection_rating_key(coll: object) -> int:
+    try:
+        return int(getattr(coll, "ratingKey", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _canonical_collection(colls: List[object]) -> object:
+    # When several collections share a title (e.g. a stray duplicate spawned by an
+    # external manager like Kometa during a rebuild), pick the canonical one:
+    #   1. Prefer the POPULATED instance — the one the manager is actively filling,
+    #      so the live collection "leads" and the empty orphan is the stray.
+    #   2. Tie-break on the ORIGINAL (lowest ratingKey). ratingKey never changes,
+    #      so when both are empty (e.g. between popular windows) the pick is stable
+    #      and won't flip-flop across rotations.
+    return min(
+        colls,
+        key=lambda c: (0 if get_collection_item_count(c) > 0 else 1, _collection_rating_key(c)),
+    )
+
+
+def _collections_grouped_by_title(
+    server: PlexServer,
+    library_name: str,
+) -> Dict[str, List[object]]:
+    # Return title -> [all Collection objects with that title]. Usually one per
+    # title, but Plex allows same-title duplicates (see _canonical_collection).
+    library = server.library.section(library_name)
+    grouped: Dict[str, List[object]] = defaultdict(list)
+    for coll in library.collections():
+        # Titles are case-sensitive in Plex, but we store as-is
+        grouped[coll.title].append(coll)
+    return dict(grouped)
+
+
 def get_library_collections(
     server: PlexServer,
     library_name: str,
 ) -> Dict[str, object]:
-    # Return a dict mapping collection title -> Collection object
-    library = server.library.section(library_name)
-    collections = library.collections()
-
-    by_title: Dict[str, object] = {}
-    for coll in collections:
-        # Titles are case-sensitive in Plex, but we'll store as-is
-        by_title[coll.title] = coll
-
-    return by_title
+    # Return a dict mapping collection title -> canonical Collection object.
+    # Same-title duplicates collapse to the original (lowest ratingKey) rather
+    # than the previous non-deterministic last-one-wins, so callers never end up
+    # operating on a stray empty duplicate. Use _suppress_stray_duplicates to
+    # actively demote the strays.
+    return {
+        title: _canonical_collection(colls)
+        for title, colls in _collections_grouped_by_title(server, library_name).items()
+    }
 
 
 def get_collection_labels(collection: object) -> List[str]:
@@ -295,6 +329,38 @@ def _suppress_managed_hub(hub_vis) -> str:
     return "noop"
 
 
+def _suppress_stray_duplicates(
+    library_name: str,
+    grouped: Dict[str, List[object]],
+    managed_names: Set[str],
+    active_libraries: Set[str],
+    *,
+    dry_run: bool,
+) -> int:
+    # For each MANAGED title that has more than one collection in this library,
+    # keep the canonical instance and drop every other same-title instance from
+    # the Managed Recommendations. Without this, HSH is blind to the stray (its
+    # by-title map collapses duplicates), so a stray keeps whatever visibility it
+    # had and the library renders the same hub twice. Scoped to titles we manage
+    # in libraries we manage, mirroring the rest of apply_home_screen_selection.
+    suppressed = 0
+    for title, colls in grouped.items():
+        if len(colls) <= 1 or title not in managed_names or library_name not in active_libraries:
+            continue
+        canonical = _canonical_collection(colls)
+        for stray in colls:
+            if stray is canonical:
+                continue
+            logger.info(
+                "Suppressing duplicate collection '%s' (lib=%s, ratingKey=%s) — keeping ratingKey=%s",
+                title, library_name, _collection_rating_key(stray), _collection_rating_key(canonical),
+            )
+            if not dry_run:
+                _suppress_managed_hub(stray.visibility())
+            suppressed += 1
+    return suppressed
+
+
 def apply_home_screen_selection(
     server: PlexServer,
     config: AppConfig,
@@ -363,12 +429,19 @@ def apply_home_screen_selection(
     for library_name in enabled_libraries:
         logger.info("Fetching collections from library: %s", library_name)
         try:
-            library_collections = get_library_collections(server, library_name)
-            for coll_name, coll_obj in library_collections.items():
-                all_instances.setdefault(coll_name, []).append((library_name, coll_obj))
+            grouped = _collections_grouped_by_title(server, library_name)
         except Exception as e:
             logger.error("Failed to fetch collections from library '%s': %s", library_name, e)
             continue
+        for coll_name, coll_list in grouped.items():
+            all_instances.setdefault(coll_name, []).append(
+                (library_name, _canonical_collection(coll_list))
+            )
+        # Demote any same-title stray duplicates so a library never renders the
+        # same managed hub twice (see _suppress_stray_duplicates).
+        _suppress_stray_duplicates(
+            library_name, grouped, all_names_to_process, active_libraries, dry_run=dry_run,
+        )
 
     applied: List[CollectionRef] = []
     removed_count = 0

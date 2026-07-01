@@ -188,6 +188,102 @@ def test_suppress_falls_back_to_demote_when_remove_fails():
     assert hub.update_calls == [{"home": False, "shared": False, "recommended": False}]
 
 
+# ---- same-title duplicate collections: canonical pick + stray suppression -----
+
+class FakeCollection:
+    def __init__(self, title: str, rating_key: int, *, child_count: int = 0,
+                 recommended: bool = True):
+        self.title = title
+        self.ratingKey = rating_key
+        self.childCount = child_count
+        self._vis = FakeManagedHubVisibility(
+            f"custom.collection.1.{rating_key}", recommended=recommended,
+        )
+
+    def visibility(self):
+        return self._vis
+
+
+class FakeCollSection:
+    def __init__(self, collections: list):
+        self._collections = collections
+
+    def collections(self):
+        return list(self._collections)
+
+
+class FakeCollServer:
+    def __init__(self, sections: dict):
+        self.library = FakeLibraryManager(sections)
+
+
+def test_canonical_collection_tiebreaks_on_lowest_rating_key_when_both_empty():
+    # Both empty (e.g. between popular windows) → stable pick = original (lowest rk).
+    old = FakeCollection("This Week Popular", 75158, child_count=0)
+    new = FakeCollection("This Week Popular", 89117, child_count=0)
+    assert plex_client._canonical_collection([new, old]) is old
+    assert plex_client._canonical_collection([old, new]) is old
+
+
+def test_canonical_collection_prefers_populated_over_empty():
+    # The populated instance leads even if it's the NEWER ratingKey (mirror case:
+    # manager migrated to a new collection, old one is an empty orphan).
+    old_empty = FakeCollection("This Week Popular", 75158, child_count=0)
+    new_full = FakeCollection("This Week Popular", 89117, child_count=3)
+    assert plex_client._canonical_collection([old_empty, new_full]) is new_full
+    # And the usual live case: original populated, stray empty → keep original.
+    old_full = FakeCollection("This Week Popular", 75158, child_count=1)
+    new_empty = FakeCollection("This Week Popular", 89117, child_count=0)
+    assert plex_client._canonical_collection([new_empty, old_full]) is old_full
+
+
+def test_get_library_collections_collapses_duplicate_titles_to_canonical():
+    old = FakeCollection("This Week Popular", 75158)
+    new = FakeCollection("This Week Popular", 89117)
+    other = FakeCollection("Must See", 100)
+    server = FakeCollServer({"DocuSeries": FakeCollSection([new, old, other])})
+    result = plex_client.get_library_collections(server, "DocuSeries")
+    # Duplicate collapses to the original, not the non-deterministic last-one-seen.
+    assert result["This Week Popular"] is old
+    assert result["Must See"] is other
+
+
+def test_suppress_stray_duplicates_removes_stray_keeps_canonical():
+    old = FakeCollection("This Week Popular", 75158)
+    new = FakeCollection("This Week Popular", 89117)
+    grouped = {"This Week Popular": [new, old]}
+    n = plex_client._suppress_stray_duplicates(
+        "DocuSeries", grouped,
+        managed_names={"This Week Popular"},
+        active_libraries={"DocuSeries"},
+        dry_run=False,
+    )
+    assert n == 1
+    assert new.visibility().removed          # stray dropped from managed recs
+    assert not old.visibility().removed      # canonical (original) kept
+
+
+def test_suppress_stray_duplicates_scoping():
+    dup = {"Dup": [FakeCollection("Dup", 1), FakeCollection("Dup", 2)]}
+    single = {"Solo": [FakeCollection("Solo", 5)]}
+    # single instance → nothing to suppress
+    assert plex_client._suppress_stray_duplicates("L", single, {"Solo"}, {"L"}, dry_run=False) == 0
+    # title not managed → left alone
+    assert plex_client._suppress_stray_duplicates("L", dup, set(), {"L"}, dry_run=False) == 0
+    # library not active → left alone
+    assert plex_client._suppress_stray_duplicates("L", dup, {"Dup"}, set(), dry_run=False) == 0
+
+
+def test_suppress_stray_duplicates_dry_run_does_not_mutate():
+    old = FakeCollection("Dup", 1)
+    new = FakeCollection("Dup", 2)
+    n = plex_client._suppress_stray_duplicates(
+        "L", {"Dup": [old, new]}, {"Dup"}, {"L"}, dry_run=True,
+    )
+    assert n == 1                            # still reports the stray
+    assert not new.visibility().removed      # but makes no Plex change
+
+
 # ---- move_hub_after_verified: float-precision convergence recovery ----------
 
 class ConvergenceFakeHub:
