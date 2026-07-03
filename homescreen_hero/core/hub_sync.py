@@ -24,12 +24,20 @@ from .db import (
     upsert_hub,
 )
 from .integrations.plex_client import (
+    _RECENTLY_ADDED_ANCHOR_BY_LIB_TYPE,
     _get_managed_hubs_for_library,
     move_hub_after_verified,
     repromote_hub,
 )
 
 logger = logging.getLogger(__name__)
+
+# Identifiers of the native "Recently Added" hub per library type. When the
+# top-most enforcement unit is a custom collection, we anchor it AFTER this hub
+# so a system hub stays at managedHubs[0] — Plex renders a custom collection at
+# [0] ABOVE Continue Watching / On Deck (sinking it), but a system hub at [0]
+# keeps CW on top. Mirrors pin_hub_to_top's landing-at-[1] logic.
+_NATIVE_TOP_ANCHOR_IDENTIFIERS = frozenset(_RECENTLY_ADDED_ANCHOR_BY_LIB_TYPE.values())
 
 
 @dataclass
@@ -546,6 +554,17 @@ def enforce_group_adjacency(
         if str(getattr(h, "identifier", "") or "").startswith("custom.collection.")
     }
 
+    # Native "Recently Added" hub title (if this library has one visible in the
+    # managed list). Used below to keep a system hub at managedHubs[0] so the
+    # native Continue Watching / On Deck row renders on top.
+    native_top_anchor: Optional[str] = next(
+        (
+            h.title for h in plex_hubs
+            if str(getattr(h, "identifier", "") or "") in _NATIVE_TOP_ANCHOR_IDENTIFIERS
+        ),
+        None,
+    )
+
     # Enforcement units in DB position order. A unit is either a multi-member
     # group or a single ungrouped collection; both are positioned to their DB
     # slot via the same anchor logic below (a single member simply has no
@@ -569,7 +588,59 @@ def enforce_group_adjacency(
     if not units:
         return errors
 
+    # Keep Continue Watching / On Deck on top of the library: Plex renders a
+    # custom collection at managedHubs[0] ABOVE the native on-deck row (sinking
+    # it), but a system hub at [0] keeps it on top (see pin_hub_to_top). When the
+    # top-most enforcement unit is a custom collection and the library has a
+    # native "Recently Added" hub, raise that native hub to position 0 first so
+    # the collection lands at [1]. The native hub is Home/Shared-only (not on the
+    # Recommended tab), so moving it to [0] does not change the visible
+    # Recommended order — it only reclaims [0] for a system hub.
+    # Only when the native hub does NOT already precede the top collection in DB
+    # order: if it does, the normal anchor path below moves the collection down
+    # onto it (native untouched, fewer moves). We raise the native hub only when
+    # DB places it after the collection (or not at all) — otherwise the top
+    # collection would be forced to absolute position 0.
     db_pos_of = {r.hub_title: r.position for r in rows}
+    top_head = units[0][1][0] if units[0][1] else None
+    native_db_pos = db_pos_of.get(native_top_anchor) if native_top_anchor else None
+    top_head_db_pos = db_pos_of.get(top_head)
+    native_precedes_top_in_db = (
+        native_db_pos is not None
+        and top_head_db_pos is not None
+        and native_db_pos < top_head_db_pos
+    )
+    if (
+        native_top_anchor is not None
+        and top_head is not None
+        and top_head in collection_titles
+        and native_top_anchor != top_head
+        and native_top_anchor in position_of
+        and position_of[native_top_anchor] != 0
+        and not native_precedes_top_in_db
+    ):
+        raise_err = move_hub_after_verified(server, library_name, native_top_anchor, None)
+        if raise_err:
+            logger.warning(
+                "Could not raise native hub '%s' to top in '%s' (Continue Watching "
+                "may render below the top collection): %s",
+                native_top_anchor, library_name, raise_err,
+            )
+        else:
+            logger.info(
+                "Raised native hub '%s' to managedHubs[0] in '%s' to keep "
+                "Continue Watching on top",
+                native_top_anchor, library_name,
+            )
+        # Refresh positions regardless: even a failed verified-move may have
+        # shifted the list, and subsequent anchor math must see live positions.
+        try:
+            plex_hubs = _get_managed_hubs_for_library(server, library_name)
+            plex_titles = [h.title for h in plex_hubs]
+            position_of = {title: i for i, title in enumerate(plex_titles)}
+        except Exception as e:
+            return [f"Could not refresh hubs after raising native hub in '{library_name}': {e}"]
+
     db_titles_in_order = [r.hub_title for r in rows]
 
     for group_name, members in units:
@@ -624,6 +695,23 @@ def enforce_group_adjacency(
             ]
             if pinned_before_in_db:
                 effective_anchor = max(pinned_before_in_db, key=lambda t: position_of[t])
+
+        # No DB predecessor → this unit would otherwise be forced to absolute
+        # position 0, putting a custom collection at managedHubs[0] and sinking
+        # Continue Watching. When the native "Recently Added" hub has been raised
+        # to position 0 (see the pre-step above), anchor the collection after it
+        # so it lands at [1] and a system hub keeps [0]. Only when the native hub
+        # is confirmed at [0]; if raising it failed, fall through to the old
+        # behaviour (collection at [0]) rather than dragging it down to the
+        # native hub's buried position.
+        if (
+            effective_anchor is None
+            and native_top_anchor is not None
+            and native_top_anchor != first_member
+            and position_of.get(native_top_anchor) == 0
+            and first_member in collection_titles
+        ):
+            effective_anchor = native_top_anchor
 
         # Check whether the group needs repositioning
         if effective_anchor is None:
