@@ -498,58 +498,6 @@ def test_enforce_positions_ungrouped_collection_without_group():
     assert ra.move_calls == 0
 
 
-def test_enforce_raises_native_hub_above_top_collection():
-    # TV Series case: the top-most DB unit is a custom collection ("New
-    # Premieres") and the native "Recently Added" hub sits AFTER it in DB order.
-    # Plex has the collection at [0], sinking Continue Watching. Enforcement must
-    # raise the native hub to managedHubs[0] and land the collection at [1].
-    from homescreen_hero.core.hub_sync import enforce_group_adjacency
-    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_EXTERNAL
-
-    slot_in_hub("TV", "New Premieres", HUB_TYPE_EXTERNAL)
-    slot_in_hub("TV", "Recently Added", HUB_TYPE_EXTERNAL)
-
-    section = FakeSection("TV", [
-        ("New Premieres", True, "custom.collection.4.1"),
-        ("Recently Added", False, "tv.recentlyadded"),
-    ], lib_type="show")
-    server = FakeServer({"TV": section})
-
-    errors = enforce_group_adjacency(server, "TV")
-    assert errors == []
-    assert [h.title for h in section.managedHubs()] == ["Recently Added", "New Premieres"]
-    ra = next(h for h in section._hubs if h.title == "Recently Added")
-    assert ra.move_calls == 1  # native raised to [0], exactly once
-
-
-def test_enforce_raises_deeply_buried_native_without_dragging_collection_down():
-    # DocuSeries case: the native "Recently Added" hub is buried far below the
-    # top collection and its group in DB order. The native hub must be raised to
-    # [0] WITHOUT the collection being dragged down to the native's old deep
-    # slot; the group stays intact just after the collection.
-    from homescreen_hero.core.hub_sync import enforce_group_adjacency
-    from homescreen_hero.core.db import slot_in_hub, HUB_TYPE_EXTERNAL, HUB_TYPE_COLLECTION
-
-    slot_in_hub("Docu", "New Premieres", HUB_TYPE_EXTERNAL)
-    slot_in_hub("Docu", "Rec 1", HUB_TYPE_COLLECTION, group_name="G")
-    slot_in_hub("Docu", "Rec 2", HUB_TYPE_COLLECTION, group_name="G")
-    slot_in_hub("Docu", "Recently Added", HUB_TYPE_EXTERNAL)
-
-    section = FakeSection("Docu", [
-        ("New Premieres", True, "custom.collection.6.1"),
-        ("Rec 1", True, "custom.collection.6.2"),
-        ("Rec 2", True, "custom.collection.6.3"),
-        ("Recently Added", False, "tv.recentlyadded"),
-    ], lib_type="show")
-    server = FakeServer({"Docu": section})
-
-    errors = enforce_group_adjacency(server, "Docu")
-    assert errors == []
-    assert [h.title for h in section.managedHubs()] == [
-        "Recently Added", "New Premieres", "Rec 1", "Rec 2",
-    ]
-
-
 def test_enforce_leaves_native_hubs_unordered():
     # Native/smart hubs (non-"custom.collection.*" identifiers) are never
     # repositioned — even when out of DB order — so they stay as stable anchors.
