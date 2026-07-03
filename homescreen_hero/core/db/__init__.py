@@ -51,6 +51,8 @@ from .pinning import (
     get_pinned_visibility_map,
     is_collection_pinned,
     pin_collection,
+    reconcile_pinned_collection_identities,
+    set_pin_rating_key,
     unpin_collection,
     update_display_order,
 )
@@ -112,6 +114,8 @@ __all__ = (
     "get_pinned_visibility_map",
     "is_collection_pinned",
     "pin_collection",
+    "reconcile_pinned_collection_identities",
+    "set_pin_rating_key",
     "unpin_collection",
     "update_display_order",
     "HUB_TYPE_COLLECTION",

@@ -346,6 +346,34 @@ def _sync_selected_collections(
             logger.debug("Collection '%s' is not a synced source, skipping sync", ref)
 
 
+def _reconcile_pin_identities(server, config: AppConfig) -> None:
+    # Re-bind pinned collections to their Plex collection by ratingKey before
+    # their visibility is read, so a pin survives a rename (a renamed collection
+    # keeps its ratingKey; only its title changes). Without this, a rename
+    # orphans the pin on the old name and HSH silently stops enforcing its
+    # visibility — leaving e.g. a Home=off collection stuck on Home.
+    from .db import reconcile_pinned_collection_identities
+
+    live_by_library: Dict[str, List[tuple]] = {}
+    for lib in config.plex.libraries:
+        if not lib.enabled:
+            continue
+        try:
+            section = server.library.section(lib.name)
+            live_by_library[lib.name] = [
+                (int(c.ratingKey), c.title)
+                for c in section.collections()
+                if getattr(c, "ratingKey", None) is not None
+            ]
+        except Exception as e:
+            logger.warning("Pin reconcile: could not list collections for '%s': %s", lib.name, e)
+
+    try:
+        reconcile_pinned_collection_identities(live_by_library)
+    except Exception as e:
+        logger.error("Pin identity reconcile failed: %s", e, exc_info=True)
+
+
 def run_rotation_once(
     config: Optional[AppConfig] = None,
     *,
@@ -364,6 +392,7 @@ def run_rotation_once(
     init_db()
     server = get_plex_server(config)
     smart_group_collections = _resolve_smart_groups(server, config)
+    _reconcile_pin_identities(server, config)
     use_auto_rotate = config.rotation.auto_rotate.enabled
 
     if config.rotation.sync_all_on_rotation:
@@ -623,6 +652,7 @@ def restore_plex_visibility(config: Optional[AppConfig] = None) -> None:
 
     server = get_plex_server(config)
     smart_group_collections = resolve_smart_groups_cached(server, config)
+    _reconcile_pin_identities(server, config)
 
     from datetime import date
     from .config.schema import RotationResult as _RotationResult
@@ -705,6 +735,7 @@ def apply_simulation(
 
     server = get_plex_server(config)
     smart_group_collections = _resolve_smart_groups(server, config)
+    _reconcile_pin_identities(server, config)
 
     if config.rotation.auto_rotate.enabled:
         auto_rotate = config.rotation.auto_rotate

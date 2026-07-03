@@ -18,6 +18,7 @@ from homescreen_hero.core.db.pinning import (
     get_pinned_refs,
     is_collection_pinned,
     pin_collection,
+    set_pin_rating_key,
     unpin_collection,
     get_display_order,
 )
@@ -1372,6 +1373,11 @@ def toggle_pin_collection_endpoint(
                 hub.updateVisibility(home=home, shared=shared, recommended=recommended)
                 action = "Updated" if currently_pinned else "Added"
                 logger.info(f"{action} pinned collection '{request.collection_name}' on Plex homescreen (home={home}, shared={shared}, recommended={recommended})")
+                # Record the collection's ratingKey so the pin survives a later
+                # rename (see reconcile_pinned_collection_identities).
+                rk = getattr(collection, "ratingKey", None)
+                if rk is not None:
+                    set_pin_rating_key(ref, int(rk))
         except Exception as e:
             logger.error(f"Failed to update collection on Plex homescreen: {e}")
 

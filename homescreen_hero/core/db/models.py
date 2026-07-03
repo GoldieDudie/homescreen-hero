@@ -349,6 +349,11 @@ class PinnedCollection(Base):
     id = Column(Integer, primary_key=True, index=True)
     collection_name = Column(String, nullable=False, index=True)
     library_name = Column(String, nullable=False)
+    # Plex collection ratingKey — stable across renames. Lets HSH re-bind a pin
+    # to its collection after the user (or Kometa) renames it, instead of
+    # orphaning the pin on the old name. Nullable for pins created before this
+    # column existed; backfilled by reconcile_pinned_collection_identities.
+    rating_key = Column(Integer, nullable=True, index=True)
     display_order = Column(Integer, nullable=False, default=0, index=True)
     pinned_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     # "top" → render before group/ungrouped collections; "bottom" → render after

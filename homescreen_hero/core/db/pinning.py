@@ -58,9 +58,12 @@ def pin_collection(
     visibility_shared: bool = False,
     visibility_recommended: bool = False,
     pin_position: Optional[str] = None,
+    rating_key: Optional[int] = None,
 ) -> PinnedCollection:
     # Pin a collection. If already pinned, update order/visibility/position.
     # pin_position=None means "don't change" on update, defaults to "top" on create.
+    # rating_key=None means "don't change" on update; storing it lets the pin
+    # survive a later rename (see reconcile_pinned_collection_identities).
     with session_scope() as db:
         stmt = select(PinnedCollection).where(
             and_(
@@ -78,6 +81,8 @@ def pin_collection(
             existing.visibility_recommended = visibility_recommended
             if pin_position is not None:
                 existing.pin_position = pin_position
+            if rating_key is not None:
+                existing.rating_key = rating_key
             logger.info("Updated pin for %s (home=%s, shared=%s, recommended=%s, position=%s)",
                         ref, visibility_home, visibility_shared, visibility_recommended, existing.pin_position)
             return existing
@@ -90,6 +95,7 @@ def pin_collection(
         pinned = PinnedCollection(
             collection_name=ref.name,
             library_name=ref.library,
+            rating_key=rating_key,
             display_order=display_order,
             pinned_at=datetime.utcnow(),
             pin_position=pin_position or "top",
@@ -126,6 +132,100 @@ def unpin_collection(ref: CollectionRef) -> bool:
         db.delete(existing)
         logger.info("Unpinned %s", ref)
         return True
+
+
+def set_pin_rating_key(ref: CollectionRef, rating_key: int) -> bool:
+    # Store the ratingKey on an existing pin (identified by current name). No-op
+    # if the pin doesn't exist. Used by the toggle-pin endpoint to record the
+    # collection's identity at pin time.
+    with session_scope() as db:
+        stmt = select(PinnedCollection).where(
+            and_(
+                PinnedCollection.library_name == ref.library,
+                PinnedCollection.collection_name == ref.name,
+            )
+        )
+        pinned = db.execute(stmt).scalar_one_or_none()
+        if pinned is None:
+            return False
+        pinned.rating_key = rating_key
+        return True
+
+
+def reconcile_pinned_collection_identities(
+    live_by_library: Dict[str, List[tuple]],
+) -> List[str]:
+    # Keep pins bound to their collection across renames using the stable
+    # ratingKey. `live_by_library` maps library_name -> list of (rating_key,
+    # name) for every collection currently in that library.
+    #
+    # For each pin:
+    #   - rating_key set + found live under a different name → rename the pin to
+    #     the live name (self-heal), unless another pin in the library already
+    #     holds that name (collision → skip, logged).
+    #   - rating_key not set + name matches a live collection → backfill the
+    #     ratingKey so future renames are survivable.
+    #   - otherwise → orphaned (collection deleted, or renamed before we ever
+    #     stored its ratingKey); logged, left untouched for the user to resolve.
+    #
+    # Returns a list of human-readable change descriptions (empty if no change).
+    changes: List[str] = []
+    with session_scope() as db:
+        pins = db.execute(select(PinnedCollection)).scalars().all()
+        pins_by_lib: Dict[str, List[PinnedCollection]] = {}
+        for p in pins:
+            pins_by_lib.setdefault(p.library_name, []).append(p)
+
+        for lib, lib_pins in pins_by_lib.items():
+            live = live_by_library.get(lib) or []
+            name_by_key = {int(rk): nm for rk, nm in live if rk is not None}
+            key_by_name = {nm: int(rk) for rk, nm in live if rk is not None}
+            names_in_use = {p.collection_name for p in lib_pins}
+
+            for p in lib_pins:
+                if p.rating_key is not None:
+                    live_name = name_by_key.get(int(p.rating_key))
+                    if live_name is None:
+                        logger.warning(
+                            "Pinned collection '%s' (lib=%s, ratingKey=%s) not found "
+                            "in Plex — collection may have been deleted",
+                            p.collection_name, lib, p.rating_key,
+                        )
+                        continue
+                    if live_name != p.collection_name:
+                        if live_name in names_in_use:
+                            logger.warning(
+                                "Pin rename skipped: '%s' (lib=%s, ratingKey=%s) is now "
+                                "named '%s' but a pin with that name already exists",
+                                p.collection_name, lib, p.rating_key, live_name,
+                            )
+                            continue
+                        names_in_use.discard(p.collection_name)
+                        names_in_use.add(live_name)
+                        msg = (
+                            f"Re-bound pin (lib={lib}, ratingKey={p.rating_key}): "
+                            f"'{p.collection_name}' → '{live_name}'"
+                        )
+                        p.collection_name = live_name
+                        changes.append(msg)
+                        logger.info(msg)
+                else:
+                    rk = key_by_name.get(p.collection_name)
+                    if rk is not None:
+                        p.rating_key = rk
+                        msg = (
+                            f"Backfilled ratingKey {rk} for pin "
+                            f"'{p.collection_name}' (lib={lib})"
+                        )
+                        changes.append(msg)
+                        logger.info(msg)
+                    else:
+                        logger.warning(
+                            "Pinned collection '%s' (lib=%s) has no ratingKey and no "
+                            "live collection by that name — orphaned pin",
+                            p.collection_name, lib,
+                        )
+    return changes
 
 
 def get_display_order() -> Dict[CollectionRef, int]:
